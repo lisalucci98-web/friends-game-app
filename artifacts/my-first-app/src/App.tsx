@@ -1,10 +1,10 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { ArrowRight, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import {
   Route,
   Switch,
@@ -14,11 +14,11 @@ import {
 
 const queryClient = new QueryClient();
 
-function Home() {
-  const [hasStarted, setHasStarted] = useState(false);
+function WelcomePage() {
+  const [, navigate] = useLocation();
 
   return (
-    <main className="welcome-page" data-testid="page-home">
+    <main className="welcome-page" data-testid="page-welcome">
       <header className="welcome-nav">
         <div className="brand-lockup" data-testid="text-brand">
           <span className="brand-mark" aria-hidden="true">M</span>
@@ -34,28 +34,20 @@ function Home() {
             My First <em>App</em>
           </h1>
           <p className="welcome-description">
-            {hasStarted
-              ? '🎉 Hai iniziato!'
-              : 'Ciao, questo è il tuo primo spazio per imparare a programmare. Inizia con calma: ogni riga è un passo.'}
+            Ciao, questo è il tuo primo spazio per imparare a programmare.
+            Inizia con calma: ogni riga è un passo.
           </p>
           <button
-            className={`start-button${hasStarted ? ' is-started' : ''}`}
+            className="start-button"
             data-testid="button-start"
             type="button"
-            onClick={() => setHasStarted(true)}
-            aria-describedby={hasStarted ? 'start-feedback' : undefined}
+            onClick={() => navigate('/home')}
           >
-            <span>{hasStarted ? 'Hai iniziato' : 'Inizia'}</span>
+            <span>Inizia</span>
             <span className="button-icon" aria-hidden="true">
-              {hasStarted ? <Check size={16} strokeWidth={2.5} /> : <ArrowRight size={16} strokeWidth={2.5} />}
+              <ArrowRight size={16} strokeWidth={2.5} />
             </span>
           </button>
-          {hasStarted && (
-            <p className="welcome-feedback" id="start-feedback" role="status" data-testid="status-started">
-              <span className="feedback-dot" aria-hidden="true" />
-              Benvenuta nella tua prima applicazione!
-            </p>
-          )}
         </div>
 
         <div className="lesson-card" aria-label="Anteprima del tuo primo esercizio" data-testid="card-first-lesson">
@@ -88,13 +80,58 @@ function Home() {
   );
 }
 
+function HomePage() {
+  const [, navigate] = useLocation();
+
+  return (
+    <main className="welcome-page home-page" data-testid="page-home">
+      <header className="welcome-nav">
+        <div className="brand-lockup" data-testid="text-brand">
+          <span className="brand-mark" aria-hidden="true">M</span>
+          <span>MyFirstApp</span>
+        </div>
+        <span className="nav-note">il tuo primo passo · 02</span>
+      </header>
+
+      <section className="home-content" aria-labelledby="home-page-title">
+        <div className="home-copy">
+          <p className="eyebrow">Il tuo spazio</p>
+          <h1 className="welcome-title" id="home-page-title">
+            Benvenuta!
+          </h1>
+          <p className="welcome-description">
+            Questa è la home della mia prima app.
+          </p>
+          <button
+            className="start-button"
+            data-testid="button-back"
+            type="button"
+            onClick={() => navigate('/')}
+          >
+            <span>Torna indietro</span>
+            <span className="button-icon" aria-hidden="true">
+              <ArrowLeft size={16} strokeWidth={2.5} />
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <footer className="welcome-footer">
+        <span>imparare facendo</span>
+        <span>una riga alla volta</span>
+      </footer>
+    </main>
+  );
+}
+
 function Router() {
   return (
     // Keep a shared shell (sidebar, navbar) outside the boundary so it
     // survives a page crash.
     <RoutedErrorBoundary>
       <Switch>
-        <Route path="/" component={Home} />
+        <Route path="/" component={WelcomePage} />
+        <Route path="/home" component={HomePage} />
         <Route component={NotFound} />
       </Switch>
     </RoutedErrorBoundary>

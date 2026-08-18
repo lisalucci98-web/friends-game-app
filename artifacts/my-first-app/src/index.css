@@ -242,6 +242,31 @@
   padding-block: 64px 80px;
 }
 
+.home-content {
+  display: grid;
+  min-height: calc(100dvh - 112px);
+  place-items: center;
+  padding-block: 64px 80px;
+}
+
+.home-copy {
+  width: min(100%, 620px);
+  text-align: center;
+  animation: rise-in 0.8s 0.08s ease-out both;
+}
+
+.home-copy .eyebrow {
+  justify-content: center;
+}
+
+.home-copy .welcome-description {
+  margin-inline: auto;
+}
+
+.home-copy .start-button {
+  margin-top: 4px;
+}
+
 .welcome-copy {
   animation: rise-in 0.8s 0.08s ease-out both;
 }
@@ -534,6 +559,10 @@
     align-items: stretch;
     gap: 68px;
     padding-block: 74px 68px;
+  }
+  .home-content {
+    min-height: auto;
+    padding-block: 120px 130px;
   }
   .welcome-title { font-size: clamp(3.7rem, 18vw, 6rem); }
   .welcome-description { margin-top: 28px; }
