@@ -4,7 +4,12 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import {
+  ArrowRight,
+  Home as HomeIcon,
+  Settings,
+  UserRound,
+} from 'lucide-react';
 import {
   Route,
   Switch,
@@ -80,47 +85,91 @@ function WelcomePage() {
   );
 }
 
-function HomePage() {
-  const [, navigate] = useLocation();
+function MainPageLayout({
+  eyebrow,
+  title,
+  text,
+}: {
+  eyebrow: string;
+  title: string;
+  text: string;
+}) {
+  const [location, navigate] = useLocation();
+  const sections = [
+    { path: '/home', label: 'Home', icon: HomeIcon },
+    { path: '/profilo', label: 'Profilo', icon: UserRound },
+    { path: '/impostazioni', label: 'Impostazioni', icon: Settings },
+  ];
 
   return (
-    <main className="welcome-page home-page" data-testid="page-home">
+    <main className="welcome-page app-page" data-testid="page-app">
       <header className="welcome-nav">
         <div className="brand-lockup" data-testid="text-brand">
           <span className="brand-mark" aria-hidden="true">M</span>
           <span>MyFirstApp</span>
         </div>
-        <span className="nav-note">il tuo primo passo · 02</span>
+        <span className="nav-note">il tuo spazio · 02</span>
       </header>
 
-      <section className="home-content" aria-labelledby="home-page-title">
-        <div className="home-copy">
-          <p className="eyebrow">Il tuo spazio</p>
-          <h1 className="welcome-title" id="home-page-title">
-            Benvenuta!
+      <section className="app-content" aria-labelledby="app-page-title">
+        <div className="app-copy">
+          <p className="eyebrow">{eyebrow}</p>
+          <h1 className="welcome-title" id="app-page-title">
+            {title}
           </h1>
-          <p className="welcome-description">
-            Questa è la home della mia prima app.
-          </p>
-          <button
-            className="start-button"
-            data-testid="button-back"
-            type="button"
-            onClick={() => navigate('/')}
-          >
-            <span>Torna indietro</span>
-            <span className="button-icon" aria-hidden="true">
-              <ArrowLeft size={16} strokeWidth={2.5} />
-            </span>
-          </button>
+          <p className="welcome-description">{text}</p>
         </div>
       </section>
 
-      <footer className="welcome-footer">
-        <span>imparare facendo</span>
-        <span>una riga alla volta</span>
-      </footer>
+      <nav className="bottom-nav" aria-label="Navigazione principale">
+        {sections.map(({ path, label, icon: Icon }) => {
+          const isActive = location === path;
+
+          return (
+            <button
+              className={`bottom-nav-item${isActive ? ' is-active' : ''}`}
+              key={path}
+              type="button"
+              onClick={() => navigate(path)}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              <Icon size={19} strokeWidth={isActive ? 2.4 : 1.9} aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          );
+        })}
+      </nav>
     </main>
+  );
+}
+
+function HomePage() {
+  return (
+    <MainPageLayout
+      eyebrow="Il tuo spazio"
+      title="Benvenuta!"
+      text="Questa è la home della mia prima app."
+    />
+  );
+}
+
+function ProfilePage() {
+  return (
+    <MainPageLayout
+      eyebrow="La tua identità"
+      title="Il mio profilo"
+      text="Qui in futuro inseriremo le informazioni dell'utente."
+    />
+  );
+}
+
+function SettingsPage() {
+  return (
+    <MainPageLayout
+      eyebrow="Personalizza"
+      title="Impostazioni"
+      text="Qui in futuro potremo modificare le impostazioni dell'app."
+    />
   );
 }
 
@@ -132,6 +181,8 @@ function Router() {
       <Switch>
         <Route path="/" component={WelcomePage} />
         <Route path="/home" component={HomePage} />
+        <Route path="/profilo" component={ProfilePage} />
+        <Route path="/impostazioni" component={SettingsPage} />
         <Route component={NotFound} />
       </Switch>
     </RoutedErrorBoundary>
