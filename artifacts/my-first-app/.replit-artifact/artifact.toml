@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "MyFirstApp"
+description = "A simple responsive welcome page for beginners, with a clear title, short welcome message, and an Inizia button."
+version = "1.0.0"
+id = "artifacts/my-first-app"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21367
+
+[services.development]
+run = "pnpm --filter @workspace/my-first-app run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/my-first-app", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/my-first-app/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21367"
+BASE_PATH = "/"
