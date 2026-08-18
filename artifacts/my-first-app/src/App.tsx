@@ -34,8 +34,9 @@ function Home() {
             My First <em>App</em>
           </h1>
           <p className="welcome-description">
-            Ciao, questo è il tuo primo spazio per imparare a programmare.
-            Inizia con calma: ogni riga è un passo.
+            {hasStarted
+              ? '🎉 Hai iniziato!'
+              : 'Ciao, questo è il tuo primo spazio per imparare a programmare. Inizia con calma: ogni riga è un passo.'}
           </p>
           <button
             className={`start-button${hasStarted ? ' is-started' : ''}`}
@@ -52,7 +53,7 @@ function Home() {
           {hasStarted && (
             <p className="welcome-feedback" id="start-feedback" role="status" data-testid="status-started">
               <span className="feedback-dot" aria-hidden="true" />
-              Primo passo completato. Ben fatto.
+              Benvenuta nella tua prima applicazione!
             </p>
           )}
         </div>
