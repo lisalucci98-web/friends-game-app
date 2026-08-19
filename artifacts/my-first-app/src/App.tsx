@@ -489,6 +489,7 @@ function ProtectedSettingsPage() {
 }
 
 function ProfilePage() {
+  const { user, isAuthLoading } = useAuth();
   const [profileId, setProfileId] = useState<string | null>(null);
   const [profileName, setProfileName] = useState<string | null>(null);
   const [hasProfile, setHasProfile] = useState(false);
@@ -504,10 +505,25 @@ function ProfilePage() {
     setIsLoading(true);
     setErrorMessage(null);
 
+    if (isAuthLoading) {
+      return;
+    }
+
+    if (!user) {
+      setProfileId(null);
+      setProfileName(null);
+      setHasProfile(false);
+      setNameInput('');
+      setErrorMessage('Utente non autenticato.');
+      setIsLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('profiles')
       .select('id, name, created_at')
-      .limit(1);
+      .eq('user_id', user.id)
+      .maybeSingle();
 
     if (error) {
       setErrorMessage(
@@ -517,13 +533,13 @@ function ProfilePage() {
       return;
     }
 
-    const profile = data?.[0];
+    const profile = data;
     setProfileId(profile?.id ?? null);
     setHasProfile(Boolean(profile));
     setProfileName(profile?.name ?? null);
     setNameInput(profile?.name ?? '');
     setIsLoading(false);
-  }, []);
+  }, [isAuthLoading, user]);
 
   useEffect(() => {
     void loadProfile();
@@ -541,16 +557,22 @@ function ProfilePage() {
       return;
     }
 
+    if (!user) {
+      setSaveError('Utente non autenticato.');
+      return;
+    }
+
+    if (!profileId) {
+      setSaveError('Profilo non trovato per questo account.');
+      return;
+    }
+
     setIsSaving(true);
 
-    const { error } = profileId
-      ? await supabase
-          .from('profiles')
-          .update({ name: trimmedName })
-          .eq('id', profileId)
-      : await supabase
-          .from('profiles')
-          .insert({ name: trimmedName });
+    const { error } = await supabase
+      .from('profiles')
+      .update({ name: trimmedName })
+      .eq('user_id', user.id);
 
     if (error) {
       setSaveError(
@@ -566,7 +588,11 @@ function ProfilePage() {
   }
 
   async function handleDelete() {
-    if (!profileId || !window.confirm('Sei sicura di voler eliminare questo profilo?')) {
+    if (
+      !user ||
+      !profileId ||
+      !window.confirm('Sei sicura di voler eliminare questo profilo?')
+    ) {
       return;
     }
 
@@ -577,7 +603,7 @@ function ProfilePage() {
     const { error } = await supabase
       .from('profiles')
       .delete()
-      .eq('id', profileId);
+      .eq('user_id', user.id);
 
     if (error) {
       setSaveError(
@@ -603,7 +629,7 @@ function ProfilePage() {
         ? profileName
           ? `Nome: ${profileName}`
           : 'Profilo trovato, ma il nome non è disponibile.'
-        : 'Nessun profilo disponibile.';
+          : 'Nessun profilo disponibile per questo account.';
 
   return (
     <MainPageLayout
@@ -649,7 +675,11 @@ function ProfilePage() {
             font: 'inherit',
           }}
         />
-        <button className="start-button" type="submit" disabled={isSaving || isDeleting}>
+        <button
+          className="start-button"
+          type="submit"
+          disabled={isSaving || isDeleting || !profileId}
+        >
           {isSaving ? 'Salvataggio...' : 'Salva'}
         </button>
         {profileId && (
