@@ -283,6 +283,13 @@ type League = {
   created_at: string;
 };
 
+type RpcErrorDetails = {
+  message: string;
+  code: string;
+  details: string;
+  hint: string;
+};
+
 function formatLeagueDate(value: string) {
   return new Intl.DateTimeFormat('it-IT', {
     dateStyle: 'medium',
@@ -299,6 +306,7 @@ function LeaguesPage() {
   const [inviteCode, setInviteCode] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [rpcErrorDetails, setRpcErrorDetails] = useState<RpcErrorDetails | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const loadLeagues = useCallback(async () => {
@@ -365,6 +373,7 @@ function LeaguesPage() {
     const normalizedInviteCode = inviteCode.trim().toUpperCase();
 
     setFormError(null);
+    setRpcErrorDetails(null);
     setSuccessMessage(null);
 
     if (trimmedName.length < 1 || trimmedName.length > 100) {
@@ -385,9 +394,16 @@ function LeaguesPage() {
     });
 
     if (error) {
-      setFormError(
-        'Non è stato possibile creare la lega. Controlla i dati e riprova.',
-      );
+      const details: RpcErrorDetails = {
+        message: error.message || '(vuoto)',
+        code: error.code || '(vuoto)',
+        details: error.details || '(vuoto)',
+        hint: error.hint || '(vuoto)',
+      };
+
+      console.error('[create_league] Errore RPC Supabase:', details);
+      setRpcErrorDetails(details);
+      setFormError('La RPC create_league ha restituito un errore Supabase.');
       setIsCreating(false);
       return;
     }
@@ -528,6 +544,7 @@ function LeaguesPage() {
               onChange={(event) => {
                 setLeagueName(event.target.value);
                 setFormError(null);
+                setRpcErrorDetails(null);
               }}
               disabled={isCreating}
               placeholder="Es. FantamotoGP 2026"
@@ -554,6 +571,7 @@ function LeaguesPage() {
               onChange={(event) => {
                 setInviteCode(event.target.value);
                 setFormError(null);
+                setRpcErrorDetails(null);
               }}
               disabled={isCreating}
               placeholder="ABC123"
@@ -576,6 +594,29 @@ function LeaguesPage() {
               <p role="alert" style={{ color: 'hsl(var(--destructive))' }}>
                 {formError}
               </p>
+            )}
+            {rpcErrorDetails && (
+              <div
+                role="alert"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  padding: '14px 16px',
+                  border: '1px solid hsl(var(--destructive) / 0.35)',
+                  borderRadius: '16px',
+                  color: 'hsl(var(--destructive))',
+                  background: 'hsl(var(--destructive) / 0.06)',
+                  fontFamily: 'var(--app-font-mono)',
+                  fontSize: '0.78rem',
+                  lineHeight: 1.55,
+                  overflowWrap: 'anywhere',
+                }}
+              >
+                <div><strong>error.message:</strong> {rpcErrorDetails.message}</div>
+                <div><strong>error.code:</strong> {rpcErrorDetails.code}</div>
+                <div><strong>error.details:</strong> {rpcErrorDetails.details}</div>
+                <div><strong>error.hint:</strong> {rpcErrorDetails.hint}</div>
+              </div>
             )}
           </form>
         )}
