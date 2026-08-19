@@ -17,6 +17,7 @@ import {
   ArrowRight,
   Home as HomeIcon,
   Settings,
+  Trophy,
   UserRound,
 } from 'lucide-react';
 import {
@@ -217,6 +218,7 @@ function MainPageLayout({
   const [location, navigate] = useLocation();
   const sections = [
     { path: '/home', label: 'Home', icon: HomeIcon },
+    { path: '/leghe', label: 'Leghe', icon: Trophy },
     { path: '/profilo', label: 'Profilo', icon: UserRound },
     { path: '/impostazioni', label: 'Impostazioni', icon: Settings },
   ];
@@ -271,6 +273,314 @@ function HomePage() {
       title="Benvenuta!"
       text="Questa è la home della mia prima app."
     />
+  );
+}
+
+type League = {
+  id: string;
+  name: string;
+  invite_code: string;
+  created_at: string;
+};
+
+function formatLeagueDate(value: string) {
+  return new Intl.DateTimeFormat('it-IT', {
+    dateStyle: 'medium',
+  }).format(new Date(value));
+}
+
+function LeaguesPage() {
+  const { user, isAuthLoading } = useAuth();
+  const [leagues, setLeagues] = useState<League[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [leagueName, setLeagueName] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const loadLeagues = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    if (isAuthLoading) {
+      return;
+    }
+
+    if (!user) {
+      setLeagues([]);
+      setErrorMessage('Utente non autenticato.');
+      setIsLoading(false);
+      return;
+    }
+
+    const { data: memberships, error: membershipsError } = await supabase
+      .from('league_members')
+      .select('league_id')
+      .eq('user_id', user.id);
+
+    if (membershipsError) {
+      setErrorMessage(
+        'Non è stato possibile caricare le tue leghe. Riprova tra poco.',
+      );
+      setIsLoading(false);
+      return;
+    }
+
+    const leagueIds = (memberships ?? []).map((membership) => membership.league_id);
+
+    if (leagueIds.length === 0) {
+      setLeagues([]);
+      setIsLoading(false);
+      return;
+    }
+
+    const { data: leagueRows, error: leaguesError } = await supabase
+      .from('leagues')
+      .select('id, name, invite_code, created_at')
+      .in('id', leagueIds)
+      .order('created_at', { ascending: false });
+
+    if (leaguesError) {
+      setErrorMessage(
+        'Non è stato possibile caricare i dettagli delle tue leghe. Riprova tra poco.',
+      );
+      setIsLoading(false);
+      return;
+    }
+
+    setLeagues((leagueRows ?? []) as League[]);
+    setIsLoading(false);
+  }, [isAuthLoading, user]);
+
+  useEffect(() => {
+    void loadLeagues();
+  }, [loadLeagues]);
+
+  async function handleCreateLeague(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmedName = leagueName.trim();
+    const normalizedInviteCode = inviteCode.trim().toUpperCase();
+
+    setFormError(null);
+    setSuccessMessage(null);
+
+    if (trimmedName.length < 1 || trimmedName.length > 100) {
+      setFormError('Il nome della lega deve contenere da 1 a 100 caratteri.');
+      return;
+    }
+
+    if (normalizedInviteCode.length < 6 || normalizedInviteCode.length > 20) {
+      setFormError('Il codice invito deve contenere da 6 a 20 caratteri.');
+      return;
+    }
+
+    setIsCreating(true);
+
+    const { error } = await supabase.rpc('create_league', {
+      p_name: trimmedName,
+      p_invite_code: normalizedInviteCode,
+    });
+
+    if (error) {
+      setFormError(
+        'Non è stato possibile creare la lega. Controlla i dati e riprova.',
+      );
+      setIsCreating(false);
+      return;
+    }
+
+    setLeagueName('');
+    setInviteCode('');
+    setIsFormOpen(false);
+    setSuccessMessage('Lega creata con successo.');
+    await loadLeagues();
+    setIsCreating(false);
+  }
+
+  const pageText = isLoading
+    ? 'Caricamento delle tue leghe...'
+    : errorMessage
+      ? errorMessage
+      : leagues.length === 0
+        ? 'Non appartieni ancora a nessuna lega.'
+        : `Partecipi a ${leagues.length} ${leagues.length === 1 ? 'lega' : 'leghe'}.`;
+
+  return (
+    <MainPageLayout
+      eyebrow="FantamotoGP"
+      title="Le mie leghe"
+      text={pageText}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '16px',
+          width: '100%',
+          maxWidth: '620px',
+          margin: '0 auto',
+        }}
+      >
+        {successMessage && (
+          <p role="status" style={{ color: 'hsl(var(--primary))' }}>
+            {successMessage}
+          </p>
+        )}
+
+        {!isLoading && !errorMessage && leagues.length > 0 && (
+          <div
+            style={{
+              display: 'grid',
+              gap: '12px',
+              width: '100%',
+              textAlign: 'left',
+            }}
+          >
+            {leagues.map((league) => (
+              <article
+                key={league.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '16px',
+                  padding: '16px 18px',
+                  border: '1px solid hsl(var(--foreground) / 0.12)',
+                  borderRadius: '18px',
+                  background: 'hsl(var(--card) / 0.72)',
+                  boxShadow: 'var(--shadow-sm)',
+                }}
+              >
+                <div>
+                  <h2
+                    style={{
+                      margin: 0,
+                      color: 'hsl(var(--foreground))',
+                      fontFamily: 'var(--app-font-serif)',
+                      fontSize: '1.35rem',
+                    }}
+                  >
+                    {league.name}
+                  </h2>
+                  <p
+                    style={{
+                      margin: '6px 0 0',
+                      color: 'hsl(var(--muted-foreground))',
+                      fontSize: '0.88rem',
+                    }}
+                  >
+                    Codice invito: <strong>{league.invite_code}</strong>
+                  </p>
+                </div>
+                <time
+                  dateTime={league.created_at}
+                  style={{
+                    flexShrink: 0,
+                    color: 'hsl(var(--muted-foreground))',
+                    fontSize: '0.78rem',
+                    textAlign: 'right',
+                  }}
+                >
+                  {formatLeagueDate(league.created_at)}
+                </time>
+              </article>
+            ))}
+          </div>
+        )}
+
+        <button
+          className="start-button"
+          type="button"
+          onClick={() => {
+            setIsFormOpen((isOpen) => !isOpen);
+            setFormError(null);
+          }}
+          disabled={isCreating}
+        >
+          {isFormOpen ? 'Chiudi form' : 'Crea nuova lega'}
+        </button>
+
+        {isFormOpen && (
+          <form
+            onSubmit={handleCreateLeague}
+            aria-label="Crea nuova lega"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              width: '100%',
+              maxWidth: '430px',
+              textAlign: 'left',
+            }}
+          >
+            <label htmlFor="league-name">Nome lega</label>
+            <input
+              id="league-name"
+              name="name"
+              type="text"
+              required
+              maxLength={100}
+              value={leagueName}
+              onChange={(event) => {
+                setLeagueName(event.target.value);
+                setFormError(null);
+              }}
+              disabled={isCreating}
+              placeholder="Es. FantamotoGP 2026"
+              style={{
+                boxSizing: 'border-box',
+                width: '100%',
+                padding: '13px 16px',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '999px',
+                color: 'hsl(var(--foreground))',
+                background: 'hsl(var(--card) / 0.8)',
+                font: 'inherit',
+              }}
+            />
+            <label htmlFor="league-invite-code">Codice invito</label>
+            <input
+              id="league-invite-code"
+              name="invite_code"
+              type="text"
+              required
+              minLength={6}
+              maxLength={20}
+              value={inviteCode}
+              onChange={(event) => {
+                setInviteCode(event.target.value);
+                setFormError(null);
+              }}
+              disabled={isCreating}
+              placeholder="ABC123"
+              style={{
+                boxSizing: 'border-box',
+                width: '100%',
+                padding: '13px 16px',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '999px',
+                color: 'hsl(var(--foreground))',
+                background: 'hsl(var(--card) / 0.8)',
+                font: 'inherit',
+                textTransform: 'uppercase',
+              }}
+            />
+            <button className="start-button" type="submit" disabled={isCreating}>
+              {isCreating ? 'Creazione...' : 'Crea lega'}
+            </button>
+            {formError && (
+              <p role="alert" style={{ color: 'hsl(var(--destructive))' }}>
+                {formError}
+              </p>
+            )}
+          </form>
+        )}
+      </div>
+    </MainPageLayout>
   );
 }
 
@@ -468,6 +778,14 @@ function ProtectedHomePage() {
   return (
     <ProtectedPage>
       <HomePage />
+    </ProtectedPage>
+  );
+}
+
+function ProtectedLeaguesPage() {
+  return (
+    <ProtectedPage>
+      <LeaguesPage />
     </ProtectedPage>
   );
 }
@@ -726,6 +1044,7 @@ function Router() {
         <Route path="/" component={WelcomePage} />
         <Route path="/auth" component={AuthPage} />
         <Route path="/home" component={ProtectedHomePage} />
+        <Route path="/leghe" component={ProtectedLeaguesPage} />
         <Route path="/profilo" component={ProtectedProfilePage} />
         <Route path="/impostazioni" component={ProtectedSettingsPage} />
         <Route component={NotFound} />

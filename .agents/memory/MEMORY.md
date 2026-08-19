@@ -1,1 +1,2 @@
 - [Profile ownership model](profile-ownership.md) — authenticated ownership uses the separate, unique `profiles.user_id`, preserving existing profile IDs.
+- [League creation boundary](league-creation-boundary.md) — create leagues exclusively through the database RPC so creator membership stays atomic.

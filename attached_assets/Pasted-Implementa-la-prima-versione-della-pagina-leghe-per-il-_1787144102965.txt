@@ -1,0 +1,74 @@
+Implementa la prima versione della pagina /leghe per il FantamotoGP.
+
+Contesto database già implementato:
+
+Supabase Auth è già funzionante.
+src/lib/supabase.ts esiste già e non deve essere modificato.
+App.tsx gestisce già autenticazione e sessione.
+public.profiles esiste ed è collegata a auth.users.
+public.leagues contiene:
+id
+name
+invite_code
+created_by
+created_at
+public.league_members contiene:
+id
+league_id
+user_id
+joined_at
+RLS è attivo su entrambe le tabelle.
+Un utente può leggere solo le leghe di cui è membro.
+Un utente può leggere i membri delle proprie leghe.
+Un utente può creare una lega solo indicando se stesso come created_by.
+La funzione SQL public.create_league(p_name, p_invite_code) esiste già e crea:
+la lega;
+automaticamente la membership del creatore.
+La funzione deve essere chiamata tramite Supabase RPC.
+La policy Users can join leagues as themselves è già presente.
+
+OBIETTIVO:
+
+Crea una nuova pagina /leghe.
+Proteggi la pagina come le altre pagine autenticata: un utente non autenticato deve essere reindirizzato a /auth.
+Recupera le leghe dell'utente autenticato tramite league_members e leagues.
+Mostra:
+nome della lega;
+codice invito;
+data di creazione.
+Se l'utente non appartiene a nessuna lega, mostra uno stato vuoto chiaro.
+Aggiungi un pulsante "Crea nuova lega".
+Il pulsante deve aprire un form con:
+Nome lega
+Codice invito
+Valida il nome tra 1 e 100 caratteri.
+Il codice invito deve essere tra 6 e 20 caratteri.
+Normalizza il codice invito in maiuscolo prima di inviarlo.
+Per creare la lega usa esclusivamente:
+supabase.rpc('create_league', ...)
+Non eseguire INSERT diretto su leagues o league_members dal frontend.
+Gestisci correttamente:
+loading;
+errori;
+successo;
+nessuna lega;
+utente non autenticato.
+Dopo la creazione, aggiorna automaticamente la lista delle leghe.
+Non modificare le policy RLS.
+Non modificare lo schema del database.
+Non modificare src/lib/supabase.ts.
+Non usare service-role keys.
+Mantieni lo stile grafico coerente con l'applicazione esistente.
+Aggiungi il collegamento alla pagina /leghe nella navigazione esistente, senza rompere le altre pagine.
+
+IMPORTANTE:
+
+Prima di modificare il codice, analizza la struttura attuale di App.tsx e riutilizza il routing, il contesto auth, i componenti UI e gli stili già presenti.
+
+Dopo l'implementazione:
+
+esegui TypeScript validation;
+verifica che il workflow web sia attivo;
+verifica che non ci siano errori console;
+verifica che /leghe sia accessibile solo agli utenti autenticati;
+riepiloga i file modificati.
