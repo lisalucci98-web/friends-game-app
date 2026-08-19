@@ -165,6 +165,7 @@ function ProfilePage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [nameInput, setNameInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -233,6 +234,36 @@ function ProfilePage() {
     setIsSaving(false);
   }
 
+  async function handleDelete() {
+    if (!profileId || !window.confirm('Sei sicura di voler eliminare questo profilo?')) {
+      return;
+    }
+
+    setSaveMessage(null);
+    setSaveError(null);
+    setIsDeleting(true);
+
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', profileId);
+
+    if (error) {
+      setSaveError(
+        'Non è stato possibile eliminare il profilo. Controlla la connessione o le autorizzazioni Supabase.',
+      );
+      setIsDeleting(false);
+      return;
+    }
+
+    setProfileId(null);
+    setProfileName(null);
+    setHasProfile(false);
+    setNameInput('');
+    setSaveMessage('Profilo eliminato con successo.');
+    setIsDeleting(false);
+  }
+
   const profileText = isLoading
     ? 'Caricamento del profilo...'
     : errorMessage
@@ -274,7 +305,7 @@ function ProfilePage() {
             setSaveMessage(null);
             setSaveError(null);
           }}
-          disabled={isSaving}
+          disabled={isSaving || isDeleting}
           placeholder="Inserisci il tuo nome"
           style={{
             width: '100%',
@@ -287,9 +318,19 @@ function ProfilePage() {
             font: 'inherit',
           }}
         />
-        <button className="start-button" type="submit" disabled={isSaving}>
+        <button className="start-button" type="submit" disabled={isSaving || isDeleting}>
           {isSaving ? 'Salvataggio...' : 'Salva'}
         </button>
+        {profileId && (
+          <button
+            className="start-button"
+            type="button"
+            onClick={() => void handleDelete()}
+            disabled={isSaving || isDeleting}
+          >
+            {isDeleting ? 'Eliminazione...' : 'Elimina profilo'}
+          </button>
+        )}
         {saveMessage && (
           <p role="status" style={{ color: 'hsl(var(--primary))' }}>
             {saveMessage}
