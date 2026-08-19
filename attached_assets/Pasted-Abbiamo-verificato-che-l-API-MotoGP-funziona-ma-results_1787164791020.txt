@@ -1,0 +1,87 @@
+Abbiamo verificato che l'API MotoGP funziona, ma:
+
+/results/sessions/{sessionId}
+
+restituisce la sessione e contiene il PDF della classification in:
+
+session_files.classification.url
+
+L'endpoint:
+
+/results/sessions/{sessionId}/classification
+
+restituisce HTTP 400.
+
+Voglio ora fare SOLO una ricerca tecnica dell'endpoint JSON corretto per le classifiche.
+
+NON modificare:
+- App.tsx
+- Supabase
+- database
+- RLS
+- routing
+- autenticazione
+- UI
+
+Modifica esclusivamente lo script temporaneo:
+scripts/test-motogp-api.mjs
+
+Usa come riferimento il GP di Gran Bretagna 2026 MotoGP già individuato.
+
+Prova sistematicamente endpoint plausibili, ad esempio:
+
+/results/classifications?sessionUuid={sessionId}
+
+/results/classification?sessionUuid={sessionId}
+
+/results/results?sessionUuid={sessionId}
+
+/results/session-results?sessionUuid={sessionId}
+
+/results/session/classification?sessionUuid={sessionId}
+
+/results/riders?sessionUuid={sessionId}
+
+/results/riders/{sessionId}
+
+/results/standings?sessionUuid={sessionId}
+
+e, se necessario, varianti con:
+- eventUuid
+- categoryUuid
+- sessionUuid
+
+Non fare brute force indiscriminato.
+
+Per ogni endpoint testato stampa:
+- URL
+- HTTP status
+- content-type
+- struttura JSON principale
+- primi 1-2 record se disponibili
+
+Se trovi un endpoint che restituisce una classification strutturata, verifica che contenga almeno alcuni di questi dati:
+- posizione
+- pilota
+- numero
+- team/moto
+- tempo
+- gap
+- status
+
+IMPORTANTE:
+Se nessun endpoint JSON funziona, fai anche un test del PDF classification ufficiale indicato da session_files.classification.url.
+
+Verifica se il PDF può essere scaricato dal server e se il suo contenuto può essere estratto automaticamente.
+
+Non implementare ancora il parser definitivo.
+
+Alla fine produci un report con:
+
+1. endpoint JSON trovato, se esiste;
+2. struttura dei dati;
+3. oppure, se non esiste, fattibilità dell'estrazione PDF;
+4. quale soluzione consiglieresti per il nostro FantamotoGP;
+5. eventuali problemi tecnici o di stabilità.
+
+Non modificare nessun file dell'app oltre allo script temporaneo.

@@ -1,3 +1,5 @@
+import { spawnSync } from 'node:child_process';
+
 /**
  * Script temporaneo — test API MotoGP
  * Obiettivo: verificare endpoint, struttura JSON, UUID chiave.
@@ -34,9 +36,21 @@ async function get(path) {
     const text = await res.text();
     let json = null;
     try { json = JSON.parse(text); } catch { /* non-JSON */ }
-    return { status: res.status, ok: res.ok, json, text };
+    return {
+      status: res.status,
+      ok: res.ok,
+      contentType: res.headers.get('content-type') ?? '(assente)',
+      json,
+      text,
+    };
   } catch (err) {
-    return { status: 0, ok: false, json: null, text: String(err) };
+    return {
+      status: 0,
+      ok: false,
+      contentType: '(non raggiungibile)',
+      json: null,
+      text: String(err),
+    };
   }
 }
 
@@ -200,81 +214,161 @@ if (!eventUuid || !categoryUuid) {
   }
 }
 
-// ─── 5. Session detail + classification endpoint ─────────────────────────────
+// ─── 5. Mirata ricerca classification JSON + PDF ufficiale ───────────────────
 
-section('5a · /results/sessions/{sessionId}  (descriptor)');
+let racSessionId = finishedSessionId;
+let classificationPdfUrl = null;
 
-if (!finishedSessionId) {
-  console.log('  ⚠ nessuna sessione conclusa trovata, skip');
+section('5a · session descriptor e link classification PDF');
+
+if (!eventUuid || !categoryUuid || !finishedSessionId) {
+  console.log('  ⚠ UUID insufficienti, skip');
 } else {
-  const detRes = await get(`/results/sessions/${finishedSessionId}`);
-  if (!detRes.ok) {
-    fail(`/results/sessions/${finishedSessionId}`, detRes.status, detRes.text);
-  } else {
-    ok(`/results/sessions/${finishedSessionId}`, detRes.status);
-    const det = detRes.json;
-    console.log(`  Chiavi risposta: ${keys(det)}`);
-    if (det?.session_files) {
-      console.log(`  session_files keys: ${keys(det.session_files)}`);
+  const sessAgain = await get(
+    `/results/sessions?eventUuid=${eventUuid}&categoryUuid=${categoryUuid}`,
+  );
+  if (sessAgain.ok && Array.isArray(sessAgain.json)) {
+    const rac = sessAgain.json.find(s => s.type === 'RAC');
+    if (rac) {
+      racSessionId = rac.id ?? rac.uuid ?? rac.sessionUuid;
+      console.log(`  Sessione RAC scelta: ${racSessionId}`);
     }
-    // Cerca classification inline
-    const classificationInline =
-      det?.classification ?? det?.results?.classification ?? null;
-    if (Array.isArray(classificationInline)) {
-      console.log(`  ✓ classification inline (${classificationInline.length} righe)`);
-    } else {
-      console.log(`  (nessuna classification inline — probabilmente su endpoint separato)`);
+  }
+
+  const detRes = await get(`/results/sessions/${racSessionId}`);
+  console.log(`  URL: ${BASE}/results/sessions/${racSessionId}`);
+  console.log(`  HTTP: ${detRes.status}  |  content-type: ${detRes.contentType}`);
+  if (!detRes.ok) {
+    console.log(`  Errore: ${detRes.text.slice(0, 240)}`);
+  } else {
+    const det = detRes.json;
+    console.log(`  Struttura principale: ${keys(det)}`);
+    if (det?.session_files) {
+      console.log(`  session_files: ${keys(det.session_files)}`);
+      classificationPdfUrl = det.session_files.classification?.url ?? null;
+      console.log(`  classification.url: ${classificationPdfUrl ?? '(non presente)'}`);
     }
   }
 }
 
-section('5b · /results/sessions/{sessionId}/classification  (gara RAC)');
+function findRecordArray(payload) {
+  if (Array.isArray(payload)) return { path: '$', rows: payload };
+  if (!payload || typeof payload !== 'object') return null;
 
-// Usa sessione RAC per la classifica se trovata, altrimenti la prima disponibile
-// La sessione RAC ha type === 'RAC'; l'abbiamo vista al punto 4
-// finishedSessionId è la FP1; usiamo la RAC se la conosciamo
-// Riproviamo a ricavarla dalla lista sessioni
+  const preferred = [
+    'classification', 'classifications', 'results', 'records',
+    'riders', 'standings', 'data', 'content',
+  ];
+  for (const name of preferred) {
+    if (Array.isArray(payload[name])) {
+      return { path: `$.${name}`, rows: payload[name] };
+    }
+  }
+  return null;
+}
 
-let racSessionId = finishedSessionId; // fallback
-if (!eventUuid || !categoryUuid) {
-  console.log('  ⚠ skip (mancano UUID)');
+function printProbeResult(path, response) {
+  console.log(`\n  URL: ${BASE}${path}`);
+  console.log(`  HTTP: ${response.status}  |  content-type: ${response.contentType}`);
+  if (!response.ok) {
+    console.log(`  Errore/body: ${response.text.slice(0, 240)}`);
+    return null;
+  }
+
+  console.log(`  Struttura JSON principale: ${keys(response.json)}`);
+  const found = findRecordArray(response.json);
+  if (!found || found.rows.length === 0) {
+    console.log(`  Record: nessun array riconoscibile`);
+    console.log(`  Anteprima: ${JSON.stringify(response.json)?.slice(0, 420)}`);
+    return null;
+  }
+
+  console.log(`  Array record: ${found.path}  |  totale: ${found.rows.length}`);
+  found.rows.slice(0, 2).forEach((row, index) => {
+    console.log(`  Record ${index + 1} campi: ${keys(row)}`);
+    console.log(`  Record ${index + 1} anteprima: ${JSON.stringify(row).slice(0, 700)}`);
+  });
+  return found.rows;
+}
+
+section('5b · endpoint JSON plausibili (probe mirato)');
+
+if (!racSessionId || !eventUuid || !categoryUuid) {
+  console.log('  ⚠ UUID insufficienti, skip');
 } else {
-  // Ri-fetch sessioni per trovare RAC
-  const sessAgain = await get(`/results/sessions?eventUuid=${eventUuid}&categoryUuid=${categoryUuid}`);
-  if (sessAgain.ok && sessAgain.json) {
-    const list = Array.isArray(sessAgain.json) ? sessAgain.json : Object.values(sessAgain.json);
-    const rac = list.find(s => s.type === 'RAC');
-    if (rac) {
-      racSessionId = rac.id ?? rac.uuid;
-      console.log(`  Sessione RAC trovata → ${racSessionId}`);
+  const q = `sessionUuid=${racSessionId}`;
+  const qAll = `sessionUuid=${racSessionId}&eventUuid=${eventUuid}&categoryUuid=${categoryUuid}`;
+  const candidates = [
+    `/results/sessions/${racSessionId}/classification`,
+    `/results/classifications?${qAll}`,
+    `/results/classification?${qAll}`,
+    `/results/results?${qAll}`,
+    `/results/session-results?${qAll}`,
+    `/results/session/classification?${qAll}`,
+    `/results/riders?${q}`,
+    `/results/riders/${racSessionId}?eventUuid=${eventUuid}&categoryUuid=${categoryUuid}`,
+    `/results/standings?${qAll}`,
+    `/results/standings?seasonUuid=${seasonUuid}&categoryUuid=${categoryUuid}&eventUuid=${eventUuid}`,
+  ];
+
+  const successfulClassificationEndpoints = [];
+  for (const path of candidates) {
+    const response = await get(path);
+    const rows = printProbeResult(path, response);
+    if (rows && rows.length > 0) {
+      const first = rows[0];
+      const fieldText = Object.keys(first).join(' ').toLowerCase();
+      const signals = ['position', 'rider', 'number', 'team', 'bike', 'time', 'gap', 'status']
+        .filter(signal => fieldText.includes(signal));
+      if (signals.length >= 2) {
+        successfulClassificationEndpoints.push({ path, signals });
+        console.log(`  ✓ Possibile classification strutturata: ${signals.join(', ')}`);
+      }
     }
   }
 
-  const classRes = await get(`/results/sessions/${racSessionId}/classification`);
-  if (!classRes.ok) {
-    fail(`/results/sessions/${racSessionId}/classification`, classRes.status, classRes.text?.slice(0, 200));
+  console.log('\n  Endpoint candidati con segnali di classification:');
+  if (successfulClassificationEndpoints.length === 0) {
+    console.log('  (nessuno)');
   } else {
-    ok(`/results/sessions/${racSessionId}/classification`, classRes.status);
-    const cls = classRes.json;
-    console.log(`  Chiavi risposta: ${keys(cls)}`);
+    successfulClassificationEndpoints.forEach(({ path, signals }) => {
+      console.log(`  • ${path}  →  ${signals.join(', ')}`);
+    });
+  }
+}
 
-    // classification può stare direttamente in array o dentro .classification
-    const rows = Array.isArray(cls) ? cls
-      : Array.isArray(cls?.classification) ? cls.classification
-      : null;
+section('5c · PDF classification ufficiale (fallback)');
 
-    if (rows && rows.length > 0) {
-      const first = rows[0];
-      console.log(`  Righe: ${rows.length}`);
-      console.log(`  Campi primo elemento: ${keys(first)}`);
-      if (first.rider) console.log(`  Campi rider: ${keys(first.rider)}`);
-      if (first.team)  console.log(`  Campi team:  ${keys(first.team)}`);
-      console.log('\n  Prime 3 righe (campi selezionati):');
-      preview(rows, ['position', 'rider', 'team', 'constructor',
-                     'time', 'gap', 'points', 'status', 'number', 'avg_speed'], 3);
-    } else {
-      console.log(`  Raw (slice):`, JSON.stringify(cls)?.slice(0, 500));
+if (!classificationPdfUrl) {
+  console.log('  ⚠ URL PDF non disponibile, skip');
+} else {
+  try {
+    const pdfRes = await fetch(classificationPdfUrl, {
+      headers: { Accept: 'application/pdf', 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(15_000),
+    });
+    const pdfBytes = Buffer.from(await pdfRes.arrayBuffer());
+    console.log(`  URL: ${classificationPdfUrl}`);
+    console.log(`  HTTP: ${pdfRes.status}  |  content-type: ${pdfRes.headers.get('content-type') ?? '(assente)'}`);
+    console.log(`  Dimensione: ${pdfBytes.length} byte`);
+
+    if (pdfRes.ok && pdfBytes.length > 0) {
+      const extracted = spawnSync(
+        'pdftotext',
+        ['-layout', '-', '-'],
+        { input: pdfBytes, encoding: 'utf8', maxBuffer: 2 * 1024 * 1024 },
+      );
+      if (extracted.status !== 0) {
+        console.log(`  Estrazione automatica fallita: ${extracted.stderr || '(nessun dettaglio)'}`);
+      } else {
+        const text = extracted.stdout.trim();
+        console.log(`  Estrazione automatica: OK (${text.length} caratteri)`);
+        console.log('  Prime righe estratte:');
+        console.log(text.split(/\r?\n/).slice(0, 35).join('\n'));
+      }
     }
+  } catch (error) {
+    console.log(`  Errore download/estrazione PDF: ${String(error)}`);
   }
 }
 
