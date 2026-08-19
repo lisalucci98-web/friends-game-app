@@ -1,6 +1,7 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { supabase } from '@/lib/supabase';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
@@ -154,11 +155,60 @@ function HomePage() {
 }
 
 function ProfilePage() {
+  const [profileName, setProfileName] = useState<string | null>(null);
+  const [hasProfile, setHasProfile] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadProfile() {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name, created_at')
+        .limit(1);
+
+      if (isCancelled) {
+        return;
+      }
+
+      if (error) {
+        setErrorMessage(
+          'Non è stato possibile caricare il profilo. Controlla la connessione o le autorizzazioni Supabase.',
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      const profile = data?.[0];
+      setHasProfile(Boolean(profile));
+      setProfileName(profile?.name ?? null);
+      setIsLoading(false);
+    }
+
+    void loadProfile();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  const profileText = isLoading
+    ? 'Caricamento del profilo...'
+    : errorMessage
+      ? errorMessage
+      : hasProfile
+        ? profileName
+          ? `Nome: ${profileName}`
+          : 'Profilo trovato, ma il nome non è disponibile.'
+        : 'Nessun profilo disponibile.';
+
   return (
     <MainPageLayout
       eyebrow="La tua identità"
       title="Il mio profilo"
-      text="Qui in futuro inseriremo le informazioni dell'utente."
+      text={profileText}
     />
   );
 }
