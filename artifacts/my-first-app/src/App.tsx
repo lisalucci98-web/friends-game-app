@@ -24,6 +24,7 @@ import {
   Route,
   Switch,
   useLocation,
+  useParams,
   Router as WouterRouter,
 } from 'wouter';
 
@@ -283,6 +284,11 @@ type League = {
   created_at: string;
 };
 
+type LeagueMember = {
+  user_id: string;
+  name: string | null;
+};
+
 type RpcErrorDetails = {
   message: string;
   code: string;
@@ -298,6 +304,7 @@ function formatLeagueDate(value: string) {
 
 function LeaguesPage() {
   const { user, isAuthLoading } = useAuth();
+  const [, navigate] = useLocation();
   const [leagues, setLeagues] = useState<League[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -538,6 +545,15 @@ function LeaguesPage() {
             {leagues.map((league) => (
               <article
                 key={league.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/leghe/${league.id}`)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    navigate(`/leghe/${league.id}`);
+                  }
+                }}
+                aria-label={`Apri dettagli lega ${league.name}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -548,6 +564,7 @@ function LeaguesPage() {
                   borderRadius: '18px',
                   background: 'hsl(var(--card) / 0.72)',
                   boxShadow: 'var(--shadow-sm)',
+                  cursor: 'pointer',
                 }}
               >
                 <div>
@@ -786,6 +803,317 @@ function LeaguesPage() {
   );
 }
 
+function LeagueDetailPage() {
+  const { leagueId } = useParams<{ leagueId: string }>();
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
+
+  const [league, setLeague] = useState<League | null>(null);
+  const [members, setMembers] = useState<LeagueMember[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      if (!leagueId || !user) {
+        setErrorMessage('Utente non autenticato o lega non specificata.');
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setErrorMessage(null);
+
+      const { data: leagueData, error: leagueError } = await supabase
+        .from('leagues')
+        .select('id, name, invite_code, created_at')
+        .eq('id', leagueId)
+        .maybeSingle();
+
+      if (leagueError) {
+        setErrorMessage('Non è stato possibile caricare i dati della lega.');
+        setIsLoading(false);
+        return;
+      }
+
+      if (!leagueData) {
+        setErrorMessage('Lega non trovata o non sei membro di questa lega.');
+        setIsLoading(false);
+        return;
+      }
+
+      setLeague(leagueData as League);
+
+      const { data: membersData, error: membersError } = await supabase.rpc(
+        'get_league_members',
+        { p_league_id: leagueId },
+      );
+
+      if (membersError) {
+        const msg = membersError.message?.toLowerCase() ?? '';
+        if (msg.includes('not a member') || msg.includes('non membro')) {
+          setErrorMessage('Non sei membro di questa lega.');
+        } else {
+          setErrorMessage('Non è stato possibile caricare i partecipanti.');
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      setMembers((membersData ?? []) as LeagueMember[]);
+      setIsLoading(false);
+    }
+
+    void load();
+  }, [leagueId, user]);
+
+  async function handleCopyCode() {
+    if (!league) return;
+    try {
+      await navigator.clipboard.writeText(league.invite_code);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch {
+      // clipboard non disponibile, nessuna azione
+    }
+  }
+
+  async function handleLeave() {
+    if (!user || !leagueId) return;
+    if (!window.confirm('Sei sicura di voler uscire da questa lega?')) return;
+
+    setLeaveError(null);
+    setIsLeaving(true);
+
+    const { error } = await supabase
+      .from('league_members')
+      .delete()
+      .eq('league_id', leagueId)
+      .eq('user_id', user.id);
+
+    if (error) {
+      setLeaveError('Non è stato possibile uscire dalla lega. Riprova.');
+      setIsLeaving(false);
+      return;
+    }
+
+    navigate('/leghe');
+  }
+
+  const pageTitle = isLoading
+    ? 'Caricamento...'
+    : league?.name ?? 'Lega non trovata';
+
+  const pageText = isLoading
+    ? 'Caricamento dei dettagli della lega...'
+    : errorMessage
+      ? errorMessage
+      : `${members.length} ${members.length === 1 ? 'partecipante' : 'partecipanti'}`;
+
+  return (
+    <MainPageLayout eyebrow="FantamotoGP" title={pageTitle} text={pageText}>
+      {!isLoading && errorMessage ? (
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <button
+            className="start-button"
+            type="button"
+            onClick={() => navigate('/leghe')}
+          >
+            ← Torna alle leghe
+          </button>
+        </div>
+      ) : !isLoading && league ? (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '20px',
+            width: '100%',
+            maxWidth: '500px',
+            margin: '0 auto',
+          }}
+        >
+          {/* Info card */}
+          <div
+            style={{
+              width: '100%',
+              padding: '18px 20px',
+              border: '1px solid hsl(var(--foreground) / 0.12)',
+              borderRadius: '18px',
+              background: 'hsl(var(--card) / 0.72)',
+              textAlign: 'left',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+              boxSizing: 'border-box',
+            }}
+          >
+            <div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '0.78rem',
+                  color: 'hsl(var(--muted-foreground))',
+                }}
+              >
+                Codice invito
+              </p>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  marginTop: '4px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <strong
+                  style={{ fontSize: '1.1rem', letterSpacing: '0.08em' }}
+                >
+                  {league.invite_code}
+                </strong>
+                <button
+                  type="button"
+                  onClick={() => void handleCopyCode()}
+                  style={{
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '999px',
+                    padding: '5px 12px',
+                    background: isCopied
+                      ? 'hsl(var(--primary))'
+                      : 'transparent',
+                    color: isCopied
+                      ? 'hsl(var(--primary-foreground))'
+                      : 'hsl(var(--foreground))',
+                    cursor: 'pointer',
+                    font: 'inherit',
+                    fontSize: '0.76rem',
+                    fontWeight: 700,
+                    transition: 'background 0.15s, color 0.15s',
+                  }}
+                >
+                  {isCopied ? '✓ Copiato' : 'Copia codice'}
+                </button>
+              </div>
+            </div>
+            <p
+              style={{
+                margin: 0,
+                fontSize: '0.84rem',
+                color: 'hsl(var(--muted-foreground))',
+              }}
+            >
+              Creata il{' '}
+              <time dateTime={league.created_at}>
+                {formatLeagueDate(league.created_at)}
+              </time>
+            </p>
+          </div>
+
+          {/* Members list */}
+          {members.length > 0 && (
+            <div style={{ width: '100%', textAlign: 'left' }}>
+              <p
+                style={{
+                  margin: '0 0 10px',
+                  fontSize: '0.88rem',
+                  fontWeight: 700,
+                  color: 'hsl(var(--muted-foreground))',
+                }}
+              >
+                Partecipanti ({members.length})
+              </p>
+              <div
+                style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+              >
+                {members.map((member) => (
+                  <div
+                    key={member.user_id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '12px 16px',
+                      border: '1px solid hsl(var(--foreground) / 0.08)',
+                      borderRadius: '14px',
+                      background: 'hsl(var(--card) / 0.5)',
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '34px',
+                        height: '34px',
+                        borderRadius: '50%',
+                        background: 'hsl(var(--primary) / 0.12)',
+                        color: 'hsl(var(--primary))',
+                        flexShrink: 0,
+                      }}
+                      aria-hidden="true"
+                    >
+                      <UserRound size={17} strokeWidth={1.8} />
+                    </span>
+                    <span style={{ fontSize: '0.95rem' }}>
+                      {member.name ?? 'Utente senza nome'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '10px',
+              width: '100%',
+            }}
+          >
+            <button
+              className="start-button"
+              type="button"
+              onClick={() => navigate('/leghe')}
+            >
+              ← Torna alle leghe
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleLeave()}
+              disabled={isLeaving}
+              style={{
+                border: '1px solid hsl(var(--destructive) / 0.4)',
+                borderRadius: '999px',
+                padding: '13px 28px',
+                background: 'transparent',
+                color: 'hsl(var(--destructive))',
+                cursor: isLeaving ? 'wait' : 'pointer',
+                font: 'inherit',
+                fontWeight: 700,
+              }}
+            >
+              {isLeaving ? 'Uscita in corso...' : 'Esci dalla lega'}
+            </button>
+            {leaveError && (
+              <p role="alert" style={{ color: 'hsl(var(--destructive))' }}>
+                {leaveError}
+              </p>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </MainPageLayout>
+  );
+}
+
 function AuthPage() {
   const { user, isAuthLoading } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -988,6 +1316,14 @@ function ProtectedLeaguesPage() {
   return (
     <ProtectedPage>
       <LeaguesPage />
+    </ProtectedPage>
+  );
+}
+
+function ProtectedLeagueDetailPage() {
+  return (
+    <ProtectedPage>
+      <LeagueDetailPage />
     </ProtectedPage>
   );
 }
@@ -1247,6 +1583,7 @@ function Router() {
         <Route path="/auth" component={AuthPage} />
         <Route path="/home" component={ProtectedHomePage} />
         <Route path="/leghe" component={ProtectedLeaguesPage} />
+        <Route path="/leghe/:leagueId" component={ProtectedLeagueDetailPage} />
         <Route path="/profilo" component={ProtectedProfilePage} />
         <Route path="/impostazioni" component={ProtectedSettingsPage} />
         <Route component={NotFound} />

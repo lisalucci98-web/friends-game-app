@@ -1,0 +1,111 @@
+Implementa la pagina di dettaglio di una singola lega del FantamotoGP.
+
+Contesto già implementato:
+
+* Supabase Auth è funzionante.
+* La pagina `/leghe` esiste già.
+* `public.leagues` contiene:
+
+  * id
+  * name
+  * invite_code
+  * created_by
+  * created_at
+* `public.league_members` contiene:
+
+  * id
+  * league_id
+  * user_id
+  * joined_at
+* RLS è attivo.
+* La funzione SQL `public.get_league_members(p_league_id)` esiste già.
+* La funzione verifica che l'utente autenticato sia membro della lega prima di restituire i partecipanti.
+* `src/lib/supabase.ts` non deve essere modificato.
+
+OBIETTIVO:
+
+Creare una pagina di dettaglio raggiungibile cliccando una lega dalla pagina `/leghe`.
+
+Routing:
+
+* usa il sistema di routing già presente nell'app;
+* preferibilmente `/leghe/:leagueId`;
+* non introdurre un nuovo router se ne esiste già uno.
+
+La pagina deve:
+
+1. Recuperare il `leagueId` dalla route.
+
+2. Verificare che esista una sessione autenticata.
+
+3. Recuperare i dati della lega.
+
+4. Mostrare:
+
+   * nome della lega;
+   * codice invito;
+   * data di creazione.
+
+5. Mostrare il numero dei partecipanti.
+
+6. Recuperare i partecipanti tramite esclusivamente:
+
+   supabase.rpc('get_league_members', {
+   p_league_id: leagueId
+   })
+
+7. Mostrare per ogni partecipante:
+
+   * nome;
+   * eventualmente una semplice icona/avatar già disponibile nell'app.
+
+8. Aggiungere un pulsante "Copia codice" che copia l'invite_code negli appunti.
+
+9. Mostrare una conferma visiva quando il codice viene copiato.
+
+10. Aggiungere un pulsante "Esci dalla lega".
+
+11. Per ora il pulsante "Esci dalla lega" deve essere implementato usando la policy RLS già esistente, eliminando esclusivamente la membership dell'utente corrente.
+
+12. NON permettere di eliminare la membership di un altro utente.
+
+13. Dopo l'uscita dalla lega, tornare a `/leghe` e aggiornare la lista.
+
+14. Gestire:
+
+    * loading;
+    * lega non trovata;
+    * utente non membro;
+    * errore Supabase;
+    * copia codice;
+    * uscita dalla lega.
+
+15. Non modificare RLS.
+
+16. Non modificare lo schema database.
+
+17. Non modificare le funzioni SQL esistenti.
+
+18. Non modificare `src/lib/supabase.ts`.
+
+19. Non usare service-role keys.
+
+20. Mantenere lo stile grafico esistente.
+
+IMPORTANTE:
+
+Per recuperare i dati della lega, non effettuare query che permettano all'utente di accedere arbitrariamente a leghe non proprie. Usa le policy RLS già esistenti.
+
+Prima di modificare il codice:
+
+* analizza App.tsx;
+* analizza la pagina `/leghe`;
+* analizza il sistema di routing esistente;
+* riutilizza componenti e stile già presenti.
+
+Dopo l'implementazione:
+
+* esegui TypeScript validation;
+* verifica il workflow web;
+* controlla la console browser;
+* riepiloga esattamente i file modificati.
