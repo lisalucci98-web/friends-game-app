@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { supabase } from '@/lib/supabase';
@@ -90,10 +90,12 @@ function MainPageLayout({
   eyebrow,
   title,
   text,
+  children,
 }: {
   eyebrow: string;
   title: string;
   text: string;
+  children?: ReactNode;
 }) {
   const [location, navigate] = useLocation();
   const sections = [
@@ -119,6 +121,7 @@ function MainPageLayout({
             {title}
           </h1>
           <p className="welcome-description">{text}</p>
+          {children}
         </div>
       </section>
 
@@ -159,40 +162,69 @@ function ProfilePage() {
   const [hasProfile, setHasProfile] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [nameInput, setNameInput] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isCancelled = false;
+  const loadProfile = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
 
-    async function loadProfile() {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, name, created_at')
-        .limit(1);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, name, created_at')
+      .limit(1);
 
-      if (isCancelled) {
-        return;
-      }
-
-      if (error) {
-        setErrorMessage(
-          'Non è stato possibile caricare il profilo. Controlla la connessione o le autorizzazioni Supabase.',
-        );
-        setIsLoading(false);
-        return;
-      }
-
-      const profile = data?.[0];
-      setHasProfile(Boolean(profile));
-      setProfileName(profile?.name ?? null);
+    if (error) {
+      setErrorMessage(
+        'Non è stato possibile caricare il profilo. Controlla la connessione o le autorizzazioni Supabase.',
+      );
       setIsLoading(false);
+      return;
     }
 
-    void loadProfile();
-
-    return () => {
-      isCancelled = true;
-    };
+    const profile = data?.[0];
+    setHasProfile(Boolean(profile));
+    setProfileName(profile?.name ?? null);
+    setIsLoading(false);
   }, []);
+
+  useEffect(() => {
+    void loadProfile();
+  }, [loadProfile]);
+
+  async function handleSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmedName = nameInput.trim();
+
+    setSaveMessage(null);
+    setSaveError(null);
+
+    if (!trimmedName) {
+      setSaveError('Inserisci un nome prima di salvare.');
+      return;
+    }
+
+    setIsSaving(true);
+
+    const { error } = await supabase
+      .from('profiles')
+      .insert({ name: trimmedName });
+
+    if (error) {
+      setSaveError(
+        'Non è stato possibile salvare il profilo. Controlla la connessione o le autorizzazioni Supabase.',
+      );
+      setIsSaving(false);
+      return;
+    }
+
+    setNameInput('');
+    setSaveMessage('Profilo salvato con successo.');
+    await loadProfile();
+    setIsSaving(false);
+  }
 
   const profileText = isLoading
     ? 'Caricamento del profilo...'
@@ -209,7 +241,60 @@ function ProfilePage() {
       eyebrow="La tua identità"
       title="Il mio profilo"
       text={profileText}
-    />
+    >
+      <form
+        onSubmit={handleSave}
+        aria-label="Crea un profilo"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '12px',
+          margin: '0 auto',
+          maxWidth: '430px',
+        }}
+      >
+        <label htmlFor="profile-name" style={{ alignSelf: 'stretch', textAlign: 'left' }}>
+          Nome
+        </label>
+        <input
+          id="profile-name"
+          name="name"
+          type="text"
+          value={nameInput}
+          onChange={(event) => {
+            setNameInput(event.target.value);
+            setSaveMessage(null);
+            setSaveError(null);
+          }}
+          disabled={isSaving}
+          placeholder="Inserisci il tuo nome"
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            padding: '13px 16px',
+            border: '1px solid hsl(var(--border))',
+            borderRadius: '999px',
+            color: 'hsl(var(--foreground))',
+            background: 'hsl(var(--card) / 0.8)',
+            font: 'inherit',
+          }}
+        />
+        <button className="start-button" type="submit" disabled={isSaving}>
+          {isSaving ? 'Salvataggio...' : 'Salva'}
+        </button>
+        {saveMessage && (
+          <p role="status" style={{ color: 'hsl(var(--primary))' }}>
+            {saveMessage}
+          </p>
+        )}
+        {saveError && (
+          <p role="alert" style={{ color: 'hsl(var(--destructive))' }}>
+            {saveError}
+          </p>
+        )}
+      </form>
+    </MainPageLayout>
   );
 }
 
