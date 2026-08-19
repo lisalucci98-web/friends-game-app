@@ -158,6 +158,7 @@ function HomePage() {
 }
 
 function ProfilePage() {
+  const [profileId, setProfileId] = useState<string | null>(null);
   const [profileName, setProfileName] = useState<string | null>(null);
   const [hasProfile, setHasProfile] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -185,8 +186,10 @@ function ProfilePage() {
     }
 
     const profile = data?.[0];
+    setProfileId(profile?.id ?? null);
     setHasProfile(Boolean(profile));
     setProfileName(profile?.name ?? null);
+    setNameInput(profile?.name ?? '');
     setIsLoading(false);
   }, []);
 
@@ -208,9 +211,14 @@ function ProfilePage() {
 
     setIsSaving(true);
 
-    const { error } = await supabase
-      .from('profiles')
-      .insert({ name: trimmedName });
+    const { error } = profileId
+      ? await supabase
+          .from('profiles')
+          .update({ name: trimmedName })
+          .eq('id', profileId)
+      : await supabase
+          .from('profiles')
+          .insert({ name: trimmedName });
 
     if (error) {
       setSaveError(
@@ -220,7 +228,6 @@ function ProfilePage() {
       return;
     }
 
-    setNameInput('');
     setSaveMessage('Profilo salvato con successo.');
     await loadProfile();
     setIsSaving(false);
