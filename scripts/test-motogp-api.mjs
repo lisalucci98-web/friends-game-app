@@ -71,6 +71,28 @@ function keys(obj) {
   return Object.keys(obj).join(', ');
 }
 
+function entityRows(payload, names) {
+  if (Array.isArray(payload)) return { path: '$', rows: payload };
+  if (!payload || typeof payload !== 'object') return null;
+  for (const name of names) {
+    if (Array.isArray(payload[name])) {
+      return { path: `$.${name}`, rows: payload[name] };
+    }
+  }
+  return null;
+}
+
+function entityCompleteness(row, kind) {
+  if (!row || typeof row !== 'object') return [];
+  const text = JSON.stringify(row).toLowerCase();
+  const expected = kind === 'rider'
+    ? ['id', 'full_name', 'number', 'country']
+    : kind === 'team'
+      ? ['id', 'name', 'season']
+      : ['id', 'name'];
+  return expected.filter(field => text.includes(`"${field}"`));
+}
+
 // ─── 1. Seasons ─────────────────────────────────────────────────────────────
 
 section('1 · /results/seasons');
@@ -178,6 +200,119 @@ if (!seasonUuid) {
       console.log(`  Raw (slice):`, JSON.stringify(cat)?.slice(0, 300));
     }
   }
+}
+
+// ─── 3b. Anagrafica piloti, team e costruttori ────────────────────────────────
+
+section('3b · anagrafica piloti, team e costruttori');
+
+const entityCategoriesRes = await get(`/categories?seasonYear=${YEAR}`);
+let entityCategoryUuid = null;
+
+console.log(`\n  Categorie anagrafiche — URL: ${BASE}/categories?seasonYear=${YEAR}`);
+console.log(`  HTTP: ${entityCategoriesRes.status}  |  content-type: ${entityCategoriesRes.contentType}`);
+if (entityCategoriesRes.ok && Array.isArray(entityCategoriesRes.json)) {
+  const motoGpCategory = entityCategoriesRes.json.find(
+    category => category.name?.toLowerCase() === 'motogp',
+  );
+  entityCategoryUuid = motoGpCategory?.id ?? null;
+  console.log(`  MotoGP categoryUuid anagrafico: ${entityCategoryUuid ?? '(non trovato)'}`);
+  console.log(`  Campi categoria: ${keys(motoGpCategory)}`);
+} else {
+  console.log(`  Errore/body: ${entityCategoriesRes.text.slice(0, 220)}`);
+}
+
+const entityCandidates = [
+  { kind: 'rider', label: 'piloti seasonYear/categoria', path: `/riders?seasonYear=${YEAR}&categoryUuid=${entityCategoryUuid}` },
+  { kind: 'rider', label: 'piloti stagione/categoria', path: `/riders?seasonUuid=${seasonUuid}&categoryUuid=${categoryUuid}` },
+  { kind: 'rider', label: 'piloti stagione', path: `/riders?seasonUuid=${seasonUuid}` },
+  { kind: 'rider', label: 'piloti categoria', path: `/riders?categoryUuid=${categoryUuid}` },
+  { kind: 'rider', label: 'piloti generico', path: '/riders' },
+  { kind: 'team', label: 'team seasonYear/categoria', path: `/teams?seasonYear=${YEAR}&categoryUuid=${entityCategoryUuid}` },
+  { kind: 'team', label: 'team stagione/categoria', path: `/teams?seasonUuid=${seasonUuid}&categoryUuid=${categoryUuid}` },
+  { kind: 'team', label: 'team stagione', path: `/teams?seasonUuid=${seasonUuid}` },
+  { kind: 'team', label: 'team categoria', path: `/teams?categoryUuid=${categoryUuid}` },
+  { kind: 'team', label: 'team generico', path: '/teams' },
+  { kind: 'constructor', label: 'costruttori stagione/categoria', path: `/constructors?seasonUuid=${seasonUuid}&categoryUuid=${categoryUuid}` },
+  { kind: 'constructor', label: 'costruttori stagione', path: `/constructors?seasonUuid=${seasonUuid}` },
+  { kind: 'constructor', label: 'costruttori categoria', path: `/constructors?categoryUuid=${categoryUuid}` },
+  { kind: 'constructor', label: 'costruttori generico', path: '/constructors' },
+  { kind: 'rider', label: 'results/riders stagione', path: `/results/riders?seasonUuid=${seasonUuid}&categoryUuid=${categoryUuid}` },
+  { kind: 'team', label: 'results/teams stagione', path: `/results/teams?seasonUuid=${seasonUuid}&categoryUuid=${categoryUuid}` },
+  { kind: 'constructor', label: 'results/constructors stagione', path: `/results/constructors?seasonUuid=${seasonUuid}&categoryUuid=${categoryUuid}` },
+];
+
+const entityLists = [];
+const attemptedDetailIds = new Set();
+
+for (const candidate of entityCandidates) {
+  console.log(`\n  [${candidate.kind}] ${candidate.label}`);
+  const response = await get(candidate.path);
+  console.log(`  URL: ${BASE}${candidate.path}`);
+  console.log(`  HTTP: ${response.status}  |  content-type: ${response.contentType}`);
+
+  if (!response.ok) {
+    console.log(`  Errore/body: ${response.text.slice(0, 220)}`);
+    continue;
+  }
+
+  console.log(`  Struttura JSON principale: ${keys(response.json)}`);
+  const names = candidate.kind === 'rider'
+    ? ['riders', 'rider', 'data', 'items', 'content']
+    : candidate.kind === 'team'
+      ? ['teams', 'team', 'data', 'items', 'content']
+      : ['constructors', 'constructor', 'manufacturers', 'data', 'items', 'content'];
+  const found = entityRows(response.json, names);
+
+  if (!found) {
+    console.log(`  Record: nessun array anagrafico riconoscibile`);
+    console.log(`  Anteprima: ${JSON.stringify(response.json)?.slice(0, 500)}`);
+    continue;
+  }
+
+  console.log(`  Array: ${found.path}  |  totale: ${found.rows.length}`);
+  if (candidate.kind === 'rider') {
+    const motoGpRows = found.rows.filter(
+      rider => rider.current_career_step?.category?.name === 'MotoGP',
+    );
+    console.log(`  Piloti con current_career_step MotoGP: ${motoGpRows.length}`);
+  }
+  found.rows.slice(0, 2).forEach((row, index) => {
+    console.log(`  Record ${index + 1} campi: ${keys(row)}`);
+    console.log(`  Record ${index + 1} anteprima: ${JSON.stringify(row).slice(0, 900)}`);
+  });
+  entityLists.push({ ...candidate, rows: found.rows });
+
+  // Un solo endpoint di dettaglio per tipo, solo dopo aver trovato un ID reale.
+  const first = found.rows[0];
+  const entityId = first?.id ?? first?.uuid;
+  if (entityId && !attemptedDetailIds.has(candidate.kind)) {
+    attemptedDetailIds.add(candidate.kind);
+    const detailQuery = candidate.kind === 'team'
+      ? `seasonYear=${YEAR}&categoryUuid=${entityCategoryUuid}`
+      : `seasonUuid=${seasonUuid}`;
+    const detailPath = `/${candidate.kind === 'constructor' ? 'constructors' : `${candidate.kind}s`}/${entityId}?${detailQuery}`;
+    const detailResponse = await get(detailPath);
+    console.log(`  Dettaglio: ${BASE}${detailPath}`);
+    console.log(`  Dettaglio HTTP: ${detailResponse.status}  |  content-type: ${detailResponse.contentType}`);
+    if (detailResponse.ok) {
+      console.log(`  Dettaglio campi: ${keys(detailResponse.json)}`);
+      console.log(`  Dettaglio anteprima: ${JSON.stringify(detailResponse.json)?.slice(0, 900)}`);
+    } else {
+      console.log(`  Dettaglio errore/body: ${detailResponse.text.slice(0, 220)}`);
+    }
+  }
+}
+
+console.log('\n  Sintesi anagrafica:');
+for (const kind of ['rider', 'team', 'constructor']) {
+  const match = entityLists.find(item => item.kind === kind);
+  if (!match) {
+    console.log(`  • ${kind}: nessun endpoint anagrafico verificato`);
+    continue;
+  }
+  const completeness = entityCompleteness(match.rows[0], kind);
+  console.log(`  • ${kind}: ${match.path} → ${match.rows.length} record; campi chiave rilevati: ${completeness.join(', ') || '(nessuno)'}`);
 }
 
 // ─── 4. Sessions ────────────────────────────────────────────────────────────
