@@ -1,4 +1,12 @@
-import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { type User } from '@supabase/supabase-js';
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { supabase } from '@/lib/supabase';
@@ -19,6 +27,115 @@ import {
 } from 'wouter';
 
 const queryClient = new QueryClient();
+
+type AuthContextValue = {
+  user: User | null;
+  isAuthLoading: boolean;
+  authLoadError: string | null;
+};
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+function useAuth() {
+  const context = useContext(AuthContext);
+
+  if (!context) {
+    throw new Error('useAuth must be used inside AuthContext.Provider');
+  }
+
+  return context;
+}
+
+function AuthStatus() {
+  const { user, isAuthLoading, authLoadError } = useAuth();
+  const [, navigate] = useLocation();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+
+  async function handleLogout() {
+    setLogoutError(null);
+    setIsLoggingOut(true);
+
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      setLogoutError('Non è stato possibile uscire. Riprova.');
+    } else {
+      navigate('/auth');
+    }
+
+    setIsLoggingOut(false);
+  }
+
+  if (isAuthLoading) {
+    return <span className="nav-note">verifica accesso...</span>;
+  }
+
+  if (!user) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <span className="nav-note">non autenticata</span>
+        <button
+          type="button"
+          onClick={() => navigate('/auth')}
+          style={{
+            border: 0,
+            borderRadius: '999px',
+            padding: '8px 13px',
+            color: 'hsl(var(--primary-foreground))',
+            background: 'hsl(var(--primary))',
+            cursor: 'pointer',
+            font: 'inherit',
+            fontSize: '0.76rem',
+            fontWeight: 700,
+          }}
+        >
+          Accedi
+        </button>
+        {authLoadError && (
+          <span role="alert" style={{ color: 'hsl(var(--destructive))' }}>
+            {authLoadError}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <span
+        className="nav-note"
+        title={user.email ?? 'Utente autenticato'}
+        style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis' }}
+      >
+        {user.email ?? 'utente autenticato'}
+      </span>
+      <button
+        type="button"
+        onClick={() => void handleLogout()}
+        disabled={isLoggingOut}
+        style={{
+          border: '1px solid hsl(var(--foreground) / 0.18)',
+          borderRadius: '999px',
+          padding: '8px 13px',
+          color: 'hsl(var(--foreground))',
+          background: 'transparent',
+          cursor: isLoggingOut ? 'wait' : 'pointer',
+          font: 'inherit',
+          fontSize: '0.76rem',
+          fontWeight: 700,
+        }}
+      >
+        {isLoggingOut ? 'Uscita...' : 'Esci'}
+      </button>
+      {logoutError && (
+        <span role="alert" style={{ color: 'hsl(var(--destructive))' }}>
+          {logoutError}
+        </span>
+      )}
+    </div>
+  );
+}
 
 function WelcomePage() {
   const [, navigate] = useLocation();
@@ -111,7 +228,7 @@ function MainPageLayout({
           <span className="brand-mark" aria-hidden="true">M</span>
           <span>MyFirstApp</span>
         </div>
-        <span className="nav-note">il tuo spazio · 02</span>
+        <AuthStatus />
       </header>
 
       <section className="app-content" aria-labelledby="app-page-title">
@@ -154,6 +271,220 @@ function HomePage() {
       title="Benvenuta!"
       text="Questa è la home della mia prima app."
     />
+  );
+}
+
+function AuthPage() {
+  const { user, isAuthLoading } = useAuth();
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAuthError(null);
+    setAuthMessage(null);
+    setIsSubmitting(true);
+
+    const result = mode === 'login'
+      ? await supabase.auth.signInWithPassword({ email, password })
+      : await supabase.auth.signUp({ email, password });
+
+    if (result.error) {
+      setAuthError(result.error.message);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (mode === 'register') {
+      setAuthMessage(
+        result.data.session
+          ? 'Registrazione completata con successo.'
+          : 'Registrazione completata. Controlla la tua email per confermare l’account.',
+      );
+    } else {
+      setAuthMessage('Accesso completato con successo.');
+    }
+
+    setPassword('');
+    setIsSubmitting(false);
+  }
+
+  const authText = isAuthLoading
+    ? 'Verifica dello stato di accesso...'
+    : user
+      ? `Accesso effettuato come ${user.email ?? 'utente autenticato'}.`
+      : mode === 'login'
+        ? 'Accedi al tuo spazio personale.'
+        : 'Crea il tuo accesso personale.';
+
+  return (
+    <MainPageLayout
+      eyebrow="Il tuo accesso"
+      title={user ? 'Sei dentro.' : mode === 'login' ? 'Accedi' : 'Registrati'}
+      text={authText}
+    >
+      {isAuthLoading ? (
+        <p role="status">Caricamento...</p>
+      ) : user ? (
+        <p role="status" style={{ color: 'hsl(var(--primary))' }}>
+          {authMessage ?? 'Il tuo account è attivo.'}
+        </p>
+      ) : (
+        <form
+          onSubmit={handleSubmit}
+          aria-label={mode === 'login' ? 'Accedi' : 'Registrati'}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            margin: '0 auto',
+            maxWidth: '430px',
+            textAlign: 'left',
+          }}
+        >
+          <label htmlFor="auth-email">Email</label>
+          <input
+            id="auth-email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            disabled={isSubmitting}
+            placeholder="nome@esempio.it"
+            style={{
+              boxSizing: 'border-box',
+              width: '100%',
+              padding: '13px 16px',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: '999px',
+              color: 'hsl(var(--foreground))',
+              background: 'hsl(var(--card) / 0.8)',
+              font: 'inherit',
+            }}
+          />
+          <label htmlFor="auth-password">Password</label>
+          <input
+            id="auth-password"
+            name="password"
+            type="password"
+            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+            required
+            minLength={6}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            disabled={isSubmitting}
+            placeholder="Almeno 6 caratteri"
+            style={{
+              boxSizing: 'border-box',
+              width: '100%',
+              padding: '13px 16px',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: '999px',
+              color: 'hsl(var(--foreground))',
+              background: 'hsl(var(--card) / 0.8)',
+              font: 'inherit',
+            }}
+          />
+          <button className="start-button" type="submit" disabled={isSubmitting}>
+            {isSubmitting
+              ? 'Attendi...'
+              : mode === 'login'
+                ? 'Accedi'
+                : 'Registrati'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode(mode === 'login' ? 'register' : 'login');
+              setAuthError(null);
+              setAuthMessage(null);
+            }}
+            disabled={isSubmitting}
+            style={{
+              alignSelf: 'center',
+              border: 0,
+              color: 'hsl(var(--accent))',
+              background: 'transparent',
+              cursor: 'pointer',
+              font: 'inherit',
+              fontWeight: 700,
+            }}
+          >
+            {mode === 'login'
+              ? 'Non hai un account? Registrati'
+              : 'Hai già un account? Accedi'}
+          </button>
+          {authMessage && (
+            <p role="status" style={{ color: 'hsl(var(--primary))' }}>
+              {authMessage}
+            </p>
+          )}
+          {authError && (
+            <p role="alert" style={{ color: 'hsl(var(--destructive))' }}>
+              {authError}
+            </p>
+          )}
+        </form>
+      )}
+    </MainPageLayout>
+  );
+}
+
+function ProtectedPage({ children }: { children: ReactNode }) {
+  const { user, isAuthLoading } = useAuth();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (!isAuthLoading && !user) {
+      navigate('/auth');
+    }
+  }, [isAuthLoading, navigate, user]);
+
+  if (isAuthLoading) {
+    return (
+      <main
+        className="welcome-page app-page"
+        style={{ display: 'grid', placeItems: 'center', padding: '24px' }}
+      >
+        <p role="status">Verifica dell’accesso...</p>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  return <>{children}</>;
+}
+
+function ProtectedHomePage() {
+  return (
+    <ProtectedPage>
+      <HomePage />
+    </ProtectedPage>
+  );
+}
+
+function ProtectedProfilePage() {
+  return (
+    <ProtectedPage>
+      <ProfilePage />
+    </ProtectedPage>
+  );
+}
+
+function ProtectedSettingsPage() {
+  return (
+    <ProtectedPage>
+      <SettingsPage />
+    </ProtectedPage>
   );
 }
 
@@ -363,9 +694,10 @@ function Router() {
     <RoutedErrorBoundary>
       <Switch>
         <Route path="/" component={WelcomePage} />
-        <Route path="/home" component={HomePage} />
-        <Route path="/profilo" component={ProfilePage} />
-        <Route path="/impostazioni" component={SettingsPage} />
+        <Route path="/auth" component={AuthPage} />
+        <Route path="/home" component={ProtectedHomePage} />
+        <Route path="/profilo" component={ProtectedProfilePage} />
+        <Route path="/impostazioni" component={ProtectedSettingsPage} />
         <Route component={NotFound} />
       </Switch>
     </RoutedErrorBoundary>
@@ -378,15 +710,58 @@ function RoutedErrorBoundary({ children }: { children: ReactNode }) {
 }
 
 function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [authLoadError, setAuthLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadSession() {
+      const { data, error } = await supabase.auth.getSession();
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (error) {
+        setAuthLoadError('Non è stato possibile verificare l’accesso.');
+      }
+
+      setUser(data.session?.user ?? null);
+      setIsAuthLoading(false);
+    }
+
+    void loadSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) {
+        return;
+      }
+
+      setUser(session?.user ?? null);
+      setIsAuthLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <AuthContext.Provider value={{ user, isAuthLoading, authLoadError }}>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </AuthContext.Provider>
   );
 }
 

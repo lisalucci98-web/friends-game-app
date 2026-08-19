@@ -1,0 +1,1 @@
+- [Profile ownership model](profile-ownership.md) — authenticated ownership uses the separate, unique `profiles.user_id`, preserving existing profile IDs.
