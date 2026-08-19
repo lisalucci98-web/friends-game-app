@@ -309,6 +309,13 @@ function LeaguesPage() {
   const [rpcErrorDetails, setRpcErrorDetails] = useState<RpcErrorDetails | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // — join form state —
+  const [isJoinOpen, setIsJoinOpen] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [joinSuccess, setJoinSuccess] = useState<string | null>(null);
+
   const loadLeagues = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage(null);
@@ -416,6 +423,72 @@ function LeaguesPage() {
     setIsCreating(false);
   }
 
+  async function handleJoinLeague(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedCode = joinCode.trim().toUpperCase();
+
+    setJoinError(null);
+    setJoinSuccess(null);
+
+    if (normalizedCode.length < 6 || normalizedCode.length > 20) {
+      setJoinError('Il codice invito deve contenere da 6 a 20 caratteri.');
+      return;
+    }
+
+    if (!user) {
+      setJoinError('Utente non autenticato.');
+      return;
+    }
+
+    setIsJoining(true);
+
+    const { data, error } = await supabase.rpc('join_league', {
+      p_invite_code: normalizedCode,
+    });
+
+    if (error) {
+      const msg = error.message ?? '';
+      const code = error.code ?? '';
+
+      if (
+        msg.toLowerCase().includes('already') ||
+        msg.toLowerCase().includes('già') ||
+        code === '23505'
+      ) {
+        setJoinError('Sei già membro di questa lega.');
+      } else if (
+        msg.toLowerCase().includes('not found') ||
+        msg.toLowerCase().includes('non trovata') ||
+        msg.toLowerCase().includes('invalid') ||
+        code === 'P0002'
+      ) {
+        setJoinError('Codice invito non trovato. Controlla e riprova.');
+      } else {
+        setJoinError(
+          `Errore Supabase — ${msg || code || 'errore sconosciuto'}`,
+        );
+      }
+
+      setIsJoining(false);
+      return;
+    }
+
+    const joinedName =
+      typeof data === 'string'
+        ? data
+        : (data as { name?: string } | null)?.name ?? null;
+
+    setJoinCode('');
+    setIsJoinOpen(false);
+    setJoinSuccess(
+      joinedName
+        ? `Sei entrata nella lega "${joinedName}".`
+        : 'Sei entrata nella lega con successo.',
+    );
+    await loadLeagues();
+    setIsJoining(false);
+  }
+
   const pageText = isLoading
     ? 'Caricamento delle tue leghe...'
     : errorMessage
@@ -444,6 +517,12 @@ function LeaguesPage() {
         {successMessage && (
           <p role="status" style={{ color: 'hsl(var(--primary))' }}>
             {successMessage}
+          </p>
+        )}
+
+        {joinSuccess && (
+          <p role="status" style={{ color: 'hsl(var(--primary))' }}>
+            {joinSuccess}
           </p>
         )}
 
@@ -508,17 +587,99 @@ function LeaguesPage() {
           </div>
         )}
 
-        <button
-          className="start-button"
-          type="button"
-          onClick={() => {
-            setIsFormOpen((isOpen) => !isOpen);
-            setFormError(null);
-          }}
-          disabled={isCreating}
-        >
-          {isFormOpen ? 'Chiudi form' : 'Crea nuova lega'}
-        </button>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <button
+            className="start-button"
+            type="button"
+            onClick={() => {
+              setIsFormOpen((isOpen) => !isOpen);
+              setIsJoinOpen(false);
+              setFormError(null);
+              setRpcErrorDetails(null);
+            }}
+            disabled={isCreating || isJoining}
+          >
+            {isFormOpen ? 'Chiudi' : 'Crea nuova lega'}
+          </button>
+
+          <button
+            className="start-button"
+            type="button"
+            onClick={() => {
+              setIsJoinOpen((isOpen) => !isOpen);
+              setIsFormOpen(false);
+              setJoinError(null);
+              setJoinSuccess(null);
+            }}
+            disabled={isCreating || isJoining}
+            style={{
+              background: 'hsl(var(--accent))',
+              borderColor: 'hsl(var(--accent))',
+            }}
+          >
+            {isJoinOpen ? 'Chiudi' : 'Entra in una lega'}
+          </button>
+        </div>
+
+        {isJoinOpen && (
+          <form
+            onSubmit={handleJoinLeague}
+            aria-label="Entra in una lega tramite codice invito"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              width: '100%',
+              maxWidth: '430px',
+              textAlign: 'left',
+            }}
+          >
+            <label htmlFor="join-invite-code">Codice invito</label>
+            <input
+              id="join-invite-code"
+              name="join_invite_code"
+              type="text"
+              required
+              minLength={6}
+              maxLength={20}
+              value={joinCode}
+              onChange={(event) => {
+                setJoinCode(event.target.value);
+                setJoinError(null);
+                setJoinSuccess(null);
+              }}
+              disabled={isJoining}
+              placeholder="ABC123"
+              style={{
+                boxSizing: 'border-box',
+                width: '100%',
+                padding: '13px 16px',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '999px',
+                color: 'hsl(var(--foreground))',
+                background: 'hsl(var(--card) / 0.8)',
+                font: 'inherit',
+                textTransform: 'uppercase',
+              }}
+            />
+            <button
+              className="start-button"
+              type="submit"
+              disabled={isJoining}
+              style={{
+                background: 'hsl(var(--accent))',
+                borderColor: 'hsl(var(--accent))',
+              }}
+            >
+              {isJoining ? 'Ingresso...' : 'Entra nella lega'}
+            </button>
+            {joinError && (
+              <p role="alert" style={{ color: 'hsl(var(--destructive))' }}>
+                {joinError}
+              </p>
+            )}
+          </form>
+        )}
 
         {isFormOpen && (
           <form
