@@ -815,6 +815,7 @@ function LeagueDetailPage() {
   const [isCopied, setIsCopied] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
+  const [membersRpcError, setMembersRpcError] = useState<RpcErrorDetails | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -853,12 +854,14 @@ function LeagueDetailPage() {
       );
 
       if (membersError) {
-        const msg = membersError.message?.toLowerCase() ?? '';
-        if (msg.includes('not a member') || msg.includes('non membro')) {
-          setErrorMessage('Non sei membro di questa lega.');
-        } else {
-          setErrorMessage('Non è stato possibile caricare i partecipanti.');
-        }
+        const rpcDiag = {
+          message: membersError.message || '(vuoto)',
+          code: membersError.code || '(vuoto)',
+          details: membersError.details || '(vuoto)',
+          hint: membersError.hint || '(vuoto)',
+        };
+        console.error('[get_league_members] Errore RPC Supabase:', rpcDiag);
+        setMembersRpcError(rpcDiag);
         setIsLoading(false);
         return;
       }
@@ -1013,6 +1016,32 @@ function LeagueDetailPage() {
               </time>
             </p>
           </div>
+
+          {/* Members RPC diagnostic */}
+          {membersRpcError && (
+            <div
+              role="alert"
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '14px 16px',
+                border: '1px solid hsl(var(--destructive) / 0.35)',
+                borderRadius: '16px',
+                color: 'hsl(var(--destructive))',
+                background: 'hsl(var(--destructive) / 0.06)',
+                fontFamily: 'var(--app-font-mono)',
+                fontSize: '0.78rem',
+                lineHeight: 1.55,
+                overflowWrap: 'anywhere',
+                textAlign: 'left',
+              }}
+            >
+              <div><strong>error.message:</strong> {membersRpcError.message}</div>
+              <div><strong>error.code:</strong> {membersRpcError.code}</div>
+              <div><strong>error.details:</strong> {membersRpcError.details}</div>
+              <div><strong>error.hint:</strong> {membersRpcError.hint}</div>
+            </div>
+          )}
 
           {/* Members list */}
           {members.length > 0 && (
