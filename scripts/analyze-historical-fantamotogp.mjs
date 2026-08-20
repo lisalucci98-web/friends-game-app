@@ -214,6 +214,33 @@ function scoreRace(item, official) {
   };
 }
 
+/**
+ * Modello storico prudente.
+ *
+ * Le evidenze consentono di ricostruire:
+ * - punti posizione solo quando il risultato ufficiale è nella Top 5;
+ * - OUT osservato come +1 per un selezionato NOT_CLASSIFIED.
+ *
+ * Il malus non viene inventato: i dati disponibili espongono
+ * NOT_CLASSIFIED, non distinguono DNF/DNS/DSQ e non permettono di dedurre
+ * una funzione unica per i casi GP3/P10 e GP3/P07.
+ */
+function calculateHistoricalRaceScore(item, official) {
+  const current = scoreRace(item, official);
+  const historicalPosition = current.positionDetails.reduce((sum, detail) => {
+    if (detail.officialPosition === null || detail.officialPosition > 5) return sum;
+    return sum + detail.points;
+  }, 0);
+  const historicalOut = current.outStatus === 'NOT_CLASSIFIED' ? 1 : 0;
+  return {
+    knownWithoutMalus: historicalPosition + historicalOut,
+    unresolvedMalus: true,
+    score: null,
+    position: historicalPosition,
+    out: historicalOut,
+  };
+}
+
 const text = await readFile(SOURCE, 'utf8');
 const fixture = parseHistorical(text);
 const rows = [];
@@ -230,6 +257,7 @@ for (const [gp, data] of Object.entries(fixture.gps)) {
   }
   for (const item of data.race) {
     const score = scoreRace(item, official);
+    const historical = calculateHistoricalRaceScore(item, official);
     rows.push({
       gp,
       id: item.id,
@@ -237,7 +265,7 @@ for (const [gp, data] of Object.entries(fixture.gps)) {
       category: 'Gara',
       expected: item.expected,
       actual: score.position + score.out + score.exactOrder + score.topFiveBonus + score.malus,
-      breakdown: score,
+      breakdown: { ...score, historical },
     });
   }
 }
