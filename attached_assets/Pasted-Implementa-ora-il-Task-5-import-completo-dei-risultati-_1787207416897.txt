@@ -1,0 +1,276 @@
+Implementa ora il Task #5: import completo dei risultati MotoGP 2026.
+
+Crea esclusivamente:
+
+scripts/import-motogp-results-2026.mjs
+
+NON modificare:
+- App.tsx
+- index.css
+- UI
+- routing
+- autenticazione
+- schema database
+- RLS
+- altri script esistenti
+
+La tabella public.session_results esiste già.
+
+==================================================
+OBIETTIVO
+==================================================
+
+Importare tutti i risultati ufficiali MotoGP 2026 per:
+
+- 22 GP reali
+- Qualifiche Q
+- Sprint SPR
+- Gara RAC
+
+Escludere gli eventi test.
+
+NON importare:
+- FP
+- PR
+- WUP
+
+==================================================
+FONTI
+==================================================
+
+Usare l'API MotoGP già verificata per recuperare:
+
+- eventi
+- sessioni
+- descriptor delle sessioni
+
+Per ogni sessione usare:
+
+session_files.classification.url
+
+Per le qualifiche:
+
+Q2/QualifyingResults.pdf
+→ classifica finale completa delle qualifiche
+
+Q2/Classification.pdf
+→ pole position e tempo pole
+
+NON usare Grid.pdf per la classifica qualifiche.
+
+Per Sprint e Gara:
+
+Classification.pdf
+
+==================================================
+PARSER PDF
+==================================================
+
+Scaricare i PDF server-side.
+
+Usare:
+
+pdftotext -layout
+
+Il parser deve essere generalizzato per tutti i GP 2026.
+
+Gestire:
+
+- classificati
+- Not classified
+- DNF
+- DNS
+- DSQ
+- piloti senza posizione
+- campi mancanti
+- nomi composti
+- team con spazi
+
+NON inventare dati.
+
+I valori mancanti devono essere null.
+
+==================================================
+MATCHING PILOTI
+==================================================
+
+Usare public.riders.
+
+NON creare nuovi rider.
+
+Il matching deve usare preferibilmente:
+
+1. rider number
+2. nome/cognome
+3. numero + nome/cognome
+
+Se un rider non viene trovato:
+
+- segnalarlo;
+- considerarlo errore critico;
+- NON inserire il risultato.
+
+==================================================
+DATI DA SALVARE
+==================================================
+
+Per ogni risultato:
+
+session_id
+rider_id
+position
+points
+rider_number
+total_time
+gap
+average_speed
+status
+source_url
+
+Inserire nella tabella:
+
+public.session_results
+
+Usare UPSERT idempotente tramite:
+
+session_id + rider_id
+
+NON cancellare record esistenti.
+
+==================================================
+STATUS
+==================================================
+
+Usare esclusivamente:
+
+CLASSIFIED
+NOT_CLASSIFIED
+DNF
+DNS
+DSQ
+
+Se il PDF indica un pilota nella sezione "Not classified", non eliminarlo.
+
+Conservare il record anche se position è null.
+
+==================================================
+DRY RUN
+==================================================
+
+Senza:
+
+--import
+
+non eseguire alcuna scrittura.
+
+Il comando:
+
+node scripts/import-motogp-results-2026.mjs
+
+deve:
+
+1. recuperare tutti i GP;
+2. recuperare Q/SPR/RAC;
+3. scaricare i PDF;
+4. fare parsing;
+5. fare matching dei rider;
+6. eseguire tutte le validazioni;
+7. stampare il report.
+
+==================================================
+VALIDAZIONI BLOCCANTI
+==================================================
+
+Devono essere verificati:
+
+GP elaborati: 22/22
+Q: 22/22
+SPR: 22/22
+RAC: 22/22
+
+Controllare:
+
+- PDF mancanti
+- PDF non leggibili
+- rider non trovati
+- sessioni mancanti
+- righe non interpretate
+- risultati duplicati
+- posizioni duplicate
+- session_id mancanti
+- rider_id mancanti
+- risultati orfani
+
+Se ci sono errori critici:
+
+NON permettere l'import.
+
+==================================================
+REPORT
+==================================================
+
+Stampare un riepilogo per ogni GP.
+
+Alla fine:
+
+IMPORT RISULTATI MOTOGP 2026
+
+GP elaborati: X / 22
+
+QUALIFICHE
+sessioni: X / 22
+risultati: X
+
+SPRINT
+sessioni: X / 22
+risultati: X
+
+GARA
+sessioni: X / 22
+risultati: X
+
+VALIDAZIONI
+
+PDF mancanti: X
+PDF non leggibili: X
+rider non trovati: X
+righe non interpretate: X
+duplicati: X
+posizioni duplicate: X
+sessioni mancanti: X
+risultati orfani: X
+errori critici: X
+
+==================================================
+IMPORT REALE
+==================================================
+
+Con:
+
+node scripts/import-motogp-results-2026.mjs --import
+
+eseguire prima lo stesso dry-run e tutte le validazioni.
+
+Solo se tutto è valido:
+
+- eseguire UPSERT su session_results;
+- rileggere i dati;
+- verificare i conteggi;
+- verificare che non esistano risultati orfani;
+- verificare che una seconda esecuzione non aumenti il numero di record.
+
+Usare SUPABASE_SERVICE_ROLE_KEY esclusivamente server-side.
+
+NON stampare mai la chiave.
+
+==================================================
+IMPORTANTE
+==================================================
+
+Prima di terminare:
+
+- esegui il dry-run;
+- NON eseguire automaticamente --import;
+- NON modificare altri file.
+
+Restituisci il report completo del dry-run.
