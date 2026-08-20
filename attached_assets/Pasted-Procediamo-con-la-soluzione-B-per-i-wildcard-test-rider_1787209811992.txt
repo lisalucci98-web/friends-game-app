@@ -1,0 +1,118 @@
+Procediamo con la soluzione B per i wildcard/test rider.
+
+Voglio modificare esclusivamente:
+
+1. scripts/import-motogp-roster-2026.mjs
+2. scripts/import-motogp-results-2026.mjs
+
+NON modificare:
+- App.tsx
+- UI
+- routing
+- autenticazione
+- RLS
+- schema database
+
+OBIETTIVO
+
+I piloti wildcard/test che compaiono nei risultati ufficiali MotoGP devono poter essere presenti in public.riders, perché session_results.rider_id deve sempre riferirsi a un rider valido.
+
+Tuttavia NON devono essere inseriti in rider_seasons e quindi NON devono diventare piloti selezionabili nel FantamotoGP.
+
+CASO ATTUALE
+
+Augusto Fernández #47:
+
+MotoGP API:
+- id: eb7f90b1-9373-4089-b2f5-adbc234a3526
+- name: Augusto
+- surname: Fernandez
+- number: 47
+- category: MotoGP
+- team: Yamaha Factory Racing Team
+- team type: Test
+- rider type: Wildcard
+- retired: true
+- in_grid: true
+- season: 2026
+
+IMPLEMENTAZIONE
+
+1. import-motogp-roster-2026.mjs
+
+Mantieni invariato il comportamento per i 29 rider del roster principale.
+
+NON aggiungere wildcard/test rider a rider_seasons.
+
+Se un wildcard/test rider è necessario per i risultati ufficiali, può essere presente in public.riders con:
+
+active = false
+
+L'import deve essere idempotente.
+
+2. import-motogp-results-2026.mjs
+
+Quando durante il parsing dei PDF viene trovato un pilota che:
+
+- non esiste in public.riders;
+- è presente nell'anagrafica ufficiale MotoGP;
+- è un wildcard/test rider;
+
+deve poter essere risolto come rider ufficiale.
+
+Preferibilmente:
+
+- cercare prima il rider locale;
+- se non trovato, cercarlo nell'API MotoGP tramite numero + nome;
+- verificare che categoria = MotoGP;
+- verificare che sia wildcard/test;
+- creare/upsertare il record in public.riders con active = false;
+- NON creare rider_seasons;
+- usare quindi il relativo rider_id per session_results.
+
+NON creare automaticamente record locali per piloti normali mancanti.
+Se manca un pilota che dovrebbe appartenere al roster principale, deve continuare a essere un errore bloccante.
+
+3. Non usare il MotoGP API UUID come public.riders.id.
+
+public.riders.id deve continuare a essere generato secondo lo schema Supabase esistente.
+
+4. Aggiungi al report una sezione:
+
+WILDCARD/TEST RIDER
+- Augusto Fernandez #47 → importato in riders, non presente in rider_seasons
+
+5. Esegui prima:
+
+node scripts/import-motogp-roster-2026.mjs
+
+senza --import, se possibile, per verificare il comportamento.
+
+Poi esegui:
+
+node scripts/import-motogp-results-2026.mjs
+
+sempre SENZA --import.
+
+OBIETTIVO DEL DRY-RUN RISULTATI
+
+GP disputati: 12
+Qualifiche: 12/12
+Sprint: 12/12
+Gare: 12/12
+
+PDF mancanti disputati: 0
+Rider non trovati: 0
+Righe non interpretate: 0
+Duplicati: 0
+Posizioni duplicate: 0
+Risultati orfani: 0
+Errori critici: 0
+
+Augusto Fernández deve essere riconosciuto correttamente come wildcard/test rider.
+
+NON eseguire ancora:
+
+node scripts/import-motogp-results-2026.mjs --import
+
+Fermati dopo il dry-run e mostrami il report completo.

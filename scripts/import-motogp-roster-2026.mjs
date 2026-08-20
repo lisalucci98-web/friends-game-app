@@ -19,6 +19,11 @@ const SUPABASE_URL = (
 ).replace(/\/$/, '');
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
+function isWildcardOrTestRider(sourceRider) {
+  const step = sourceRider.current_career_step ?? {};
+  return step.type === 'Wildcard' || step.team?.type === 'Test';
+}
+
 async function get(path) {
   const url = `${API_BASE}${path}`;
   const response = await fetch(url, {
@@ -283,6 +288,7 @@ try {
   const teams = [];
   const teamIds = new Set();
   const riderSources = [];
+  let excludedWildcardTestRiders = 0;
 
   for (const sourceTeam of sourceTeams) {
     const teamId = valueOrNull(sourceTeam.id);
@@ -334,6 +340,10 @@ try {
     }
 
     for (const sourceRider of sourceRiders) {
+      if (isWildcardOrTestRider(sourceRider)) {
+        excludedWildcardTestRiders += 1;
+        continue;
+      }
       riderSources.push({
         sourceRider,
         teamId,
@@ -472,6 +482,7 @@ try {
 
   console.log(`  Piloti MotoGP validati: ${riders.length}`);
   console.log(`  Relazioni rider_seasons preparate: ${riderSeasons.length}`);
+  console.log(`  Wildcard/test rider esclusi dal roster: ${excludedWildcardTestRiders}`);
   console.log('\n  Elenco piloti preparati:');
   for (const rider of riders) {
     const relation = riderSeasons.find(item => item.rider_id === rider.id);
