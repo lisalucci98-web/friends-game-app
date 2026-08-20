@@ -680,6 +680,22 @@ function predictionErrorMessage(error: { message?: string | null } | null) {
   return code ? messages[code] : 'Non è stato possibile salvare il pronostico. Riprova.';
 }
 
+function poleTimeToSeconds(value: string) {
+  const match = value.trim().match(/^(\d{2}):([0-5]\d)\.(\d{3})$/);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]) + Number(match[3]) / 1000;
+}
+
+function formatPoleTime(value: string | number | null) {
+  if (value === null || value === '') return '';
+  if (typeof value === 'string' && /^\d{2}:[0-5]\d\.\d{3}$/.test(value)) return value;
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds < 0) return '';
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds - minutes * 60;
+  return `${String(minutes).padStart(2, '0')}:${remainingSeconds.toFixed(3).padStart(6, '0')}`;
+}
+
 function resultTiming(result: RawSessionResult) {
   const gap = result.gap?.trim();
   const totalTime = result.total_time?.trim();
@@ -2346,7 +2362,7 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
       if (isMounted) {
         setPrediction(predictionRow);
         setPoleRiderId(predictionRow.qualifying_pole_rider_id ?? '');
-        setPoleTime(predictionRow.qualifying_pole_time == null ? '' : String(predictionRow.qualifying_pole_time));
+        setPoleTime(formatPoleTime(predictionRow.qualifying_pole_time));
         setSprintRiderIds(byType('SPRINT', [1, 2, 3]));
         setRaceRiderIds(byType('RACE', [1, 2, 3, 4, 5]));
         setRaceOutRiderId(predictionRow.race_out_rider_id ?? '');
@@ -2423,7 +2439,7 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
       p_grand_prix_id: selectedGrandPrixId,
       p_league_id: selectedLeagueId,
       p_qualifying_pole_rider_id: poleRiderId,
-      p_qualifying_pole_time: poleTime,
+      p_qualifying_pole_time: poleTimeToSeconds(poleTime),
       p_sprint_rider_ids: sprintRiderIds,
       p_race_rider_ids: raceRiderIds,
       p_race_out_rider_id: raceOutRiderId,
