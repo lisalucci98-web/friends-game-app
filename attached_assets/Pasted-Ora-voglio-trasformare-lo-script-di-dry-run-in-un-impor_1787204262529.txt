@@ -1,0 +1,104 @@
+Ora voglio trasformare lo script di dry-run in un import reale del roster MotoGP 2026.
+
+IMPORTANTE:
+- NON modificare App.tsx
+- NON modificare UI
+- NON modificare routing
+- NON modificare autenticazione
+- NON modificare le policy RLS
+- NON modificare lo schema delle tabelle
+- NON usare la service_role key nel frontend
+- L'import deve essere eseguito esclusivamente server-side
+
+Tabelle già esistenti:
+
+public.seasons
+public.teams
+public.riders
+public.rider_seasons
+
+Stagione 2026:
+
+season_id =
+e88b4e43-2209-47aa-8e83-0e0b1cedde6e
+
+Lo script di dry-run ha verificato:
+
+- 11 team
+- 29 piloti
+- 29 rider_seasons
+- 0 duplicati
+- 0 piloti senza team
+- 0 dati incoerenti
+
+Voglio ora aggiungere allo script:
+
+scripts/import-motogp-roster-2026.mjs
+
+la possibilità di effettuare l'IMPORT REALE.
+
+Prima dell'import:
+
+1. verifica che la stagione 2026 esista in public.seasons;
+2. recupera nuovamente i dati dall'API MotoGP;
+3. ricostruisci teams, riders e rider_seasons;
+4. esegui nuovamente tutte le validazioni del dry-run;
+5. se una validazione critica fallisce, interrompi completamente l'import.
+
+IMPORTANTE:
+NON utilizzare INSERT ciechi.
+
+Usa UPSERT dove appropriato, in modo che lo script possa essere eseguito nuovamente senza creare duplicati.
+
+Per public.teams:
+upsert usando id come chiave.
+
+Per public.riders:
+upsert usando id come chiave.
+
+Per public.rider_seasons:
+upsert usando la combinazione unica rider_id + season_id.
+
+L'import deve:
+
+1. inserire/aggiornare gli 11 team;
+2. inserire/aggiornare i 29 piloti;
+3. inserire/aggiornare i 29 record rider_seasons.
+
+NON cancellare automaticamente record esistenti.
+
+Dopo l'import esegui una verifica leggendo da Supabase:
+
+- numero team 2026;
+- numero piloti 2026;
+- numero rider_seasons 2026;
+- eventuali duplicati;
+- eventuali rider_seasons senza rider;
+- eventuali rider_seasons senza team.
+
+Alla fine stampa un report:
+
+IMPORT COMPLETATO
+
+Teams: X
+Riders: X
+Rider seasons: X
+
+Verifiche:
+- duplicati: X
+- rider senza team: X
+- rider_seasons orfani: X
+- errori: X
+
+Se tutto è corretto, esegui anche un controllo specifico:
+
+public.rider_seasons
+JOIN riders
+JOIN teams
+JOIN seasons
+
+e stampa una tabella leggibile:
+
+Numero | Pilota | Team | Stagione
+
+NON modificare nessun altro file.
