@@ -1,0 +1,219 @@
+Implementa il sistema database per i pronostici di FantaMotoGP, senza modificare per ora la UI.
+
+Obiettivo
+
+Ogni utente autenticato deve poter inserire il proprio pronostico per ogni GP, composto da:
+
+Pole position
+Podio gara: 1°, 2°, 3°
+Vincitore Sprint
+eventualmente altri campi solo se già previsti dallo schema concordato.
+
+Il pronostico deve essere modificabile fino alla relativa deadline. Dopo la chiusura non deve più essere possibile modificarlo.
+
+Prima di modificare
+
+Verifica nuovamente in sola lettura:
+
+profiles
+seasons
+grand_prix
+sessions
+riders
+rider_seasons
+league_members
+
+Non modificare le tabelle esistenti.
+
+Database
+
+Crea:
+
+predictions
+
+Deve identificare un pronostico di un utente per uno specifico GP.
+
+Campi consigliati:
+
+id
+user_id
+grand_prix_id
+created_at
+updated_at
+
+Con vincolo:
+
+UNIQUE(user_id, grand_prix_id)
+
+user_id deve referenziare auth.users(id).
+
+prediction_entries
+
+Deve contenere le singole previsioni.
+
+Struttura concettuale:
+
+id
+prediction_id
+prediction_type
+position
+rider_id
+created_at
+
+Dove prediction_type identifica almeno:
+
+POLE
+SPRINT_WINNER
+RACE_PODIUM
+
+Per RACE_PODIUM, position sarà:
+
+1
+2
+3
+
+Aggiungi foreign key appropriate verso:
+
+predictions.id
+riders.id
+
+e vincoli per impedire dati incoerenti o duplicati.
+
+Deadline
+
+Le deadline non devono essere inserite manualmente dall'utente.
+
+Devono essere derivate dalle sessioni ufficiali presenti in:
+
+public.sessions
+
+Per le qualifiche utilizzare la sessione Q2, non Q1.
+
+Per il pronostico della gara utilizzare la sessione:
+
+RAC
+
+Per lo Sprint:
+
+SPR
+
+La logica deve quindi essere basata su sessions.session_date.
+
+Il server deve verificare la deadline utilizzando il proprio timestamp corrente, non un valore inviato dal frontend.
+
+Importante: qualifiche Q1/Q2
+
+Nel database esistono due sessioni con:
+
+type = 'Q'
+
+Non assumere che la prima sessione Q sia quella corretta.
+
+Per determinare la deadline qualifiche utilizzare la sessione Q2, identificabile tramite:
+
+type = 'Q'
+number = 2
+
+Se Q2 non esiste, la RPC deve restituire un errore esplicito.
+
+RPC
+
+Crea una funzione PostgreSQL atomica:
+
+submit_prediction
+
+La funzione deve:
+
+identificare automaticamente l'utente autenticato tramite auth.uid();
+verificare che sia autenticato;
+verificare che il GP esista;
+recuperare le sessioni necessarie;
+verificare le deadline;
+rifiutare il salvataggio se una deadline è scaduta;
+validare che i rider appartengano al roster MotoGP della stagione;
+impedire duplicati;
+creare o aggiornare il relativo prediction;
+sostituire atomicamente gli prediction_entries;
+restituire un risultato chiaro con successo/errore.
+
+Non fidarti mai delle deadline, user_id o league_id inviati dal frontend.
+
+RLS
+
+Configura RLS in modo che:
+
+un utente autenticato possa leggere solo i propri pronostici;
+possa creare/modificare solo i propri pronostici;
+non possa leggere i pronostici degli altri utenti;
+utenti anonimi non possano accedere ai pronostici.
+
+Le operazioni sensibili devono passare dalla RPC.
+
+Non usare service_role nel frontend.
+
+Leghe
+
+Non duplicare il concetto di appartenenza alla lega dentro predictions.
+
+Il pronostico deve essere personale dell'utente e associato al GP.
+
+L'applicazione potrà successivamente mostrare lo stesso pronostico all'interno delle diverse leghe a cui l'utente appartiene.
+
+Validazioni
+
+La funzione deve impedire almeno:
+
+stesso rider in due posizioni del podio;
+posizione podio diversa da 1, 2 o 3;
+più di un vincitore Sprint;
+più di una pole;
+rider non appartenente al roster stagionale;
+GP inesistente;
+utente non autenticato;
+modifica dopo deadline;
+duplicazione dello stesso prediction_type + position.
+Non modificare
+
+Per questo task NON modificare:
+
+App.tsx
+index.css
+routing
+pagine esistenti
+autenticazione
+sistema punteggi
+importer MotoGP
+risultati
+sessions
+grand_prix
+riders
+rider_seasons
+league_members
+Test
+
+Dopo la creazione esegui verifiche read-only e test controllati per verificare:
+
+creazione pronostico;
+modifica pronostico prima della deadline;
+rifiuto dopo deadline;
+impossibilità di usare rider non appartenenti al roster;
+impossibilità di duplicare rider nel podio;
+isolamento RLS tra utenti;
+corretta selezione della Q2 come deadline qualifiche;
+atomicità della sostituzione delle entries.
+
+Non lasciare dati di test permanenti nel database.
+
+Output finale
+
+Al termine riportami:
+
+tabelle create;
+colonne e vincoli;
+policy RLS;
+RPC create;
+esempio di chiamata RPC;
+test eseguiti e risultato;
+eventuali anomalie.
+
+Non implementare ancora la pagina UI dei pronostici. Prima voglio verificare che database, RLS e RPC funzionino correttamente.
