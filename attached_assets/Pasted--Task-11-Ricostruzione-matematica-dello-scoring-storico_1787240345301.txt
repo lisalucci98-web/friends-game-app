@@ -1,0 +1,155 @@
+## Task #11 — Ricostruzione matematica dello scoring storico FantaMotoGP
+
+Il Task #10 è bloccato perché non possiamo eseguire `score_prediction` su una fixture Supabase isolata.
+
+NON voglio aggirare questo blocco creando dati persistenti.
+
+Voglio invece sfruttare i dati storici già disponibili per ricostruire e verificare matematicamente il comportamento dello scoring del vecchio FantaMotoGP.
+
+### OBIETTIVO
+
+Utilizzare esclusivamente:
+
+1. pronostici storici;
+2. risultati ufficiali dei relativi GP già presenti nei dati forniti;
+3. punteggi storici effettivamente assegnati;
+
+per ricostruire una funzione locale di riferimento dello scoring.
+
+Questa funzione NON deve essere usata dall'applicazione e NON deve sostituire la RPC Supabase.
+
+Deve essere esclusivamente uno strumento di analisi/test.
+
+---
+
+# IMPORTANTE
+
+Non modificare:
+
+- Supabase;
+- RPC;
+- RLS;
+- UI;
+- prediction reali;
+- risultati ufficiali;
+- schema database.
+
+Non creare fixture persistenti.
+
+Tutto il test deve essere eseguibile localmente.
+
+---
+
+# REGOLAMENTO DA VERIFICARE
+
+## QUALIFICHE
+
+Tempo:
+
+- <= ±0.010 s → 10 punti
+- <= 0.1% → 5 punti
+- <= 0.25% → 3 punti
+- <= 0.5% → 1 punto
+- oltre → 0
+
+Pole:
+
+- P1 → 5
+- P2 → 2
+- altro → 0
+
+Totale Qualifica:
+
+tempo + pole.
+
+---
+
+## SPRINT
+
+Top 3:
+
+- posizione esatta → 3 punti;
+- differenza di una posizione → 1 punto;
+- altro → 0.
+
+---
+
+## GARA
+
+Top 5:
+
+- posizione esatta → 5;
+- differenza di una posizione → 3;
+- pilota comunque nella Top 5 → 1;
+- fuori Top 5 → 0.
+
+OUT:
+
+- pilota dichiarato OUT → +2.
+
+Bonus:
+
+- ordine esatto Top 5 → +5;
+- 4 delle prime 5 posizioni → +3;
+- 3 delle prime 5 → +1;
+- tutti e 5 i piloti nella Top 5 indipendentemente dall'ordine → +2.
+
+Malus:
+
+- un pilota selezionato non conclude → -1;
+- tre piloti selezionati non concludono → -5;
+- tutti e cinque non concludono → -10.
+
+---
+
+# COSA DEVI FARE
+
+## 1. Creare un modello locale
+
+Crea uno script:
+
+scripts/analyze-historical-fantamotogp.mjs
+
+Lo script deve contenere:
+
+- dataset dei pronostici storici;
+- risultati ufficiali dei GP;
+- punteggi storici attesi;
+- algoritmo locale di scoring.
+
+Non usare la RPC Supabase per il calcolo.
+
+---
+
+## 2. Ricostruire i punteggi
+
+Per ogni partecipante e per ogni GP:
+
+calcolare:
+
+```text
+Qualifica:
+  tempo
+  pole
+  totale qualifica
+
+Sprint:
+  P1
+  P2
+  P3
+  totale Sprint
+
+Gara:
+  P1
+  P2
+  P3
+  P4
+  P5
+  OUT
+  bonus ordine
+  bonus Top 5
+  malus
+  totale Gara
+
+Totale GP:
+  Qualifica + Sprint + Gara
