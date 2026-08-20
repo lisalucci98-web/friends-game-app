@@ -17,6 +17,7 @@ const API_BASE = 'https://api.motogp.pulselive.com/motogp/v1';
 const SEASON_ID = 'e88b4e43-2209-47aa-8e83-0e0b1cedde6e';
 const SEASON_YEAR = 2026;
 const RESULTS_CATEGORY_ID = 'e8c110ad-64aa-4e8e-8a86-f2f152f6a942';
+const MOTOGP_CONTENT_CATEGORY_ID = '737ab122-76e1-4081-bedb-334caaa18c70';
 const IMPORT_MODE = process.argv.includes('--import');
 const TMP_DIR = join(tmpdir(), 'motogp-results-2026');
 const SUPABASE_URL = (
@@ -27,7 +28,8 @@ const SUPABASE_URL = (
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
 const counters = {
-  missingPdf: 0,
+  missingPdfFuture: 0,
+  missingPdfDisputed: 0,
   unreadablePdf: 0,
   riderNotFound: 0,
   unparsedRows: 0,
@@ -39,7 +41,8 @@ const counters = {
 };
 
 const details = {
-  missingPdf: [],
+  missingPdfFuture: [],
+  missingPdfDisputed: [],
   unreadablePdf: [],
   riderNotFound: [],
   unparsedRows: [],
@@ -48,6 +51,7 @@ const details = {
   orphanResults: [],
   requestFailures: [],
 };
+const missingRiderKeys = new Set();
 
 function section(title) {
   console.log(`\n${'═'.repeat(76)}\n${title}\n${'═'.repeat(76)}`);
@@ -191,6 +195,43 @@ function descriptorFilesFor(source, descriptor) {
   return { ...filesFromDescriptor(descriptor), apiSessionId: sessionId(source) };
 }
 
+function isPastDate(value, now = new Date()) {
+  if (!value) return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && date.getTime() <= now.getTime();
+}
+
+function apiRiderSummary(rider) {
+  if (!rider) return null;
+  const step = rider.current_career_step ?? {};
+  const team = step.team ?? {};
+  const category = step.category ?? {};
+  return {
+    id: rider.id ?? null,
+    name: rider.name ?? null,
+    surname: rider.surname ?? null,
+    number: step.number ?? rider.number ?? null,
+    category: category.name ?? null,
+    team: team.name ?? null,
+    current_career_step: step.id ?? null,
+    team_type: team.type ?? null,
+    rider_type: step.type ?? null,
+    retired: rider.retired ?? null,
+  };
+}
+
+function apiRiderForMissing(detail, apiRiders) {
+  const normalizedLine = normalizeText(detail.line);
+  const numberMatches = apiRiders.filter(rider => {
+    const step = rider.current_career_step ?? {};
+    return Number(step.number ?? rider.number) === Number(detail.rider_number);
+  });
+  const fullMatches = numberMatches.filter(rider =>
+    normalizedLine.includes(normalizeText(`${rider.name ?? ''} ${rider.surname ?? ''}`)),
+  );
+  return fullMatches[0] ?? numberMatches[0] ?? null;
+}
+
 function statusFromValue(value, sectionName, hasPosition) {
   const raw = normalizeText(value);
   if (raw.includes('DISQUAL')) return 'DSQ';
@@ -260,14 +301,16 @@ function parsePdfRows(text, riders, sourceUrl, context) {
     if (!rider) {
       // Solo le righe che assomigliano a una riga dati contano come non interpretate.
       if (/\b(?:[A-Z]{3})\b/.test(start[3]) || /(?:\d+'\d+\.\d+|\d+:\d+:\d+)/.test(line)) {
-        counters.riderNotFound += 1;
-        details.riderNotFound.push({
-          ...context,
-          rider_number: riderNumber,
-          line: line.trim(),
-        });
-        counters.unparsedRows += 1;
-        details.unparsedRows.push({ ...context, line: line.trim() });
+        const key = `${riderNumber}:${normalizeText(line)}`;
+        if (!missingRiderKeys.has(key)) {
+          missingRiderKeys.add(key);
+          counters.riderNotFound += 1;
+          details.riderNotFound.push({
+            ...context,
+            rider_number: riderNumber,
+            line: line.trim(),
+          });
+        }
       }
       continue;
     }
@@ -339,11 +382,13 @@ function criticalErrors(expected) {
   const errors = [];
   if (expected.gpCount !== 22) errors.push(`GP elaborati ${expected.gpCount}/22.`);
   for (const type of ['Q', 'SPR', 'RAC']) {
-    if (expected.sessionCounts[type] !== 22) {
-      errors.push(`${type}: ${expected.sessionCounts[type]}/22 sessioni.`);
+    if (expected.sessionCounts[type] !== expected.disputedGpCount) {
+      errors.push(`${type}: ${expected.sessionCounts[type]}/${expected.disputedGpCount} sessioni disputate.`);
     }
   }
-  if (counters.missingPdf) errors.push(`PDF mancanti: ${counters.missingPdf}.`);
+  if (counters.missingPdfDisputed) {
+    errors.push(`PDF mancanti per GP disputati: ${counters.missingPdfDisputed}.`);
+  }
   if (counters.unreadablePdf) errors.push(`PDF non leggibili: ${counters.unreadablePdf}.`);
   if (counters.riderNotFound) errors.push(`Rider non trovati: ${counters.riderNotFound}.`);
   if (counters.unparsedRows) errors.push(`Righe non interpretate: ${counters.unparsedRows}.`);
@@ -411,6 +456,29 @@ try {
     ...rider,
     number: riderSeasons.find(row => row.rider_id === rider.id)?.number ?? null,
   }));
+  const apiRoster = listFrom(
+    await apiGet(
+      `/riders?seasonYear=${SEASON_YEAR}&categoryUuid=${MOTOGP_CONTENT_CATEGORY_ID}`,
+    ),
+    ['riders', 'items', 'results'],
+  );
+  console.log(`Piloti MotoGP 2026 nell'API: ${apiRoster.length}`);
+  const apiAugusto = apiRoster.find(rider =>
+    normalizeText(`${rider.name ?? ''} ${rider.surname ?? ''}`) === 'AUGUSTO FERNANDEZ' &&
+    Number(rider.current_career_step?.number ?? rider.number) === 47,
+  );
+  if (apiAugusto) {
+    console.log('Diagnostica API rider #47:', JSON.stringify(apiRiderSummary(apiAugusto)));
+    console.log(
+      `Confronto public.riders: ${
+        riders.some(rider =>
+          normalizeText(`${rider.name ?? ''} ${rider.surname ?? ''}`) === 'AUGUSTO FERNANDEZ',
+        )
+          ? 'presente'
+          : 'ASSENTE'
+      }`,
+    );
+  }
   console.log(`GP reali in Supabase: ${grandPrixRows.length}`);
   console.log(`Sessioni candidate: ${dbSessions.length}`);
   console.log(`Piloti disponibili per matching: ${seasonRiders.length}`);
@@ -436,6 +504,8 @@ try {
   const sessionCounts = { Q: 0, SPR: 0, RAC: 0 };
   const resultCounts = { Q: 0, SPR: 0, RAC: 0 };
   const reportRows = [];
+  const disputedGps = [];
+  const now = new Date();
 
   for (const [gpIndex, gp] of grandPrixRows.entries()) {
     const event = eventMap.get(gp.id);
@@ -456,6 +526,9 @@ try {
     };
     const selected = {};
     const gpReport = { name: gp.name, sessions: {}, results: {} };
+    const dbRace = dbForGp.find(row => row.type === 'RAC');
+    const isDisputed = isPastDate(dbRace?.session_date, now) || isPastDate(gp.date_end, now);
+    if (isDisputed) disputedGps.push(gp.id);
 
     for (const type of ['Q', 'SPR', 'RAC']) {
       const dbCandidates = dbForGp.filter(row => row.type === type);
@@ -473,8 +546,13 @@ try {
       const files = descriptorFilesFor(apiSession, descriptor);
       const pdfUrl = type === 'Q' ? files.qualifyingResults : files.classification;
       if (!pdfUrl) {
-        counters.missingPdf += 1;
-        details.missingPdf.push({ gp: gp.name, type, session_id: dbSession.id });
+        if (isDisputed) {
+          counters.missingPdfDisputed += 1;
+          details.missingPdfDisputed.push({ gp: gp.name, type, session_id: dbSession.id });
+        } else {
+          counters.missingPdfFuture += 1;
+          details.missingPdfFuture.push({ gp: gp.name, type, session_id: dbSession.id });
+        }
         gpReport.sessions[type] = 'PDF ASSENTE';
         continue;
       }
@@ -537,19 +615,23 @@ try {
   const expected = {
     gpCount: grandPrixRows.length,
     sessionCounts,
+    disputedGpCount: disputedGps.length,
   };
   const errors = criticalErrors(expected);
   counters.criticalErrors = errors.length;
 
   section('IMPORT RISULTATI MOTOGP 2026');
-  console.log(`GP elaborati: ${grandPrixRows.length} / 22`);
+  console.log(`GP totali: ${grandPrixRows.length}`);
+  console.log(`GP disputati: ${disputedGps.length}`);
+  console.log(`GP futuri: ${grandPrixRows.length - disputedGps.length}`);
   for (const type of ['Q', 'SPR', 'RAC']) {
     console.log(`${type === 'Q' ? 'QUALIFICHE' : type === 'SPR' ? 'SPRINT' : 'GARA'}`);
-    console.log(`sessioni: ${sessionCounts[type]} / 22`);
+    console.log(`sessioni: ${sessionCounts[type]} / ${disputedGps.length}`);
     console.log(`risultati: ${resultCounts[type]}`);
   }
   section('VALIDAZIONI');
-  console.log(`PDF mancanti: ${counters.missingPdf}`);
+  console.log(`PDF mancanti futuri: ${counters.missingPdfFuture}`);
+  console.log(`PDF mancanti disputati: ${counters.missingPdfDisputed}`);
   console.log(`PDF non leggibili: ${counters.unreadablePdf}`);
   console.log(`rider non trovati: ${counters.riderNotFound}`);
   console.log(`righe non interpretate: ${counters.unparsedRows}`);
@@ -559,11 +641,25 @@ try {
   console.log(`risultati orfani: ${counters.orphanResults}`);
   console.log(`errori critici: ${counters.criticalErrors}`);
 
-  if (details.missingPdf.length) console.log('\nPDF mancanti:', JSON.stringify(details.missingPdf, null, 2));
+  if (details.missingPdfFuture.length) {
+    console.log('\nPDF mancanti futuri:', JSON.stringify(details.missingPdfFuture, null, 2));
+  }
+  if (details.missingPdfDisputed.length) {
+    console.log('\nPDF mancanti disputati:', JSON.stringify(details.missingPdfDisputed, null, 2));
+  }
   if (details.unreadablePdf.length) console.log('\nPDF non leggibili:', JSON.stringify(details.unreadablePdf, null, 2));
   if (details.riderNotFound.length) console.log('\nRider non trovati:', JSON.stringify(details.riderNotFound, null, 2));
   if (details.unparsedRows.length) console.log('\nRighe non interpretate:', JSON.stringify(details.unparsedRows.slice(0, 30), null, 2));
   if (details.missingSessions.length) console.log('\nSessioni mancanti:', JSON.stringify(details.missingSessions, null, 2));
+  if (details.riderNotFound.length) {
+    console.log('\nDiagnostica rider non trovati:');
+    details.riderNotFound.forEach(detail => {
+      console.log(JSON.stringify({
+        ...detail,
+        api: apiRiderSummary(apiRiderForMissing(detail, apiRoster)),
+      }, null, 2));
+    });
+  }
 
   if (errors.length > 0) {
     errors.forEach(error => console.error(`✗ ${error}`));

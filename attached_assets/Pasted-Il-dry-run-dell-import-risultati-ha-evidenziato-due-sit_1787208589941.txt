@@ -1,0 +1,94 @@
+Il dry-run dell'import risultati ha evidenziato due situazioni.
+
+NON eseguire ancora --import.
+
+Voglio correggere esclusivamente lo script:
+
+scripts/import-motogp-results-2026.mjs
+
+e, se necessario, aggiornare il roster tramite lo script già esistente.
+
+PROBLEMA 1 — GP FUTURI
+
+Il calendario contiene 22 GP, ma al momento solo 12 GP sono disputati e hanno PDF ufficiali disponibili.
+
+Modifica la logica di validazione affinché:
+
+- PDF mancanti per GP FUTURI = NON ERRORE
+- PDF mancanti per GP GIÀ DISPUTATI = ERRORE CRITICO
+
+Usa le date delle sessioni/eventi già presenti nel database per distinguere le sessioni future da quelle già concluse.
+
+Il report deve diventare:
+
+GP totali: 22
+GP disputati: 12
+GP futuri: 10
+
+Qualifiche disponibili: 12/12
+Sprint disponibili: 12/12
+Gare disponibili: 12/12
+
+PDF mancanti futuri: 30
+PDF mancanti disputati: 0
+
+I PDF mancanti futuri non devono bloccare l'import.
+
+PROBLEMA 2 — RIDER #47
+
+Il parser trova nei PDF:
+
+Augusto Fernandez
+numero 47
+
+ma il rider non esiste in public.riders.
+
+NON creare il rider direttamente nel database.
+
+Prima verifica tramite l'API MotoGP:
+
+/riders
+
+e:
+
+/riders?seasonYear=2026&categoryUuid=737ab122-76e1-4081-bedb-334caaa18c70
+
+Verifica se Augusto Fernandez #47 esiste nell'anagrafica API.
+
+Se esiste:
+
+- mostra id
+- nome
+- cognome
+- numero
+- categoria
+- team
+- current_career_step
+
+Confrontalo con public.riders.
+
+Determina perché il precedente import roster ha prodotto 29 rider invece di includere questo pilota.
+
+NON fare ancora modifiche al database se non necessarie.
+
+Se il rider è effettivamente un pilota MotoGP 2026 presente nei risultati ufficiali e nell'API roster, prepara una correzione dello script import-motogp-roster-2026.mjs oppure indicami esattamente quale record manca.
+
+NON modificare App.tsx o la UI.
+
+Alla fine esegui nuovamente il dry-run dei risultati.
+
+Obiettivo finale:
+
+GP disputati: 12/12
+Q: 12/12
+SPR: 12/12
+RAC: 12/12
+
+PDF mancanti disputati: 0
+Rider non trovati: 0
+Righe non interpretate: 0
+Duplicati: 0
+Posizioni duplicate: 0
+Errori critici: 0
+
+NON eseguire --import.
