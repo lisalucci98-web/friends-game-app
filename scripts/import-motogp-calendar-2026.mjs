@@ -1,20 +1,28 @@
 /**
- * Dry-run import calendario e sessioni MotoGP 2026.
+ * Import calendario e sessioni MotoGP 2026.
  *
- * Questo script legge l'API pubblica MotoGP e costruisce in memoria i record
- * destinati a public.grand_prix e public.sessions.
- * Non esegue INSERT, UPDATE, UPSERT o DELETE su Supabase.
+ * Default: dry-run, nessuna scrittura.
+ * Import reale: node scripts/import-motogp-calendar-2026.mjs --import
  */
 
 const API_BASE = 'https://api.motogp.pulselive.com/motogp/v1';
 const SEASON_ID = 'e88b4e43-2209-47aa-8e83-0e0b1cedde6e';
 const RESULTS_CATEGORY_ID = 'e8c110ad-64aa-4e8e-8a86-f2f152f6a942';
 const SEASON_YEAR = 2026;
-const KNOWN_SESSION_TYPES = ['FP', 'PR', 'Q', 'SPR', 'WUP', 'RAC'];
+const IMPORT_MODE = process.argv.includes('--import');
+const KNOWN_SESSION_TYPES = ['FP', 'PR', 'Q', 'SPR', 'WUP', 'RAC', 'RAC2'];
+const SUPABASE_URL = (
+  process.env.SUPABASE_URL ??
+  process.env.VITE_SUPABASE_URL ??
+  ''
+).replace(/\/$/, '');
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
 const anomalies = {
   duplicateGrandPrix: 0,
   duplicateSessions: 0,
+  grandPrixWithoutId: [],
+  sessionsWithoutId: [],
   grandPrixWithoutQ: [],
   grandPrixWithoutSprint: [],
   grandPrixWithoutRace: [],
@@ -56,6 +64,47 @@ function printRecord(label, record) {
   console.log(`  ${label}: ${JSON.stringify(record)}`);
 }
 
+function criticalValidationErrors(grandPrixRecords, sessionRecords) {
+  const errors = [];
+
+  if (grandPrixRecords.length === 0) errors.push('Nessun GP reale preparato.');
+  if (sessionRecords.length === 0) errors.push('Nessuna sessione preparata.');
+  if (anomalies.requestFailures.length > 0) {
+    errors.push(`Richieste API fallite: ${anomalies.requestFailures.length}.`);
+  }
+  if (anomalies.duplicateGrandPrix > 0) {
+    errors.push(`GP duplicati: ${anomalies.duplicateGrandPrix}.`);
+  }
+  if (anomalies.duplicateSessions > 0) {
+    errors.push(`Sessioni duplicate: ${anomalies.duplicateSessions}.`);
+  }
+  if (anomalies.grandPrixWithoutId.length > 0) {
+    errors.push(`GP senza ID: ${anomalies.grandPrixWithoutId.length}.`);
+  }
+  if (anomalies.sessionsWithoutId.length > 0) {
+    errors.push(`Sessioni senza ID: ${anomalies.sessionsWithoutId.length}.`);
+  }
+  if (anomalies.sessionsWithMissingDate.length > 0) {
+    errors.push(`Sessioni senza data: ${anomalies.sessionsWithMissingDate.length}.`);
+  }
+  if (anomalies.unrecognizedSessionTypes.length > 0) {
+    errors.push(
+      `Tipi sessione non riconosciuti: ${anomalies.unrecognizedSessionTypes.length}.`,
+    );
+  }
+  if (anomalies.grandPrixWithoutQ.length > 0) {
+    errors.push(`GP senza Q: ${anomalies.grandPrixWithoutQ.length}.`);
+  }
+  if (anomalies.grandPrixWithoutSprint.length > 0) {
+    errors.push(`GP senza SPR: ${anomalies.grandPrixWithoutSprint.length}.`);
+  }
+  if (anomalies.grandPrixWithoutRace.length > 0) {
+    errors.push(`GP senza RAC: ${anomalies.grandPrixWithoutRace.length}.`);
+  }
+
+  return errors;
+}
+
 async function get(path) {
   const url = `${API_BASE}${path}`;
   const response = await fetch(url, {
@@ -79,6 +128,150 @@ async function get(path) {
   }
 
   return { json, url };
+}
+
+async function supabaseRequest(path, options = {}) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error(
+      'Import reale non disponibile: servono VITE_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.',
+    );
+  }
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
+    ...options,
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      Accept: 'application/json',
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(options.headers ?? {}),
+    },
+    signal: AbortSignal.timeout(20_000),
+  });
+  const text = await response.text();
+  let json = null;
+
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    // L'errore sotto include il corpo raw.
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Supabase REST ${response.status} ${response.statusText} — ${text.slice(0, 500)}`,
+    );
+  }
+
+  return json;
+}
+
+async function verifySeasonExists() {
+  const rows = await supabaseRequest(
+    `/seasons?id=eq.${encodeURIComponent(SEASON_ID)}&select=id,year`,
+  );
+  if (!Array.isArray(rows) || rows.length !== 1) {
+    throw new Error(`Stagione ${SEASON_ID} assente o non univoca in public.seasons.`);
+  }
+  if (rows[0].year !== undefined && Number(rows[0].year) !== SEASON_YEAR) {
+    throw new Error(
+      `Stagione ${SEASON_ID} con year=${rows[0].year}, atteso ${SEASON_YEAR}.`,
+    );
+  }
+  return rows[0];
+}
+
+async function upsertRows(table, rows, onConflict) {
+  if (rows.length === 0) return;
+  await supabaseRequest(
+    `/${table}?on_conflict=${encodeURIComponent(onConflict)}`,
+    {
+      method: 'POST',
+      headers: {
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify(rows),
+    },
+  );
+}
+
+function countDuplicates(rows, keyOf) {
+  const seen = new Set();
+  let duplicates = 0;
+  for (const row of rows) {
+    const key = keyOf(row);
+    if (seen.has(key)) duplicates += 1;
+    else seen.add(key);
+  }
+  return duplicates;
+}
+
+async function verifyImportedData(expected) {
+  const [grandPrixRows, allSessionRows] = await Promise.all([
+    supabaseRequest(
+      `/grand_prix?season_id=eq.${encodeURIComponent(SEASON_ID)}` +
+      '&select=id,season_id,name,short_name,country,circuit,date_start,date_end,is_test,status',
+    ),
+    supabaseRequest(
+      '/sessions?select=id,grand_prix_id,type,status,session_date,number',
+    ),
+  ]);
+
+  const grandPrix = Array.isArray(grandPrixRows) ? grandPrixRows : [];
+  const allSessions = Array.isArray(allSessionRows) ? allSessionRows : [];
+  const grandPrixIds = new Set(grandPrix.map(row => row.id));
+  const sessions = allSessions.filter(row => grandPrixIds.has(row.grand_prix_id));
+  const sessionsByGrandPrix = new Map();
+
+  for (const session of sessions) {
+    const rows = sessionsByGrandPrix.get(session.grand_prix_id) ?? [];
+    rows.push(session);
+    sessionsByGrandPrix.set(session.grand_prix_id, rows);
+  }
+
+  const expectedGrandPrixIds = new Set(expected.grandPrix.map(row => row.id));
+  const expectedSessionIds = new Set(expected.sessions.map(row => row.id));
+  const dbGrandPrixIds = new Set(grandPrix.map(row => row.id));
+  const dbSessionIds = new Set(sessions.map(row => row.id));
+  const missingGrandPrix = [...expectedGrandPrixIds].filter(
+    id => !dbGrandPrixIds.has(id),
+  );
+  const missingSessions = [...expectedSessionIds].filter(
+    id => !dbSessionIds.has(id),
+  );
+  const orphanSessions = allSessions.filter(
+    row => !grandPrixIds.has(row.grand_prix_id),
+  );
+  const duplicateGrandPrix = countDuplicates(grandPrix, row => row.id);
+  const duplicateSessions = countDuplicates(sessions, row => row.id);
+  const grandPrixWithoutQ = [];
+  const grandPrixWithoutSprint = [];
+  const grandPrixWithoutRace = [];
+
+  for (const grandPrixRow of grandPrix) {
+    const types = new Set(
+      (sessionsByGrandPrix.get(grandPrixRow.id) ?? []).map(row => row.type),
+    );
+    if (!types.has('Q')) grandPrixWithoutQ.push(grandPrixRow.name ?? grandPrixRow.id);
+    if (!types.has('SPR')) {
+      grandPrixWithoutSprint.push(grandPrixRow.name ?? grandPrixRow.id);
+    }
+    if (!types.has('RAC')) grandPrixWithoutRace.push(grandPrixRow.name ?? grandPrixRow.id);
+  }
+
+  return {
+    grandPrix,
+    sessions,
+    sessionsByGrandPrix,
+    orphanSessions,
+    duplicateGrandPrix,
+    duplicateSessions,
+    grandPrixWithoutQ,
+    grandPrixWithoutSprint,
+    grandPrixWithoutRace,
+    missingGrandPrix,
+    missingSessions,
+  };
 }
 
 function normalizeEvent(source) {
@@ -141,15 +334,9 @@ function classifySessionType(source) {
     source.session?.type,
     source.name,
   ));
-  const normalized = (rawType ?? '').toUpperCase().replace(/[^A-Z]/g, '');
-
-  if (normalized === 'FP' || normalized.includes('FREEPRACTICE')) return 'FP';
-  if (normalized === 'PR' || normalized.includes('PRACTICE')) return 'PR';
-  if (normalized === 'Q' || normalized.includes('QUAL')) return 'Q';
-  if (normalized === 'SPR' || normalized.includes('SPRINT')) return 'SPR';
-  if (normalized === 'WUP' || normalized.includes('WARM')) return 'WUP';
-  if (normalized === 'RAC' || normalized.includes('RACE')) return 'RAC';
-  return rawType ? rawType.toUpperCase() : null;
+  // Il valore viene mantenuto esattamente come arriva dall'API: in
+  // particolare RAC2 non deve essere ricondotto a RAC.
+  return rawType;
 }
 
 function normalizeSession(source, grandPrixId) {
@@ -214,11 +401,23 @@ function isOutsideEventWindow(event, session) {
 }
 
 try {
-  section('DRY-RUN CALENDARIO MotoGP 2026');
+  if (IMPORT_MODE) {
+    section('0 · VERIFICA STAGIONE SUPABASE');
+    const season = await verifySeasonExists();
+    console.log(`  ✓ Stagione verificata: ${season.id} (${season.year ?? SEASON_YEAR})`);
+  } else {
+    console.log('\nModalità dry-run: nessuna scrittura Supabase. Aggiungi --import per importare.');
+  }
+
+  section(IMPORT_MODE ? 'IMPORT CALENDARIO MotoGP 2026' : 'DRY-RUN CALENDARIO MotoGP 2026');
   console.log(`  season_id: ${SEASON_ID}`);
   console.log(`  categoryUuid MotoGP results: ${RESULTS_CATEGORY_ID}`);
   console.log(`  stagione: ${SEASON_YEAR}`);
-  console.log('  Scritture Supabase: NESSUNA');
+  console.log(
+    IMPORT_MODE
+      ? '  Scritture Supabase: abilitate server-side'
+      : '  Scritture Supabase: NESSUNA',
+  );
 
   section('1 · EVENTI API');
   const eventResponses = [];
