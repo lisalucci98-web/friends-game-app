@@ -1,0 +1,306 @@
+Esegui Task #8 – Test automatici dello scoring FantaMotoGP.
+
+OBIETTIVO
+
+Creare ed eseguire una suite di test automatizzati che verifichi integralmente il calcolo dei punteggi dei pronostici secondo il Regolamento FantaMotoGP 2025.
+
+IMPORTANTE
+
+Non modificare:
+- schema Supabase;
+- RLS;
+- RPC `submit_prediction`;
+- dati reali di produzione;
+- UI;
+- routing;
+- importer MotoGP.
+
+Non eseguire INSERT, UPDATE o DELETE sui dati reali.
+
+I test devono utilizzare dati fixture/mock o un ambiente di test isolato.
+
+Prima di implementare i test, individua la logica reale di scoring già presente nel progetto/database. NON duplicare una nuova implementazione dello scoring soltanto per far passare i test.
+
+Se lo scoring è implementato tramite RPC/database, i test devono verificare quella logica.
+Se esiste una funzione server-side dedicata allo scoring, testare quella funzione.
+Se lo scoring non è ancora implementato, NON inventarlo: segnalare chiaramente il blocco.
+
+========================================
+1. TEMPO QUALIFICA
+========================================
+
+Verificare:
+
+10 punti:
+errore assoluto <= 0.010 secondi.
+
+5 punti:
+errore oltre ±0.010 s ma entro ±0.1%.
+
+3 punti:
+errore oltre ±0.1% ma entro ±0.25%.
+
+1 punto:
+errore oltre ±0.25% ma entro ±0.5%.
+
+0 punti:
+errore oltre ±0.5%.
+
+Testare esplicitamente i valori sul confine.
+
+Esempio:
+tempo reale = 01:56.160
+
+Verificare:
+- 01:56.150 → 10 punti
+- 01:56.170 → 10 punti
+- valori immediatamente oltre ±0.010 → fascia successiva
+- valori sul limite ±0.1%
+- valori sul limite ±0.25%
+- valori sul limite ±0.5%
+- oltre ±0.5% → 0
+
+Prestare attenzione alla precisione floating point.
+
+========================================
+2. PRONOSTICO POLE
+========================================
+
+Verificare:
+
+- pilota pronosticato 1° → 5 punti;
+- pilota pronosticato 2° → 2 punti;
+- pilota pronosticato 3° o oltre → 0 punti;
+- pilota assente dalla classifica → 0 punti.
+
+========================================
+3. SPRINT TOP 3
+========================================
+
+Per ciascuna posizione:
+
+- posizione esatta → 3 punti;
+- errore di una posizione → 1 punto;
+- pilota oltre il 3° posto → 0 punti;
+- pilota non classificato → 0 punti.
+
+Testare anche combinazioni miste, ad esempio:
+
+Pronostico:
+1 A
+2 B
+3 C
+
+Risultato:
+1 A
+2 C
+3 B
+
+Verificare il punteggio risultante secondo il regolamento reale.
+
+========================================
+4. GARA TOP 5
+========================================
+
+Per ogni pilota:
+
+- posizione esatta → 5 punti;
+- posizione sbagliata di una posizione → 3 punti;
+- pilota comunque nei primi 5 ma con posizione diversa di oltre una → 1 punto;
+- pilota dal 6° posto in poi → 0 punti;
+- DNF/DNS/DSQ/non classificato → 0 punti per il relativo pronostico.
+
+Testare separatamente:
+
+A) Top 5 perfetta
+B) un pilota spostato di una posizione
+C) pilota pronosticato 1° che arriva 3°
+D) pilota pronosticato Top 5 che arriva 6°
+E) pilota pronosticato che non termina la gara
+
+========================================
+5. PILOTA OUT
+========================================
+
+Verificare:
+
+- pilota pronosticato OUT e classificato come DNF/OUT → +2;
+- pilota pronosticato OUT ma termina la gara → 0;
+- pilota non presente nei risultati → 0.
+
+Verificare inoltre che il pilota OUT non possa coincidere con uno dei Top 5.
+
+========================================
+6. BONUS ORDINE TOP 5
+========================================
+
+Verificare:
+
+- tutti e 5 nell'ordine corretto → +5;
+- 4 dei 5 corretti → +3;
+- 3 dei 5 corretti → +1;
+- meno di 3 → 0.
+
+Definire chiaramente cosa significa "corretto" secondo l'implementazione esistente e verificare che il test rifletta esattamente il regolamento.
+
+========================================
+7. BONUS TOP 5 INDIPENDENTEMENTE DALL'ORDINE
+========================================
+
+Verificare:
+
+- tutti e 5 i piloti pronosticati sono nei primi 5, ordine qualsiasi → +2;
+- 4/5 → 0;
+- 3/5 → 0;
+- meno di 3 → 0.
+
+Verificare inoltre che questo bonus sia compatibile con il bonus ordine Top 5 e che entrambi vengano assegnati correttamente quando spettano.
+
+========================================
+8. MALUS DNF
+========================================
+
+Il malus riguarda i cinque piloti selezionati per la Gara.
+
+Verificare:
+
+- 1 pilota non termina → -1;
+- 3 piloti non terminano → -5;
+- tutti e 5 non terminano → -10;
+- 2 piloti non terminano → verificare il comportamento previsto dalla logica/regolamento;
+- 4 piloti non terminano → verificare il comportamento previsto dalla logica/regolamento.
+
+IMPORTANTE:
+non assumere automaticamente una formula progressiva.
+Il regolamento definisce esplicitamente i casi 1, 3 e 5; se il codice implementa una regola per 2 o 4, segnalarla nel report.
+
+Verificare DNF, DNS e DSQ secondo la classificazione utilizzata dal sistema.
+
+========================================
+9. CASI LIMITE
+========================================
+
+Testare:
+
+- pilota classificato;
+- DNF;
+- DNS;
+- DSQ;
+- status non classificato;
+- posizione NULL;
+- posizione 1;
+- posizione 2;
+- posizione 3;
+- posizione 5;
+- posizione 6;
+- risultato mancante.
+
+Verificare che nessun caso produca NaN, valori negativi non previsti o errori SQL.
+
+========================================
+10. REGOLE TEMPORALI
+========================================
+
+Non testare solo lo scoring.
+
+Verificare anche che un pronostico chiuso non possa essere modificato:
+
+- Qualifiche → deadline inizio Q1;
+- Sprint → deadline inizio Sprint;
+- Gara → deadline inizio Gara.
+
+La deadline deve essere quella della sessione reale nel database.
+
+Non utilizzare Q2 come deadline delle qualifiche.
+
+========================================
+11. INTEGRITÀ DEI DATI
+========================================
+
+Verificare:
+
+- nessun pilota duplicato nella Top 3 Sprint;
+- nessun pilota duplicato nella Top 5 Gara;
+- OUT diverso dalla Top 5;
+- solo rider appartenenti al roster attivo;
+- wildcard/test rider come Augusto Fernández #47 non selezionabili.
+
+========================================
+12. TEST END-TO-END
+========================================
+
+Se tecnicamente possibile senza modificare dati reali:
+
+creare una fixture completa per un GP con:
+
+PRONOSTICO:
+Qualifica:
+- tempo pole
+- pilota pole
+
+Sprint:
+- P1
+- P2
+- P3
+
+Gara:
+- P1
+- P2
+- P3
+- P4
+- P5
+- OUT
+
+RISULTATI REALI:
+- qualifiche;
+- Sprint;
+- Gara;
+
+e verificare il punteggio totale risultante.
+
+Il test deve mostrare separatamente:
+
+Qualifica tempo: X
+Qualifica pole: X
+Sprint: X
+Gara: X
+OUT: X
+Bonus: X
+Malus: X
+TOTALE: X
+
+========================================
+13. REGOLA IMPORTANTE
+========================================
+
+Non correggere arbitrariamente la logica applicativa solo per far passare i test.
+
+Se viene trovato un comportamento diverso dal regolamento:
+
+1. indicare quale regola è diversa;
+2. indicare dove è implementata;
+3. proporre la correzione;
+4. NON applicarla automaticamente senza evidenziare la modifica.
+
+========================================
+14. OUTPUT FINALE
+========================================
+
+Al termine restituisci un report con:
+
+- numero test eseguiti;
+- test superati;
+- test falliti;
+- eventuali bug trovati;
+- eventuali discrepanze tra codice e regolamento;
+- file creati/modificati;
+- eventuali modifiche al codice necessarie;
+- risultato TypeScript;
+- risultato build;
+- eventuali errori console.
+
+Se tutti i test passano, indicare chiaramente:
+
+TASK #8 COMPLETATO
+
+Se invece lo scoring server-side non è ancora realmente implementato, NON dichiarare il task completato: indicare chiaramente quale componente manca.
