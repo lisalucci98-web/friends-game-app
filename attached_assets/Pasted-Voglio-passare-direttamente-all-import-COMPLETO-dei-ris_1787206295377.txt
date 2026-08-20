@@ -1,0 +1,357 @@
+Voglio passare direttamente all'import COMPLETO dei risultati MotoGP 2026.
+
+NON modificare:
+- App.tsx
+- UI
+- routing
+- autenticazione
+- schema database
+- RLS
+
+La tabella public.session_results esiste già.
+
+Crea/modifica esclusivamente:
+
+scripts/import-motogp-results-2026.mjs
+
+L'import deve utilizzare le fonti ufficiali MotoGP già verificate.
+
+==================================================
+1. SESSIONI DA IMPORTARE
+==================================================
+
+Per tutti i 22 GP reali della stagione 2026 importare:
+
+- Q
+- SPR
+- RAC
+
+NON importare:
+- FP
+- PR
+- WUP
+
+Escludere gli eventi con test === true.
+
+Usare le sessioni già presenti in public.sessions per associare correttamente i risultati.
+
+NON inventare session_id.
+
+==================================================
+2. FONTI PDF
+==================================================
+
+Per ogni sessione recuperare il descriptor:
+
+/results/sessions/{sessionId}
+
+e utilizzare:
+
+session_files.classification.url
+
+Per le QUALIFICHE:
+
+- Q2/Classification.pdf
+  → fonte primaria per pole position e tempo pole
+
+- Q2/QualifyingResults.pdf
+  → fonte primaria per la classifica finale delle qualifiche
+
+NON usare Grid.pdf come classifica qualifiche.
+
+Per SPR:
+
+- Classification.pdf
+
+Per RAC:
+
+- Classification.pdf
+
+Salvare sempre source_url nel risultato.
+
+==================================================
+3. PARSER
+==================================================
+
+Il parser deve essere generalizzato per tutti i GP 2026.
+
+NON creare un parser specifico per il formato del GP di Gran Bretagna.
+
+Usare:
+
+pdftotext -layout
+
+e interpretare le righe in modo robusto.
+
+Gestire esplicitamente:
+
+- classificati
+- Not classified
+- DNF
+- DNS
+- DSQ
+- ritiri
+- righe con campi mancanti
+- team con spazi
+- nomi composti
+- eventuali differenze di formato tra GP
+
+NON inventare valori.
+
+Se un campo non è disponibile:
+usare null.
+
+==================================================
+4. RIDER MATCHING
+==================================================
+
+Associare ogni risultato a public.riders.
+
+Il matching deve preferire:
+
+1. rider number
+2. nome/cognome
+3. combinazione numero + nome
+
+NON creare nuovi riders.
+
+Se un rider non viene trovato:
+
+- registrare l'errore;
+- NON inserire quel risultato;
+- NON continuare silenziosamente.
+
+==================================================
+5. QUALIFICHE
+==================================================
+
+Per ogni GP:
+
+individuare Q1 e Q2.
+
+Usare:
+
+Q2/QualifyingResults.pdf
+
+per la classifica finale completa.
+
+Il risultato deve contenere tutti i piloti della classifica finale.
+
+La pole position deve corrispondere alla prima posizione della classifica Q2.
+
+Conservare:
+
+position
+rider_id
+rider_number
+points
+total_time
+gap
+average_speed
+status
+source_url
+
+==================================================
+6. SPRINT
+==================================================
+
+Per ogni GP con sessione SPR:
+
+usare Classification.pdf.
+
+Importare tutti i risultati disponibili, inclusi i non classificati.
+
+==================================================
+7. GARA
+==================================================
+
+Per ogni GP con sessione RAC:
+
+usare Classification.pdf.
+
+Importare:
+
+- classificati
+- non classificati
+- ritirati
+- eventuali DSQ/DNS
+
+Mantenere anche i risultati senza posizione numerica quando il PDF li identifica come non classificati.
+
+==================================================
+8. DRY RUN OBBLIGATORIO
+==================================================
+
+Senza --import:
+
+NON eseguire alcuna scrittura su Supabase.
+
+Eseguire comunque tutto il processo:
+
+API
+→ sessioni
+→ PDF
+→ parsing
+→ rider matching
+→ validazioni
+
+Stampare per ogni GP:
+
+GP:
+Circuito:
+
+QUALIFICA:
+risultati:
+pole:
+tempo pole:
+righe non interpretate:
+
+SPRINT:
+risultati:
+righe non interpretate:
+
+GARA:
+risultati:
+non classificati:
+righe non interpretate:
+
+==================================================
+9. VALIDAZIONI
+==================================================
+
+Prima di qualsiasi scrittura verificare:
+
+- GP attesi: 22
+- GP elaborati: 22
+
+- sessioni Q attese: 22
+- sessioni Q elaborate: 22
+
+- sessioni SPR attese: 22
+- sessioni SPR elaborate: 22
+
+- sessioni RAC attese: 22
+- sessioni RAC elaborate: 22
+
+Controllare inoltre:
+
+- rider non trovati
+- sessioni mancanti
+- PDF non disponibili
+- PDF non leggibili
+- righe non interpretate
+- risultati duplicati
+- posizioni duplicate
+- session_id mancanti
+- rider_id mancanti
+- GP senza risultati
+- risultati senza status valido
+
+==================================================
+10. ATTENZIONE ALLE QUALIFICHE
+==================================================
+
+Non assumere che ogni GP abbia esattamente lo stesso numero di righe.
+
+Il numero di piloti può variare.
+
+Non usare un numero fisso come condizione di successo.
+
+Validare invece che il PDF sia stato interpretato correttamente e che non rimangano righe di risultati non comprese.
+
+==================================================
+11. IMPORT REALE
+==================================================
+
+Senza flag:
+
+node scripts/import-motogp-results-2026.mjs
+
+→ dry-run soltanto.
+
+Con:
+
+node scripts/import-motogp-results-2026.mjs --import
+
+eseguire:
+
+1. dry-run completo;
+2. tutte le validazioni;
+3. interrompere prima delle scritture se esistono errori critici;
+4. UPSERT su public.session_results;
+5. usare come chiave:
+
+session_id + rider_id
+
+6. NON cancellare dati esistenti;
+7. rileggere Supabase;
+8. verificare che i risultati importati corrispondano ai risultati elaborati.
+
+Usare:
+
+SUPABASE_SERVICE_ROLE_KEY
+
+solo server-side.
+
+NON stampare mai la chiave.
+
+==================================================
+12. REPORT FINALE
+==================================================
+
+Alla fine stampare:
+
+IMPORT RISULTATI MOTOGP 2026
+
+GP elaborati: X / 22
+
+Qualifiche:
+sessioni: X / 22
+risultati: X
+
+Sprint:
+sessioni: X / 22
+risultati: X
+
+Gare:
+sessioni: X / 22
+risultati: X
+
+Totale session_results:
+X
+
+VALIDAZIONI
+
+PDF mancanti: X
+PDF non leggibili: X
+rider non trovati: X
+righe non interpretate: X
+duplicati: X
+posizioni duplicate: X
+sessioni mancanti: X
+risultati orfani: X
+errori critici: X
+
+Per ogni anomalia riportare:
+
+GP
+sessione
+PDF
+descrizione
+azione intrapresa
+
+NON nascondere le anomalie.
+
+==================================================
+13. IMPORT IDEMPOTENTE
+==================================================
+
+Eseguendo due volte:
+
+node scripts/import-motogp-results-2026.mjs --import
+
+il numero di record non deve aumentare.
+
+Il secondo import deve produrre gli stessi conteggi del primo.
+
+NON modificare altri file.
