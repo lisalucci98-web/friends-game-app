@@ -19,9 +19,9 @@ const SUPABASE_URL = (
 ).replace(/\/$/, '');
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
-function isWildcardOrTestRider(sourceRider) {
+function isTestRider(sourceRider) {
   const step = sourceRider.current_career_step ?? {};
-  return step.type === 'Wildcard' || step.team?.type === 'Test';
+  return step.team?.type === 'Test';
 }
 
 async function get(path) {
@@ -340,7 +340,7 @@ try {
     }
 
     for (const sourceRider of sourceRiders) {
-      if (isWildcardOrTestRider(sourceRider)) {
+      if (isTestRider(sourceRider)) {
         excludedWildcardTestRiders += 1;
         continue;
       }
