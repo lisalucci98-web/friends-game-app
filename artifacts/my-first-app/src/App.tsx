@@ -489,40 +489,144 @@ function predictionRiderName(rider: PredictionRider | null) {
   return [rider.name, rider.surname].filter(Boolean).join(' ') || rider.nickname || 'Pilota';
 }
 
-const ITALIAN_TIME_ZONE = 'Europe/Rome';
+type PredictionDateParts = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  weekday: number;
+};
 
-function parsePredictionDate(value: string | null) {
+const italianWeekdays = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
+const italianWeekdaysShort = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'];
+const italianMonths = [
+  'gennaio',
+  'febbraio',
+  'marzo',
+  'aprile',
+  'maggio',
+  'giugno',
+  'luglio',
+  'agosto',
+  'settembre',
+  'ottobre',
+  'novembre',
+  'dicembre',
+];
+const italianMonthsShort = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+
+/**
+ * session_date contiene già l'orario italiano definitivo. Il suffisso UTC
+ * eventualmente presente nel valore Supabase non deve cambiare ora o minuti.
+ */
+function parsePredictionDateParts(value: string | null): PredictionDateParts | null {
   if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
+
+  const match = value.trim().match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/,
+  );
+  if (!match) return null;
+
+  const [, yearText, monthText, dayText, hourText = '00', minuteText = '00', secondText = '00'] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const dateOnly = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day) ||
+    !Number.isFinite(hour) ||
+    !Number.isFinite(minute) ||
+    !Number.isFinite(second) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59 ||
+    second < 0 ||
+    second > 59 ||
+    dateOnly.getUTCFullYear() !== year ||
+    dateOnly.getUTCMonth() !== month - 1 ||
+    dateOnly.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return {
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    weekday: dateOnly.getUTCDay(),
+  };
 }
 
 function formatItalianDateTime(value: string | null) {
+  const parts = parsePredictionDateParts(value);
   if (!value) return 'Orario non disponibile';
-  const date = parsePredictionDate(value);
-  if (!date) return value;
-  return new Intl.DateTimeFormat('it-IT', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: ITALIAN_TIME_ZONE,
-  }).format(date);
+  if (!parts) return value;
+
+  return `${italianWeekdays[parts.weekday]} ${parts.day} ${italianMonths[parts.month - 1]} alle ore ` +
+    `${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}`;
 }
 
 function predictionShortTime(value: string | null) {
-  if (!value) return '—';
-  const date = parsePredictionDate(value);
-  if (!date) return '—';
-  return new Intl.DateTimeFormat('it-IT', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
+  const parts = parsePredictionDateParts(value);
+  if (!parts) return '—';
+
+  return `${italianWeekdaysShort[parts.weekday]} ${parts.day} ${italianMonthsShort[parts.month - 1]}, ` +
+    `${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}`;
+}
+
+function italianWallClockNow() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Rome',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: ITALIAN_TIME_ZONE,
-  }).format(date);
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(
+    parts.filter((part) => part.type !== 'literal').map((part) => [part.type, Number(part.value)]),
+  );
+
+  return Date.UTC(
+    values.year ?? 0,
+    (values.month ?? 1) - 1,
+    values.day ?? 1,
+    values.hour ?? 0,
+    values.minute ?? 0,
+    values.second ?? 0,
+  );
+}
+
+function predictionDeadlineWallClock(value: string | null) {
+  const parts = parsePredictionDateParts(value);
+  if (!parts) return null;
+
+  return Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+  );
 }
 
 function predictionErrorMessage(error: { message?: string | null } | null) {
