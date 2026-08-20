@@ -1,0 +1,201 @@
+Completa Task #9 creando una fixture temporanea e completamente reversibile per testare score_prediction end-to-end.
+
+OBIETTIVO
+
+Non modificare alcun dato reale di produzione in modo permanente.
+
+Serve una fixture isolata che permetta di verificare realmente la funzione:
+
+public.score_prediction(...)
+
+e quindi l'intero scoring server-side.
+
+PRIMA DI PROCEDERE
+
+Ispeziona la firma e la definizione reale di:
+
+- public.score_prediction
+- public.calculate_qualifying_time_points
+- eventuali funzioni/RPC chiamate internamente da score_prediction
+
+Verifica inoltre la struttura reale di:
+
+- predictions
+- prediction_entries
+- session_results
+- sessions
+- grand_prix
+- riders
+- rider_seasons
+
+Non inventare colonne o parametri.
+
+FIXTURE
+
+Se tecnicamente possibile, crea una fixture temporanea all'interno di una transazione PostgreSQL:
+
+BEGIN;
+
+-- creazione fixture
+-- esecuzione test
+-- verifiche
+
+ROLLBACK;
+
+La fixture deve utilizzare un GP/sessioni/rider esistenti oppure dati temporanei creati nella stessa transazione.
+
+NON usare prediction reali degli utenti.
+
+NON modificare risultati ufficiali reali.
+
+NON lasciare record persistenti.
+
+Se score_prediction utilizza auth.uid(), trova una modalità sicura per eseguire il test con un utente di test senza alterare dati reali. Se questo non è possibile con le sole RPC disponibili, NON aggirare i controlli di sicurezza e segnala il limite.
+
+TEST END-TO-END
+
+Crea almeno una prediction fixture completa contenente:
+
+QUALIFICA:
+- tempo pole;
+- pilota pole.
+
+SPRINT:
+- P1;
+- P2;
+- P3.
+
+GARA:
+- P1;
+- P2;
+- P3;
+- P4;
+- P5;
+- pilota OUT.
+
+Utilizza risultati ufficiali MotoGP già presenti in session_results oppure una fixture coerente.
+
+Verifica il breakdown completo restituito da score_prediction.
+
+QUALIFICA
+
+Verifica:
+- tempo esatto;
+- punteggio tempo;
+- punteggio pole.
+
+SPRINT
+
+Verifica:
+- posizione esatta = 3;
+- errore di una posizione = 1;
+- fuori Top 3 = 0.
+
+GARA
+
+Verifica:
+- posizione esatta = 5;
+- errore di una posizione = 3;
+- pilota nella Top 5 ma posizione diversa = 1;
+- pilota fuori Top 5 = 0.
+
+OUT
+
+Verifica:
+- pilota effettivamente DNF/DNS/DSQ/non classificato → 2;
+- pilota classificato → 0.
+
+BONUS ORDINE
+
+Crea casi separati per:
+
+- 5/5 posizioni esatte → 5;
+- 4/5 posizioni esatte → 3;
+- 3/5 posizioni esatte → 1.
+
+IMPORTANTE:
+questo bonus deve contare le posizioni corrette, non semplicemente i piloti presenti nella Top 5.
+
+BONUS TOP 5
+
+Verifica:
+
+- tutti i 5 piloti pronosticati sono nella Top 5, ordine diverso → 2;
+- almeno un pilota fuori dalla Top 5 → 0.
+
+Verifica che il bonus Top 5 sia distinto dal bonus dell'ordine.
+
+MALUS
+
+Verifica separatamente:
+
+- 1 pilota pronosticato non termina → -1;
+- 3 piloti non terminano → -5;
+- 5 piloti non terminano → -10;
+- nessun pilota non termina → 0.
+
+Verifica gli status reali disponibili:
+
+- CLASSIFIED
+- DNF
+- DNS
+- DSQ
+- eventuali altri status non classificati.
+
+IDEMPOTENZA
+
+Esegui score_prediction due volte sulla stessa prediction fixture.
+
+Il risultato deve essere identico.
+
+Non devono essere sommati nuovamente i punti.
+
+Verifica anche che non vengano create righe duplicate.
+
+IMPORTANTE
+
+Non modificare il comportamento della funzione solo per far passare i test.
+
+Se un test fallisce:
+1. individua la causa;
+2. confrontala con il regolamento;
+3. segnala esattamente la discrepanza;
+4. non correggerla automaticamente senza autorizzazione.
+
+TEST AUTOMATICI
+
+Integra i nuovi test in:
+
+scripts/test-motogp-scoring-2026.mjs
+
+e mantieni il comando:
+
+pnpm --filter @workspace/my-first-app run test:scoring
+
+Al termine esegui:
+
+- test scoring completo;
+- TypeScript;
+- build;
+- verifica console/workflow.
+
+REPORT
+
+Restituisci:
+
+- numero test eseguiti;
+- passati;
+- falliti;
+- saltati;
+- breakdown end-to-end;
+- totale calcolato;
+- risultato test idempotenza;
+- eventuali discrepanze regolamentari;
+- conferma che la fixture è stata completamente rollbackata;
+- conferma che nessun dato reale è stato modificato.
+
+NON dichiarare Task #9 completato se:
+- score_prediction non è stato realmente eseguito;
+- bonus/malus non sono stati verificati;
+- idempotenza non è stata verificata;
+- oppure la fixture non è stata completamente ripulita.
