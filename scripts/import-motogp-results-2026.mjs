@@ -301,7 +301,7 @@ function parsePdfRows(text, riders, sourceUrl, context) {
     if (!rider) {
       // Solo le righe che assomigliano a una riga dati contano come non interpretate.
       if (/\b(?:[A-Z]{3})\b/.test(start[3]) || /(?:\d+'\d+\.\d+|\d+:\d+:\d+)/.test(line)) {
-        const key = `${riderNumber}:${normalizeText(line)}`;
+        const key = String(riderNumber);
         if (!missingRiderKeys.has(key)) {
           missingRiderKeys.add(key);
           counters.riderNotFound += 1;
