@@ -1,0 +1,541 @@
+## Task #12 — Analisi delle discrepanze nello scoring Gara
+
+Il Task #11 ha ricostruito matematicamente lo scoring storico di 3 GP.
+
+Risultato:
+
+* Qualifiche: coerenti;
+* Sprint: coerenti;
+* Gara: **10 discrepanze**;
+* nessuna modifica a Supabase;
+* nessuna modifica alla RPC;
+* nessuna modifica ai risultati ufficiali.
+
+NON modificare ancora lo scoring server-side.
+
+L'obiettivo di questo task è determinare con precisione la causa delle 10 discrepanze Gara.
+
+---
+
+# DISCREPANZE DA ANALIZZARE
+
+## GP1
+
+### P06
+
+Storico: 12
+Ricostruito: 15
+
+Breakdown locale:
+
+```text
+posizioni: 14
+OUT: +2
+bonus: 0
+malus: -1
+```
+
+### P04
+
+Storico: 6
+Ricostruito: 9
+
+```text
+posizioni: 10
+OUT: 0
+bonus: 0
+malus: -1
+```
+
+### P07
+
+Storico: 6
+Ricostruito: 9
+
+```text
+posizioni: 10
+OUT: 0
+bonus: 0
+malus: -1
+```
+
+---
+
+## GP2
+
+### P07
+
+Storico: 6
+Ricostruito: 9
+
+```text
+posizioni: 9
+OUT: 0
+bonus: 0
+malus: 0
+```
+
+---
+
+## GP3
+
+### P06
+
+Storico: 11
+Ricostruito: 12
+
+```text
+posizioni: 10
+OUT: +2
+bonus: 0
+malus: 0
+```
+
+### P09
+
+Storico: 11
+Ricostruito: 12
+
+```text
+posizioni: 10
+OUT: +2
+bonus: 0
+malus: 0
+```
+
+### P08
+
+Storico: 9
+Ricostruito: 10
+
+```text
+posizioni: 10
+OUT: 0
+bonus: 0
+malus: 0
+```
+
+### P10
+
+Storico: 7
+Ricostruito: 3
+
+```text
+posizioni: 8
+OUT: 0
+bonus: 0
+malus: -5
+```
+
+### P02
+
+Storico: 7
+Ricostruito: 8
+
+```text
+posizioni: 6
+OUT: +2
+bonus: 0
+malus: 0
+```
+
+### P07
+
+Storico: -2
+Ricostruito: 3
+
+```text
+posizioni: 3
+OUT: 0
+bonus: 0
+malus: 0
+```
+
+---
+
+# OBIETTIVO 1 — ANALISI COMPLETA DELLE SINGOLE POSIZIONI
+
+Per ogni discrepanza, mostra esattamente:
+
+```text
+Pilota pronosticato
+Posizione pronosticata
+Posizione ufficiale
+Status ufficiale
+Punti posizione
+```
+
+Non limitarti al totale.
+
+Esempio:
+
+```text
+P07
+Pronostico:
+P1 = ...
+P2 = ...
+P3 = ...
+P4 = ...
+P5 = ...
+
+Risultato:
+P1 = ...
+P2 = ...
+...
+
+Status:
+CLASSIFIED / DNF / DNS / DSQ / ecc.
+
+Punti singoli:
+...
+```
+
+---
+
+# OBIETTIVO 2 — ANALIZZARE IL MALUS
+
+Il regolamento attuale dice:
+
+```text
+-1 punto se un pilota selezionato non finisce la gara
+-5 punti se tre dei piloti selezionati non finiscono
+-10 punti se tutti e cinque non terminano
+```
+
+Verificare se storicamente:
+
+### Caso 1
+
+1 DNF:
+
+```text
+-1
+```
+
+### Caso 2
+
+2 DNF:
+
+Verificare se era:
+
+```text
+-2
+```
+
+oppure:
+
+```text
+-1
+```
+
+### Caso 3
+
+3 DNF:
+
+Verificare se era:
+
+```text
+-5
+```
+
+oppure:
+
+```text
+-3
+```
+
+### Caso 4
+
+4 DNF:
+
+Determinare la regola storica.
+
+### Caso 5
+
+5 DNF:
+
+Determinare se era:
+
+```text
+-10
+```
+
+oppure altro.
+
+NON assumere la risposta.
+
+Usare i dati storici per dedurla.
+
+---
+
+# OBIETTIVO 3 — DISTINGUERE DNF, DNS, DSQ E NON CLASSIFICATO
+
+Per ogni pilota selezionato che non compare normalmente nella classifica:
+
+controllare lo `status` ufficiale.
+
+Creare una tabella:
+
+| Status     | Considerato DNF storico? | Malus |
+| ---------- | ------------------------ | ----: |
+| CLASSIFIED | ?                        |     ? |
+| DNF        | ?                        |     ? |
+| DNS        | ?                        |     ? |
+| DSQ        | ?                        |     ? |
+| NC         | ?                        |     ? |
+
+Se non è possibile determinarlo dai dati, indicarlo esplicitamente.
+
+---
+
+# OBIETTIVO 4 — PILOTA OUT
+
+Il regolamento dice:
+
+```text
++2 punti se il pilota OUT è dichiarato OUT.
+```
+
+Verificare se:
+
+* OUT viene assegnato solo se lo status ufficiale è esattamente OUT;
+* DNF conta come OUT;
+* DNS conta come OUT;
+* DSQ conta come OUT;
+* un pilota non classificato conta come OUT.
+
+Analizzare specificamente i casi:
+
+```text
+GP1/P06
+GP3/P06
+GP3/P09
+GP3/P02
+```
+
+perché presentano il bonus OUT nel modello attuale.
+
+---
+
+# OBIETTIVO 5 — ANALIZZARE LE DIFFERENZE DI 1 PUNTO
+
+Per:
+
+```text
+GP2/P07
+GP3/P06
+GP3/P09
+GP3/P08
+GP3/P02
+```
+
+determinare esattamente da dove deriva il punto mancante.
+
+Non accettare spiegazioni generiche.
+
+Deve essere possibile produrre qualcosa come:
+
+```text
+Il punto mancante deriva da:
+P3 pronosticato X
+risultato ufficiale Y
+status Z
+regola storica = ...
+```
+
+---
+
+# OBIETTIVO 6 — CASO GP3/P10
+
+Questo è particolarmente importante.
+
+Attuale:
+
+```text
+Storico: 7
+Ricostruito: 3
+```
+
+Il modello locale applica:
+
+```text
+malus -5
+```
+
+per tre piloti non classificati.
+
+Determinare se:
+
+1. il malus -5 non era applicato;
+2. il conteggio dei DNF era diverso;
+3. uno o più piloti non erano realmente DNF;
+4. alcuni status non dovevano essere considerati;
+5. il malus veniva calcolato diversamente;
+6. esisteva un'altra regola storica.
+
+Ricostruire il calcolo completo.
+
+---
+
+# OBIETTIVO 7 — CASO GP3/P07
+
+Questo è il caso più importante.
+
+```text
+Storico: -2
+Ricostruito: 3
+Delta: -5
+```
+
+Il pronostico produce 3 punti di posizione.
+
+Il punteggio storico è -2.
+
+Quindi esiste una penalizzazione effettiva di almeno:
+
+```text
+-5
+```
+
+Determinare esattamente da dove proviene.
+
+Analizzare tutti e cinque i piloti pronosticati da P07:
+
+* risultato ufficiale;
+* posizione;
+* status;
+* punti posizione;
+* eventuale malus;
+* eventuale OUT.
+
+NON modificare l'algoritmo per ottenere artificialmente -2.
+
+Bisogna identificare la causa.
+
+---
+
+# OBIETTIVO 8 — VERIFICARE I BONUS
+
+Tutte le discrepanze attuali mostrano:
+
+```text
+bonus = 0
+```
+
+Tuttavia verificare comunque:
+
+* bonus ordine Top 5;
+* bonus 4/5;
+* bonus 3/5;
+* bonus tutti e cinque indipendentemente dall'ordine.
+
+Verificare se i bonus sono cumulabili.
+
+Esempio:
+
+```text
+ordine esatto:
++5
+
+tutti e cinque:
++2
+
+totale:
++7
+```
+
+oppure se uno esclude l'altro.
+
+Usare i dati storici per determinare il comportamento.
+
+---
+
+# OBIETTIVO 9 — RICOSTRUIRE IL VECCHIO ALGORITMO
+
+Dopo l'analisi, creare una seconda funzione locale:
+
+```text
+calculateHistoricalRaceScore()
+```
+
+che rappresenti esclusivamente il comportamento storico dedotto dai dati.
+
+NON sostituire la funzione attuale.
+
+Poi rieseguire tutti i 29 record storici.
+
+Obiettivo:
+
+```text
+29/29 totali GP coincidenti
+```
+
+Se non è possibile arrivare a 29/29, indicare esattamente quali casi rimangono irrisolti e perché.
+
+---
+
+# OUTPUT RICHIESTO
+
+Produrre un report finale con:
+
+## 1. Tabella delle 10 discrepanze
+
+| GP | Partecipante | Storico | Modello attuale | Modello storico | Causa |
+| -- | ------------ | ------: | --------------: | --------------: | ----- |
+
+## 2. Regole storiche dedotte
+
+Elenco preciso di:
+
+* scoring posizione;
+* OUT;
+* DNF;
+* DNS;
+* DSQ;
+* malus;
+* bonus;
+* cumulabilità.
+
+## 3. Confronto finale
+
+```text
+Record analizzati:
+Record coincidenti:
+Record ancora differenti:
+```
+
+## 4. Raccomandazione
+
+Concludere con una delle tre opzioni:
+
+### A
+
+Il regolamento attuale e lo scoring Supabase sono corretti.
+
+### B
+
+Il regolamento attuale è corretto, ma lo scoring Supabase deve essere corretto.
+
+### C
+
+Il regolamento scritto non corrisponde completamente allo scoring storico e occorre decidere quale comportamento adottare per la nuova app.
+
+NON scegliere automaticamente A/B/C: fornire le evidenze.
+
+---
+
+# VINCOLI
+
+NON:
+
+* modificare Supabase;
+* modificare RPC;
+* modificare UI;
+* modificare RLS;
+* modificare dati storici;
+* creare fixture persistenti;
+* cambiare i punteggi storici.
+
+È consentito modificare esclusivamente lo script locale di analisi.
+
+Il task è considerato completato solo quando ogni discrepanza è spiegata oppure viene dichiarata esplicitamente non determinabile dai dati disponibili.

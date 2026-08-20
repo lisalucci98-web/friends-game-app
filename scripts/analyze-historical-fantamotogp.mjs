@@ -186,7 +186,14 @@ function scoreRace(item, official) {
   const positions = new Map(official.race.map(([rider], index) => [rider, index + 1]));
   const statuses = new Map(official.race);
   const topFive = item.picks.slice(0, 5);
-  const position = topFive.map((rider, index) => positionPoints(index + 1, positions.get(rider), 5, 3));
+  const positionDetails = topFive.map((rider, index) => ({
+    rider,
+    predictedPosition: index + 1,
+    officialPosition: positions.get(rider) ?? null,
+    status: statuses.get(rider) ?? 'NOT_IN_RESULT',
+    points: positionPoints(index + 1, positions.get(rider), 5, 3),
+  }));
+  const position = positionDetails.map(({ points }) => points);
   const exact = topFive.filter((rider, index) => positions.get(rider) === index + 1).length;
   const allInTopFive = topFive.every((rider) => (positions.get(rider) ?? 99) <= 5);
   const out = item.picks[5];
@@ -198,6 +205,9 @@ function scoreRace(item, official) {
   return {
     position: position.reduce((sum, value) => sum + value, 0),
     out: outPoints,
+    outRider: out,
+    outStatus: statuses.get(out) ?? 'NOT_IN_RESULT',
+    positionDetails,
     exactOrder,
     topFiveBonus,
     malus,
@@ -223,6 +233,7 @@ for (const [gp, data] of Object.entries(fixture.gps)) {
     rows.push({
       gp,
       id: item.id,
+      picks: item.picks,
       category: 'Gara',
       expected: item.expected,
       actual: score.position + score.out + score.exactOrder + score.topFiveBonus + score.malus,
@@ -264,7 +275,14 @@ for (const row of rows) {
 }
 if (mismatches.length) {
   console.log('\nDifferenze:');
-  for (const row of mismatches) console.log(JSON.stringify(row));
+  for (const row of mismatches) {
+    console.log(JSON.stringify(row));
+    if (row.category === 'Gara') {
+      console.log(`  TOP5: ${row.breakdown.positionDetails.map((item) =>
+        `P${item.predictedPosition}=#${item.rider}/ufficiale=${item.officialPosition ?? 'NC'}/${item.status}/punti=${item.points}`).join(' | ')}`);
+      console.log(`  OUT: #${row.breakdown.outRider}/${row.breakdown.outStatus}/punti=${row.breakdown.out}`);
+    }
+  }
 }
 if (aggregates.length) {
   console.log('\nTOTALI GP | GP | Utente | Atteso Q/S/R/T | Ottenuto Q/S/R/T | Stato');
