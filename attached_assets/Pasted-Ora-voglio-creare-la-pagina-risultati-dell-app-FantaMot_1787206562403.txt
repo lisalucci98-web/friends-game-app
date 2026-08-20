@@ -1,0 +1,293 @@
+Ora voglio creare la pagina `/risultati` dell'app FantaMotoGP.
+
+I risultati ufficiali sono già stati importati nella tabella:
+
+public.session_results
+
+e sono collegati a:
+
+sessions
+grand_prix
+riders
+teams
+seasons
+
+NON modificare:
+- schema database
+- RLS
+- autenticazione
+- script di import
+- logica del motore punteggi
+
+Puoi modificare esclusivamente:
+- App.tsx
+- eventuali file frontend strettamente necessari per questa pagina
+
+==================================================
+OBIETTIVO
+==================================================
+
+Creare una pagina pubblica/autenticata chiamata:
+
+/risultati
+
+che permetta di consultare i risultati ufficiali MotoGP 2026.
+
+==================================================
+STRUTTURA
+==================================================
+
+In alto:
+
+🏁 Risultati MotoGP
+
+Selettore:
+
+[ MotoGP 2026 ▼ ]
+
+Poi selettore GP:
+
+[ Gran Bretagna ▼ ]
+
+Mostrare:
+
+nome GP
+circuito
+data
+
+Sotto:
+
+[ QUALIFICHE ] [ SPRINT ] [ GARA ]
+
+Default:
+
+GARA
+
+==================================================
+TABELLA RISULTATI
+==================================================
+
+Per ogni risultato mostrare:
+
+POS
+NUM
+PILOTA
+TEAM
+TEMPO / GAP
+STATUS
+
+Esempio:
+
+1   25   Jorge Martin      Aprilia Racing      39:45.930
+2   89   Raul Fernandez     Aprilia Racing      +2.538
+3   72   Marco Bezzecchi    Aprilia Racing      +3.393
+
+Per i primi tre usare un trattamento grafico leggermente differente.
+
+Non utilizzare colori fissi eccessivi.
+Mantenere lo stile grafico già presente nell'app.
+
+==================================================
+QUALIFICHE
+==================================================
+
+Quando viene selezionato QUALIFICHE:
+
+mostrare la classifica finale delle qualifiche.
+
+Evidenziare chiaramente:
+
+🏆 POLE POSITION
+
+con:
+
+pilota
+numero
+tempo
+
+La fonte della classifica deve essere session_results.
+
+NON calcolare la pole dal miglior tempo della Q1.
+
+==================================================
+SPRINT
+==================================================
+
+Mostrare i risultati della sessione SPR.
+
+Mostrare:
+
+posizione
+numero
+pilota
+team
+gap/tempo
+punti
+status
+
+==================================================
+GARA
+==================================================
+
+Mostrare:
+
+posizione
+numero
+pilota
+team
+tempo/gap
+punti
+status
+
+I piloti non classificati devono essere visualizzati in una sezione separata:
+
+NOT CLASSIFIED
+
+con status evidente.
+
+Non eliminarli dalla visualizzazione.
+
+==================================================
+DATABASE QUERY
+==================================================
+
+Usare Supabase.
+
+Non fare chiamate dirette all'API MotoGP.
+
+La pagina deve leggere esclusivamente i dati presenti nel database.
+
+Recuperare i dati tramite join/relation quando possibile:
+
+session_results
+→ sessions
+→ grand_prix
+→ riders
+→ teams
+
+e filtrare per stagione 2026.
+
+NON usare service_role key nel frontend.
+
+==================================================
+SELEZIONE GP
+==================================================
+
+Caricare i GP dalla tabella grand_prix.
+
+Ordinarli cronologicamente.
+
+Il GP selezionato deve determinare la sessione visualizzata.
+
+Non hardcodare i nomi dei GP.
+
+==================================================
+SELEZIONE SESSIONE
+==================================================
+
+Per il GP selezionato individuare:
+
+Q
+SPR
+RAC
+
+tramite sessions.type.
+
+Non hardcodare gli ID delle sessioni.
+
+==================================================
+STATI UI
+==================================================
+
+Gestire:
+
+- loading
+- errore Supabase
+- nessun GP
+- GP senza sessione
+- sessione senza risultati
+- risultati caricati
+
+==================================================
+RESPONSIVE
+==================================================
+
+La pagina deve essere utilizzabile anche da smartphone.
+
+Su mobile evitare una tabella che renda impossibile leggere i dati.
+
+È possibile trasformare ogni risultato in una card compatta.
+
+Desktop:
+tabella.
+
+Mobile:
+card/lista.
+
+==================================================
+NAVIGAZIONE
+==================================================
+
+Aggiungere "Risultati" alla navigazione principale dell'app.
+
+Icona:
+
+Flag / Trophy / Timer
+
+usando un'icona già disponibile nella libreria utilizzata dall'app.
+
+La route deve essere:
+
+/risultati
+
+==================================================
+AUTENTICAZIONE
+==================================================
+
+La pagina può essere visualizzata dagli utenti autenticati.
+
+Non creare una nuova logica auth.
+
+Riutilizzare il sistema useAuth / ProtectedPage già esistente.
+
+==================================================
+IMPORTANTISSIMO
+==================================================
+
+NON implementare ancora:
+
+- pronostici
+- calcolo punti
+- bonus
+- malus
+- classifiche FantamotoGP
+- collegamento alle leghe
+
+Questa pagina deve essere esclusivamente una visualizzazione dei risultati ufficiali.
+
+==================================================
+VERIFICA
+==================================================
+
+Dopo l'implementazione verificare:
+
+1. /risultati si apre correttamente
+2. GP caricati
+3. selezione GP funzionante
+4. Qualifiche funzionanti
+5. Sprint funzionante
+6. Gara funzionante
+7. risultati corretti
+8. piloti non classificati visibili
+9. nessun errore console
+10. nessun uso della service_role key nel frontend
+11. TypeScript senza errori
+
+Testare almeno:
+
+GP Gran Bretagna
+Qualifiche
+Sprint
+Gara
+
+Non modificare il database.

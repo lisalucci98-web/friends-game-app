@@ -14,9 +14,18 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import {
+  AlertCircle,
   ArrowRight,
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  Flag,
   Home as HomeIcon,
+  MapPin,
+  Medal,
+  RefreshCw,
   Settings,
+  Timer,
   Trophy,
   UserRound,
 } from 'lucide-react';
@@ -209,23 +218,26 @@ function MainPageLayout({
   eyebrow,
   title,
   text,
+  className,
   children,
 }: {
   eyebrow: string;
   title: string;
   text: string;
+  className?: string;
   children?: ReactNode;
 }) {
   const [location, navigate] = useLocation();
   const sections = [
     { path: '/home', label: 'Home', icon: HomeIcon },
     { path: '/leghe', label: 'Leghe', icon: Trophy },
+    { path: '/risultati', label: 'Risultati', icon: Flag },
     { path: '/profilo', label: 'Profilo', icon: UserRound },
     { path: '/impostazioni', label: 'Impostazioni', icon: Settings },
   ];
 
   return (
-    <main className="welcome-page app-page" data-testid="page-app">
+    <main className={`welcome-page app-page${className ? ` ${className}` : ''}`} data-testid="page-app">
       <header className="welcome-nav">
         <div className="brand-lockup" data-testid="text-brand">
           <span className="brand-mark" aria-hidden="true">M</span>
@@ -254,6 +266,7 @@ function MainPageLayout({
               className={`bottom-nav-item${isActive ? ' is-active' : ''}`}
               key={path}
               type="button"
+              data-testid={`nav-${label.toLowerCase()}`}
               onClick={() => navigate(path)}
               aria-current={isActive ? 'page' : undefined}
             >
@@ -274,6 +287,583 @@ function HomePage() {
       title="Benvenuta!"
       text="Questa è la home della mia prima app."
     />
+  );
+}
+
+type ResultsSeason = {
+  id: string;
+  year: number;
+};
+
+type GrandPrix = {
+  id: string;
+  name: string | null;
+  short_name: string | null;
+  country: string | null;
+  circuit: string | null;
+  date_start: string | null;
+  date_end: string | null;
+};
+
+type RaceSession = {
+  id: string;
+  grand_prix_id: string;
+  type: string | null;
+  status: string | null;
+  session_date: string | null;
+  number: number | string | null;
+};
+
+type RawSessionResult = {
+  session_id: string;
+  rider_id: string;
+  rider_number: number | string | null;
+  position: number | string | null;
+  points: number | string | null;
+  total_time: string | null;
+  gap: string | null;
+  average_speed: number | string | null;
+  status: string | null;
+};
+
+type Rider = {
+  id: string;
+  name: string | null;
+  surname: string | null;
+  nickname: string | null;
+};
+
+type RiderSeason = {
+  rider_id: string;
+  team_id: string | null;
+  number: number | string | null;
+};
+
+type Team = {
+  id: string;
+  name: string | null;
+};
+
+type DisplayResult = RawSessionResult & {
+  rider: Rider | null;
+  teamName: string | null;
+};
+
+const resultSessionLabels: Record<string, string> = {
+  Q: 'Qualifiche',
+  SPR: 'Sprint',
+  RAC: 'Gara',
+};
+
+function resultSessionLabel(type: string | null) {
+  return type ? resultSessionLabels[type] ?? type : 'Sessione';
+}
+
+function resultStatusLabel(status: string | null, position: number | string | null) {
+  const normalized = String(status ?? '').trim().toUpperCase();
+  if (!normalized && position !== null && position !== undefined) return 'Classificato';
+  if (['FINISHED', 'CLASSIFIED', 'CLASSIFICATO', 'OK'].includes(normalized)) {
+    return 'Classificato';
+  }
+  if (['NOT CLASSIFIED', 'NOT_CLASSIFIED', 'NC'].includes(normalized)) {
+    return 'Non classificato';
+  }
+  return normalized || 'Non disponibile';
+}
+
+function isResultClassified(result: RawSessionResult) {
+  const position = resultPosition(result.position);
+  const normalized = String(result.status ?? '').trim().toUpperCase();
+  return (
+    position !== null &&
+    !['DNF', 'DNS', 'DSQ', 'NC', 'NOT CLASSIFIED', 'NOT_CLASSIFIED', 'RETIRED', 'WITHDRAWN'].includes(
+      normalized,
+    )
+  );
+}
+
+function resultPosition(value: number | string | null) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function resultNumber(value: number | string | null) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? String(parsed) : '—';
+}
+
+function resultRiderName(rider: Rider | null) {
+  if (!rider) return 'Pilota non disponibile';
+  return [rider.name, rider.surname].filter(Boolean).join(' ') || rider.nickname || 'Pilota';
+}
+
+function resultDate(value: string | null) {
+  if (!value) return 'Data non disponibile';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('it-IT', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(date);
+}
+
+function resultTiming(result: RawSessionResult) {
+  const gap = result.gap?.trim();
+  const totalTime = result.total_time?.trim();
+  if (gap) {
+    if (gap.startsWith('+') || !/^\d/.test(gap)) return gap;
+    return `+${gap}`;
+  }
+  return totalTime || '—';
+}
+
+function ResultsSkeleton() {
+  return (
+    <div className="results-skeleton" aria-label="Caricamento risultati" data-testid="loading-results">
+      <span />
+      <span />
+      <span />
+      <span />
+    </div>
+  );
+}
+
+function ResultsRows({
+  rows,
+  sessionType,
+  mobile = false,
+}: {
+  rows: DisplayResult[];
+  sessionType: string;
+  mobile?: boolean;
+}) {
+  return (
+    <div className={mobile ? 'results-mobile-list' : 'results-table-wrap'}>
+      {rows.map((result, index) => {
+        const position = resultPosition(result.position);
+        const status = resultStatusLabel(result.status, result.position);
+        const isClassified = isResultClassified(result);
+        const riderName = resultRiderName(result.rider);
+        const rowKey = `${result.session_id}-${result.rider_id}-${index}`;
+
+        if (mobile) {
+          return (
+            <article
+              className={`result-mobile-card${position && position <= 3 ? ` result-mobile-card--top-${position}` : ''}`}
+              key={rowKey}
+              data-testid={`card-result-${result.rider_id}`}
+            >
+              <div className="result-mobile-place">
+                <span className="result-position">{position ?? '—'}</span>
+                <span className="result-number">#{resultNumber(result.rider_number)}</span>
+              </div>
+              <div className="result-mobile-driver">
+                <strong>{riderName}</strong>
+                <span>{result.teamName ?? 'Team non disponibile'}</span>
+              </div>
+              <div className="result-mobile-data">
+                <strong>{resultTiming(result)}</strong>
+                {sessionType !== 'Q' && <span>{result.points ?? 0} pt</span>}
+                <span className={`result-status${isClassified ? '' : ' is-muted'}`}>
+                  {isClassified ? <CheckCircle2 size={13} aria-hidden="true" /> : null}
+                  {status}
+                </span>
+              </div>
+            </article>
+          );
+        }
+
+        return (
+          <div
+            className={`results-table-row${position && position <= 3 ? ` results-table-row--top-${position}` : ''}`}
+            key={rowKey}
+            data-testid={`row-result-${result.rider_id}`}
+          >
+            <div className="result-position">{position ?? '—'}</div>
+            <div className="result-number">#{resultNumber(result.rider_number)}</div>
+            <div className="result-driver">
+              <strong>{riderName}</strong>
+              <span>{result.rider?.nickname ?? ''}</span>
+            </div>
+            <div className="result-team">{result.teamName ?? 'Team non disponibile'}</div>
+            <div className="result-time">
+              <strong>{resultTiming(result)}</strong>
+              {result.gap && result.total_time && result.gap !== result.total_time ? (
+                <span>{result.total_time}</span>
+              ) : null}
+            </div>
+            {sessionType !== 'Q' && <div className="result-points">{result.points ?? 0}</div>}
+            <div className={`result-status${isClassified ? '' : ' is-muted'}`}>
+              {isClassified ? <CheckCircle2 size={13} aria-hidden="true" /> : null}
+              {status}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ResultsPage() {
+  const { user, isAuthLoading } = useAuth();
+  const [season, setSeason] = useState<ResultsSeason | null>(null);
+  const [grandPrix, setGrandPrix] = useState<GrandPrix[]>([]);
+  const [sessions, setSessions] = useState<RaceSession[]>([]);
+  const [results, setResults] = useState<RawSessionResult[]>([]);
+  const [riders, setRiders] = useState<Rider[]>([]);
+  const [riderSeasons, setRiderSeasons] = useState<RiderSeason[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [selectedGrandPrixId, setSelectedGrandPrixId] = useState<string | null>(null);
+  const [activeSession, setActiveSession] = useState<'Q' | 'SPR' | 'RAC'>('RAC');
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadResults() {
+      if (isAuthLoading || !user) return;
+      setIsLoading(true);
+      setErrorMessage(null);
+
+      const seasonResponse = await supabase
+        .from('seasons')
+        .select('id, year')
+        .eq('year', 2026)
+        .maybeSingle();
+
+      if (seasonResponse.error || !seasonResponse.data) {
+        if (isMounted) {
+          setErrorMessage('La stagione 2026 non è disponibile nel database.');
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      const seasonRow = seasonResponse.data as ResultsSeason;
+      const grandPrixResponse = await supabase
+        .from('grand_prix')
+        .select('id, name, short_name, country, circuit, date_start, date_end')
+        .eq('season_id', seasonRow.id)
+        .eq('is_test', false)
+        .order('date_start', { ascending: true });
+
+      if (grandPrixResponse.error) {
+        if (isMounted) {
+          setErrorMessage('Non è stato possibile caricare il calendario MotoGP.');
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      const grandPrixRows = (grandPrixResponse.data ?? []) as GrandPrix[];
+      const grandPrixIds = grandPrixRows.map((item) => item.id);
+      const sessionsResponse = grandPrixIds.length
+        ? await supabase
+            .from('sessions')
+            .select('id, grand_prix_id, type, status, session_date, number')
+            .in('grand_prix_id', grandPrixIds)
+            .in('type', ['Q', 'SPR', 'RAC'])
+            .order('session_date', { ascending: true })
+        : { data: [], error: null };
+
+      if (sessionsResponse.error) {
+        if (isMounted) {
+          setErrorMessage('Non è stato possibile caricare le sessioni del campionato.');
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      const sessionRows = (sessionsResponse.data ?? []) as RaceSession[];
+      const sessionIds = sessionRows.map((item) => item.id);
+      const resultResponse = sessionIds.length
+        ? await supabase
+            .from('session_results')
+            .select(
+              'session_id, rider_id, rider_number, position, points, total_time, gap, average_speed, status',
+            )
+            .in('session_id', sessionIds)
+        : { data: [], error: null };
+
+      if (resultResponse.error) {
+        if (isMounted) {
+          setErrorMessage('Non è stato possibile caricare i risultati ufficiali.');
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      const resultRows = (resultResponse.data ?? []) as RawSessionResult[];
+      const riderIds = [...new Set(resultRows.map((item) => item.rider_id))];
+      const riderResponse = riderIds.length
+        ? await supabase
+            .from('riders')
+            .select('id, name, surname, nickname')
+            .in('id', riderIds)
+        : { data: [], error: null };
+      const riderSeasonResponse = riderIds.length
+        ? await supabase
+            .from('rider_seasons')
+            .select('rider_id, team_id, number')
+            .eq('season_id', seasonRow.id)
+            .in('rider_id', riderIds)
+        : { data: [], error: null };
+      const teamResponse = await supabase.from('teams').select('id, name');
+
+      if (riderResponse.error || riderSeasonResponse.error || teamResponse.error) {
+        if (isMounted) {
+          setErrorMessage('Non è stato possibile completare i dati dei piloti.');
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      if (isMounted) {
+        setSeason(seasonRow);
+        setGrandPrix(grandPrixRows);
+        setSessions(sessionRows);
+        setResults(resultRows);
+        setRiders((riderResponse.data ?? []) as Rider[]);
+        setRiderSeasons((riderSeasonResponse.data ?? []) as RiderSeason[]);
+        setTeams((teamResponse.data ?? []) as Team[]);
+        setSelectedGrandPrixId((current) =>
+          current && grandPrixRows.some((item) => item.id === current)
+            ? current
+            : grandPrixRows[0]?.id ?? null,
+        );
+        setIsLoading(false);
+      }
+    }
+
+    void loadResults();
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthLoading, reloadToken, user]);
+
+  const selectedGrandPrix = grandPrix.find((item) => item.id === selectedGrandPrixId) ?? null;
+  const selectedSession =
+    sessions.find(
+      (item) => item.grand_prix_id === selectedGrandPrixId && item.type === activeSession,
+    ) ?? null;
+  const teamById = new Map(teams.map((team) => [team.id, team.name ?? 'Team non disponibile']));
+  const teamIdByRider = new Map(riderSeasons.map((item) => [item.rider_id, item.team_id]));
+  const riderById = new Map(riders.map((rider) => [rider.id, rider]));
+  const selectedResults: DisplayResult[] = results
+    .filter((item) => item.session_id === selectedSession?.id)
+    .map((item) => ({
+      ...item,
+      rider: riderById.get(item.rider_id) ?? null,
+      teamName: teamById.get(teamIdByRider.get(item.rider_id) ?? '') ?? null,
+    }))
+    .sort((a, b) => {
+      const aPosition = resultPosition(a.position);
+      const bPosition = resultPosition(b.position);
+      if (aPosition === null && bPosition === null) return 0;
+      if (aPosition === null) return 1;
+      if (bPosition === null) return -1;
+      return aPosition - bPosition;
+    });
+  const classifiedResults = selectedResults.filter(
+    (item) => isResultClassified(item),
+  );
+  const notClassifiedResults = selectedResults.filter(
+    (item) => !isResultClassified(item),
+  );
+  const pole = activeSession === 'Q' ? classifiedResults[0] : null;
+  const isRace = activeSession === 'RAC';
+  const pageText = isLoading
+    ? 'Recupero delle classifiche ufficiali dal database.'
+    : errorMessage
+      ? errorMessage
+      : selectedGrandPrix
+        ? `${selectedGrandPrix.name ?? 'Gran Premio'} · ${resultSessionLabel(activeSession)}`
+        : 'Seleziona un Gran Premio per iniziare.';
+
+  return (
+    <MainPageLayout
+      className="results-app-page"
+      eyebrow="FantamotoGP · ufficiale"
+      title="Risultati MotoGP"
+      text={pageText}
+    >
+      <div className="results-shell" data-testid="results-viewer">
+        <div className="results-toolbar">
+          <label className="results-select-control" htmlFor="results-season">
+            <span>Campionato</span>
+            <span className="results-select-wrap">
+              <select id="results-season" value={season?.id ?? ''} disabled data-testid="select-season">
+                <option value={season?.id ?? ''}>MotoGP {season?.year ?? 2026}</option>
+              </select>
+              <ChevronDown size={16} aria-hidden="true" />
+            </span>
+          </label>
+          <label className="results-select-control results-select-control--gp" htmlFor="results-gp">
+            <span>Gran Premio</span>
+            <span className="results-select-wrap">
+              <select
+                id="results-gp"
+                value={selectedGrandPrixId ?? ''}
+                onChange={(event) => setSelectedGrandPrixId(event.target.value || null)}
+                disabled={isLoading || grandPrix.length === 0}
+                data-testid="select-grand-prix"
+              >
+                <option value="">Seleziona un GP</option>
+                {grandPrix.map((item, index) => (
+                  <option value={item.id} key={item.id}>
+                    {String(index + 1).padStart(2, '0')} · {item.name ?? item.short_name ?? 'Gran Premio'}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={16} aria-hidden="true" />
+            </span>
+          </label>
+        </div>
+
+        {selectedGrandPrix && (
+          <div className="results-event-meta" data-testid="text-event-meta">
+            <div className="results-event-title">
+              <span className="results-round">GP {String(grandPrix.findIndex((item) => item.id === selectedGrandPrix.id) + 1).padStart(2, '0')}</span>
+              <strong>{selectedGrandPrix.name ?? selectedGrandPrix.short_name ?? 'Gran Premio'}</strong>
+            </div>
+            <div className="results-event-facts">
+              <span><MapPin size={15} aria-hidden="true" />{selectedGrandPrix.circuit ?? selectedGrandPrix.country ?? 'Circuito non disponibile'}</span>
+              <span><CalendarDays size={15} aria-hidden="true" />{resultDate(selectedSession?.session_date ?? selectedGrandPrix.date_start)}</span>
+            </div>
+          </div>
+        )}
+
+        <div className="results-session-tabs" role="tablist" aria-label="Sessioni del Gran Premio">
+          {(['Q', 'SPR', 'RAC'] as const).map((type) => {
+            const available = sessions.some(
+              (item) => item.grand_prix_id === selectedGrandPrixId && item.type === type,
+            );
+            return (
+              <button
+                className={`results-session-tab${activeSession === type ? ' is-active' : ''}`}
+                type="button"
+                role="tab"
+                aria-selected={activeSession === type}
+                disabled={isLoading}
+                onClick={() => setActiveSession(type)}
+                key={type}
+                data-testid={`tab-session-${type.toLowerCase()}`}
+              >
+                <span>{resultSessionLabel(type)}</span>
+                <small>{available ? 'disponibile' : 'non disponibile'}</small>
+              </button>
+            );
+          })}
+        </div>
+
+        {isLoading ? (
+          <ResultsSkeleton />
+        ) : errorMessage ? (
+          <div className="results-state results-state--error" role="alert" data-testid="error-results">
+            <span className="results-state-icon"><AlertCircle size={20} aria-hidden="true" /></span>
+            <strong>Non riusciamo a leggere i risultati</strong>
+            <p>{errorMessage}</p>
+            <button
+              className="results-retry-button"
+              type="button"
+              onClick={() => setReloadToken((value) => value + 1)}
+              data-testid="button-retry-results"
+            >
+              <RefreshCw size={15} aria-hidden="true" /> Riprova
+            </button>
+          </div>
+        ) : grandPrix.length === 0 ? (
+          <div className="results-state" data-testid="empty-grand-prix">
+            <span className="results-state-icon"><Flag size={20} aria-hidden="true" /></span>
+            <strong>Nessun Gran Premio in calendario</strong>
+            <p>La stagione 2026 non contiene ancora eventi pubblicati.</p>
+          </div>
+        ) : !selectedGrandPrix ? (
+          <div className="results-state" data-testid="empty-selected-grand-prix">
+            <span className="results-state-icon"><MapPin size={20} aria-hidden="true" /></span>
+            <strong>Scegli un Gran Premio</strong>
+            <p>Seleziona un evento dal calendario per vedere le classifiche.</p>
+          </div>
+        ) : !selectedSession ? (
+          <div className="results-state" data-testid="empty-session">
+            <span className="results-state-icon"><Timer size={20} aria-hidden="true" /></span>
+            <strong>{resultSessionLabel(activeSession)} non disponibile</strong>
+            <p>Per questo Gran Premio la sessione non è ancora presente nel database.</p>
+          </div>
+        ) : selectedResults.length === 0 ? (
+          <div className="results-state" data-testid="empty-session-results">
+            <span className="results-state-icon"><Timer size={20} aria-hidden="true" /></span>
+            <strong>Nessun risultato registrato</strong>
+            <p>La sessione è presente, ma non contiene ancora classifiche ufficiali.</p>
+          </div>
+        ) : (
+          <>
+            {pole && (
+              <div className="pole-card" data-testid="card-pole-position">
+                <div className="pole-badge"><Medal size={17} aria-hidden="true" /><span>Pole position</span></div>
+                <div className="pole-rider">
+                  <span className="pole-number">#{resultNumber(pole.rider_number)}</span>
+                  <strong>{resultRiderName(pole.rider)}</strong>
+                  <span>{pole.teamName ?? 'Team non disponibile'}</span>
+                </div>
+                <div className="pole-time"><span>Tempo pole</span><strong>{pole.total_time ?? resultTiming(pole)}</strong></div>
+              </div>
+            )}
+            <div className="results-heading-row">
+              <div>
+                <span className="results-kicker"><Flag size={14} aria-hidden="true" /> Classifica ufficiale</span>
+                <h2>{resultSessionLabel(activeSession)}</h2>
+              </div>
+              <span className="results-count">{classifiedResults.length} classificati</span>
+            </div>
+            <div className={`results-table${activeSession !== 'Q' ? ' results-table--points' : ''}`} data-testid="results-table">
+              <div className="results-table-head">
+                <span>Pos</span>
+                <span>Num</span>
+                <span>Pilota</span>
+                <span>Team</span>
+                <span>Tempo / gap</span>
+                {activeSession !== 'Q' && <span>Pt</span>}
+                <span>Status</span>
+              </div>
+              <ResultsRows rows={classifiedResults} sessionType={activeSession} />
+            </div>
+            <div className="results-mobile-only">
+              <ResultsRows rows={classifiedResults} sessionType={activeSession} mobile />
+            </div>
+            {isRace && notClassifiedResults.length > 0 && (
+              <section className="not-classified-section" aria-labelledby="not-classified-title" data-testid="section-not-classified">
+                <div className="results-heading-row">
+                  <div>
+                    <span className="results-kicker results-kicker--muted"><AlertCircle size={14} aria-hidden="true" /> Esito della gara</span>
+                    <h2 id="not-classified-title">Not classified</h2>
+                  </div>
+                  <span className="results-count">{notClassifiedResults.length} piloti</span>
+                </div>
+                <div className="results-table results-table--nc results-table--points">
+                  <div className="results-table-head">
+                    <span>Pos</span>
+                    <span>Num</span>
+                    <span>Pilota</span>
+                    <span>Team</span>
+                    <span>Tempo / gap</span>
+                    <span>Pt</span>
+                    <span>Status</span>
+                  </div>
+                  <ResultsRows rows={notClassifiedResults} sessionType="RAC" />
+                </div>
+                <div className="results-mobile-only">
+                  <ResultsRows rows={notClassifiedResults} sessionType="RAC" mobile />
+                </div>
+              </section>
+            )}
+          </>
+        )}
+      </div>
+    </MainPageLayout>
   );
 }
 
@@ -1321,6 +1911,14 @@ function ProtectedLeaguesPage() {
   );
 }
 
+function ProtectedResultsPage() {
+  return (
+    <ProtectedPage>
+      <ResultsPage />
+    </ProtectedPage>
+  );
+}
+
 function ProtectedLeagueDetailPage() {
   return (
     <ProtectedPage>
@@ -1584,6 +2182,7 @@ function Router() {
         <Route path="/auth" component={AuthPage} />
         <Route path="/home" component={ProtectedHomePage} />
         <Route path="/leghe" component={ProtectedLeaguesPage} />
+        <Route path="/risultati" component={ProtectedResultsPage} />
         <Route path="/leghe/:leagueId" component={ProtectedLeagueDetailPage} />
         <Route path="/profilo" component={ProtectedProfilePage} />
         <Route path="/impostazioni" component={ProtectedSettingsPage} />
