@@ -461,6 +461,18 @@ function resultTiming(result: RawSessionResult) {
   return totalTime || '—';
 }
 
+function resultPrimaryTiming(result: RawSessionResult, sessionType: string) {
+  if (sessionType === 'Q') return result.total_time?.trim() || '—';
+  return resultTiming(result);
+}
+
+function resultSecondaryTiming(result: RawSessionResult, sessionType: string) {
+  const gap = result.gap?.trim();
+  const totalTime = result.total_time?.trim();
+  if (sessionType === 'Q') return gap && gap !== totalTime ? gap : null;
+  return gap && totalTime && gap !== totalTime ? totalTime : null;
+}
+
 function ResultsSkeleton() {
   return (
     <div className="results-skeleton" aria-label="Caricamento risultati" data-testid="loading-results">
@@ -506,8 +518,11 @@ function ResultsRows({
                 <span>{result.teamName ?? 'Team non disponibile'}</span>
               </div>
               <div className="result-mobile-data">
-                <strong>{resultTiming(result)}</strong>
-                  {sessionType !== 'Q' && <span>{resultDisplayPoints(result, sessionType)} pt</span>}
+                <strong>{resultPrimaryTiming(result, sessionType)}</strong>
+                {resultSecondaryTiming(result, sessionType) && (
+                  <span>{resultSecondaryTiming(result, sessionType)}</span>
+                )}
+                {sessionType !== 'Q' && <span>{resultDisplayPoints(result, sessionType)} pt</span>}
                 <span className={`result-status${isClassified ? '' : ' is-muted'}`}>
                   {isClassified ? <CheckCircle2 size={13} aria-hidden="true" /> : null}
                   {status}
@@ -531,10 +546,10 @@ function ResultsRows({
             </div>
             <div className="result-team">{result.teamName ?? 'Team non disponibile'}</div>
             <div className="result-time">
-              <strong>{resultTiming(result)}</strong>
-              {result.gap && result.total_time && result.gap !== result.total_time ? (
-                <span>{result.total_time}</span>
-              ) : null}
+              <strong>{resultPrimaryTiming(result, sessionType)}</strong>
+              {resultSecondaryTiming(result, sessionType) && (
+                <span>{resultSecondaryTiming(result, sessionType)}</span>
+              )}
             </div>
             {sessionType !== 'Q' && (
               <div className="result-points">{resultDisplayPoints(result, sessionType)}</div>
