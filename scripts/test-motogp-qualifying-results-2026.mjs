@@ -117,12 +117,22 @@ function findLikelyRows(text) {
   const rows = [];
 
   for (const line of lines) {
-    const match = line.match(/^\s*(\d{1,2})\s+(.{3,80}?)(?:\s{2,}|\t+)(\d+:\d+\.\d+|\d+\.\d+)\s*$/);
-    if (match) {
+    const match = line.match(
+      /^\s*(\d{1,2})\s+(\d{1,3})\s+(.+?)\s{2,}([A-Z]{3})\s+(.+?)\s{2,}([A-Z]+)(?:\s+(Q[12]))?\s+(\d+'\d+\.\d+)/,
+    );
+    const fallback = !match && line.match(
+      /^\s*(\d{1,2})\s+(\d{1,3})\s+(.+?)\s{2,}[A-Z]{3}.*?(\d+'\d+\.\d+)/,
+    );
+    if (match || fallback) {
       rows.push({
-        position: Number(match[1]),
-        rider: match[2].trim(),
-        time: match[3],
+        position: Number((match ?? fallback)[1]),
+        rider_number: Number((match ?? fallback)[2]),
+        rider: (match ?? fallback)[3].trim(),
+        nation: match?.[4] ?? null,
+        team: match?.[5]?.trim() ?? null,
+        motorcycle: match?.[6] ?? null,
+        phase: match?.[7] ?? null,
+        time: match?.[8] ?? fallback?.[4],
         raw: line,
       });
     }
@@ -206,6 +216,7 @@ try {
       classificationRows: [],
       classificationPath: null,
       combinedText: null,
+      combinedRows: [],
       gridText: null,
     };
 
@@ -233,7 +244,9 @@ try {
         pdfPath,
         join(TMP_DIR, `${label.toLowerCase()}-${sessionId}-combined.txt`),
       );
+      analysis.combinedRows = findLikelyRows(analysis.combinedText);
       printTextExcerpt('Combined classification PDF', analysis.combinedText, 20);
+      console.log(`  Righe combined riconosciute euristicamente: ${analysis.combinedRows.length}`);
     }
 
     if (files.grid) {
@@ -270,6 +283,12 @@ try {
     } else {
       console.log('Risultati: struttura non riconosciuta dall’euristica, consultare il testo estratto.');
     }
+    if (analysis.combinedRows.length > 0) {
+      console.log('Primi 10 del risultato combinato:');
+      analysis.combinedRows.slice(0, 10).forEach(row => {
+        console.log(`- ${row.position} | ${row.rider} | ${row.phase ?? '—'} | ${row.time}`);
+      });
+    }
   }
 
   const q1 = analyses.find(analysis => analysis.label === 'Q1');
@@ -283,20 +302,29 @@ try {
   console.log('2. Fonte ufficiale proposta per pole position e tempo pole:');
   console.log(`   ${q2?.files.classification ?? '(Classification Q2 non disponibile)'}`);
   console.log('3. Fonte ufficiale proposta per la posizione di qualifica:');
-  console.log(`   ${q2?.files.classification ?? '(Classification Q2 non disponibile)'}`);
+  console.log(`   ${q2?.files.combined_classification ?? '(Combined classification non disponibile)'}`);
   console.log('4. Piloti eliminati in Q1:');
-  console.log(`   consultare la Classification della sessione Q1: ${q1?.files.classification ?? '(assente)'}`);
+  console.log(
+    `   Classification Q1: ${q1?.files.classification ?? '(assente)'}` +
+    ' oppure righe marcate Q1 nel combined.',
+  );
   console.log('5. Combined classification:');
   console.log(`   ${q2?.files.combined_classification ?? q1?.files.combined_classification ?? '(non disponibile)'}`);
   console.log('6. Grid:');
   console.log(`   ${q2?.files.grid ?? q1?.files.grid ?? '(non disponibile)'}`);
+  console.log('   Il Grid è una griglia di partenza provvisoria, non la fonte della classifica qualifiche.');
   console.log('7. Pole individuata:');
   console.log(`   ${poleSource?.rider ?? '(non riconosciuta)'}`);
   console.log(`   tempo ufficiale candidato: ${poleSource?.time ?? '(non riconosciuto)'}`);
-  console.log('8. URL/file da usare nel futuro importer:');
+  console.log('8. Primi 10 del risultato finale combinato:');
+  (q2?.combinedRows ?? []).slice(0, 10).forEach(row => {
+    console.log(`   ${row.position}. ${row.rider} — ${row.phase ?? '—'} — ${row.time}`);
+  });
+  console.log('9. URL/file da usare nel futuro importer:');
   console.log(`   Classification Q1: ${q1?.files.classification ?? '(assente)'}`);
   console.log(`   Classification Q2: ${q2?.files.classification ?? '(assente)'}`);
-  console.log('   Priorità: Classification Q2 per pole e ordine qualifiche; Classification Q1 per gli eliminati Q1.');
+  console.log(`   Combined finale: ${q2?.files.combined_classification ?? '(assente)'}`);
+  console.log('   Priorità: Classification Q2 per pole/tempo; Combined finale per la posizione di ogni pilota.');
   console.log('   Parser definitivo: NON implementato.');
 
   section('4 · PROBLEMI / ANOMALIE');
