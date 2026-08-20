@@ -1,0 +1,152 @@
+Ora voglio preparare il dry-run dell'import del calendario MotoGP 2026.
+
+NON modificare:
+- App.tsx
+- UI
+- routing
+- autenticazione
+- schema database
+- RLS
+- dati Supabase
+
+Le tabelle esistono già:
+
+public.seasons
+public.grand_prix
+public.sessions
+
+La stagione 2026 è:
+
+e88b4e43-2209-47aa-8e83-0e0b1cedde6e
+
+Categoria MotoGP results:
+
+e8c110ad-64aa-4e8e-8a86-f2f152f6a942
+
+Crea/modifica esclusivamente:
+
+scripts/import-motogp-calendar-2026.mjs
+
+Lo script deve essere DRY-RUN e NON deve eseguire INSERT, UPDATE, UPSERT o DELETE su Supabase.
+
+Usa l'API MotoGP.
+
+1. Recupera gli eventi 2026 usando gli endpoint già verificati:
+
+/results/events?seasonUuid={seasonUuid}&isFinished=false
+
+/results/events?seasonUuid={seasonUuid}&isFinished=true
+
+2. Deduplica gli eventi.
+
+3. Escludi tutti gli eventi con:
+
+test === true
+
+4. Per ogni GP reale recupera:
+
+/results/sessions?eventUuid={eventUuid}&categoryUuid={resultsCategoryUuid}
+
+5. Costruisci in memoria i record per:
+
+public.grand_prix
+
+campi:
+
+id
+season_id
+name
+short_name
+country
+circuit
+date_start
+date_end
+is_test
+status
+
+6. Costruisci in memoria i record per:
+
+public.sessions
+
+campi:
+
+id
+grand_prix_id
+type
+status
+session_date
+number
+
+7. Verifica che ogni GP abbia almeno:
+
+Q
+SPR
+RAC
+
+8. NON utilizzare date_start/date_end del GP per determinare le scadenze delle sessioni.
+
+Per ogni sessione usa la sua data effettiva.
+
+9. Ordina i GP cronologicamente usando la data dell'evento.
+
+10. Produci un report dettagliato:
+
+CALENDARIO 2026
+
+#1
+GP:
+Paese:
+Circuito:
+Evento start:
+Evento end:
+
+Sessioni:
+- FP — data
+- PR — data
+- Q — data
+- SPR — data
+- WUP — data
+- RAC — data
+
+...
+
+11. Alla fine stampa:
+
+Totale eventi API:
+Eventi unici:
+Eventi test:
+GP reali:
+
+Sessioni totali:
+FP:
+PR:
+Q:
+SPR:
+WUP:
+RAC:
+
+GP con Q:
+GP con SPR:
+GP con RAC:
+
+Duplicati GP:
+Duplicati sessioni:
+GP senza Q:
+GP senza SPR:
+GP senza RAC:
+
+Sessioni con data mancante:
+Sessioni fuori finestra evento:
+
+12. Per le anomalie di Qatar, Portogallo e Valencia:
+NON correggere artificialmente le date.
+Mantieni la session_date restituita dall'API e segnalale nel report.
+
+13. Alla fine stampa anche un riepilogo pronto per un futuro import:
+
+grand_prix records: X
+sessions records: X
+
+Scritture Supabase: NESSUNA
+
+Non modificare altri file.
