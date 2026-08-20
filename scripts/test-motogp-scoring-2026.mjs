@@ -68,6 +68,10 @@ await test('immediatamente oltre ±0.010 s, fascia 0.1%', 5, {
   p_predicted: ACTUAL_POLE_TIME + 0.010001,
   p_actual: ACTUAL_POLE_TIME,
 });
+await test('immediatamente oltre -0.010 s, fascia 0.1%', 5, {
+  p_predicted: ACTUAL_POLE_TIME - 0.010001,
+  p_actual: ACTUAL_POLE_TIME,
+});
 await test('limite +0.1%', 5, {
   p_predicted: ACTUAL_POLE_TIME * 1.001,
   p_actual: ACTUAL_POLE_TIME,
