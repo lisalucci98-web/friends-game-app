@@ -1,0 +1,420 @@
+Devi rivedere completamente la pagina di inserimento pronostici di FantaMotoGP in base al regolamento ufficiale riportato sotto.
+
+IMPORTANTE:
+Non inventare regole aggiuntive.
+Il frontend deve rispecchiare esattamente il regolamento.
+Le validazioni devono essere coerenti con la struttura già presente in Supabase e, dove possibile, devono essere replicate/verificate lato server/RPC.
+
+# REGOLAMENTO FANTAMOTOGP
+
+## 1. PRONOSTICO QUALIFICHE
+
+Il pronostico qualifiche è composto da DUE elementi distinti:
+
+### A. Tempo della pole position
+
+L'utente deve inserire un tempo nel formato:
+
+MM:SS.mmm
+
+Esempio:
+01:27.756
+
+Il campo deve:
+- accettare solo un formato valido;
+- permettere i millisecondi;
+- convertire internamente il valore in secondi per i successivi calcoli;
+- non permettere valori negativi o formati non validi.
+
+Punteggio:
+
+- 10 punti → errore assoluto <= 0.010 secondi
+- 5 punti → errore percentuale <= 0.1%
+- 3 punti → errore percentuale <= 0.25%
+- 1 punto → errore percentuale <= 0.5%
+- 0 punti → oltre il ±0.5%
+
+ATTENZIONE:
+Le fasce devono essere valutate dalla più precisa alla meno precisa.
+Se il pronostico rientra nella tolleranza ±0.010 s, assegna 10 e non anche 5/3/1.
+
+### B. Pilota pole position
+
+L'utente deve selezionare un solo pilota.
+
+Punteggio:
+- 5 punti → pilota arriva 1°
+- 2 punti → pilota arriva 2°
+- 0 punti → qualsiasi altra posizione
+
+### Deadline Qualifiche
+
+Il pronostico qualifiche, sia tempo sia pilota, deve essere inviato prima dell'INIZIO DELLA Q1.
+
+Usare esclusivamente:
+
+sessions.type = 'Q'
+sessions.number = 1
+
+e il relativo `session_date`.
+
+NON usare l'orario della Q2.
+
+Il valore `session_date` nel database è già l'orario italiano corretto.
+NON effettuare conversioni timezone.
+
+---
+
+# 2. PRONOSTICO GARETTA / SPRINT
+
+La "Garetta" corrisponde alla Sprint Race.
+
+L'utente deve selezionare:
+
+1° posto
+2° posto
+3° posto
+
+Devono essere tre piloti distinti.
+
+Punteggio per ciascun pilota:
+
+- 3 punti → posizione esatta
+- 1 punto → posizione sbagliata di una sola posizione
+- 0 punti → pilota arriva fuori dalle prime 3 posizioni
+
+Esempio:
+
+Pronostico:
+1. Bagnaia
+2. Marquez
+3. Martin
+
+Risultato:
+1. Marquez
+2. Bagnaia
+3. Martin
+
+Punteggio:
+Bagnaia → 1 punto
+Marquez → 1 punto
+Martin → 3 punti
+
+Il pilota deve quindi essere confrontato con la posizione reale e deve essere considerata la distanza assoluta tra posizione pronosticata e posizione reale.
+
+Se posizione reale > 3:
+0 punti.
+
+### Deadline Sprint
+
+Il pronostico Sprint deve essere inviato prima dell'inizio della Sprint.
+
+Usare:
+
+sessions.type = 'SPR'
+
+e il relativo `session_date`.
+
+NON usare la Q.
+NON usare la Gara.
+
+---
+
+# 3. PRONOSTICO GARA
+
+L'utente deve selezionare:
+
+1° posto
+2° posto
+3° posto
+4° posto
+5° posto
+
+Devono essere 5 piloti distinti.
+
+Inoltre deve selezionare un sesto pilota:
+
+OUT
+
+Il pilota OUT deve essere diverso dai cinque piloti della top 5.
+
+## Punteggio top 5
+
+Per ogni pilota:
+
+- 5 punti → posizione esatta
+- 3 punti → errore di una posizione
+- 1 punto → pilota arriva comunque nei primi 5, ma in una posizione diversa
+- 0 punti → pilota arriva 6° o oltre / non classificato
+
+Esempio:
+
+Pronostico:
+1. A
+2. B
+3. C
+4. D
+5. E
+
+Risultato:
+1. B
+2. A
+3. C
+4. E
+5. D
+
+A → 3
+B → 3
+C → 5
+D → 3
+E → 3
+
+NOTA:
+Il regolamento originale contiene la frase "Nessun punto se un pilota scelto arriva al di fuori delle tre posizioni previste".
+Poiché il pronostico gara prevede 5 posizioni, interpretare questa frase come:
+"Nessun punto se il pilota scelto arriva al di fuori delle prime cinque posizioni."
+
+## Pilota OUT
+
+Il sesto pilota deve essere diverso dai cinque piloti della top 5.
+
+- 2 punti → il pilota scelto è dichiarato OUT / non conclude la gara secondo lo status ufficiale del risultato
+- 0 punti → altrimenti
+
+Non assegnare il bonus OUT se il pilota è semplicemente arrivato 6° o oltre ma è classificato.
+
+Usare lo `status` ufficiale presente in `session_results`.
+
+---
+
+# 4. BONUS GARA
+
+Calcolare automaticamente i bonus sulla base dei cinque piloti pronosticati.
+
+## Ordine esatto top 5
+
+- 5 punti → tutti e 5 nell'ordine esatto
+- 3 punti → 4 dei 5 piloti sono nella posizione corretta
+- 1 punto → 3 dei 5 piloti sono nella posizione corretta
+- 0 punti → meno di 3 posizioni corrette
+
+## Tutti e cinque nei primi cinque, indipendentemente dall'ordine
+
+- 2 punti → tutti e cinque i piloti pronosticati occupano le prime cinque posizioni, indipendentemente dall'ordine
+- 0 punti → altrimenti
+
+Questo bonus è indipendente dal bonus dell'ordine esatto.
+
+Quindi, se tutti e cinque i piloti sono corretti e nell'ordine corretto:
++5 punti ordine esatto
++2 punti tutti nei primi cinque
+
+Totale bonus = 7.
+
+---
+
+# 5. MALUS GARA
+
+I malus valgono SOLO per il pronostico Gara.
+
+NON valgono per:
+- Qualifiche
+- Sprint/Garetta
+
+Il malus viene calcolato sui 5 piloti della top 5 pronosticata.
+
+- -1 punto → un pilota pronosticato non conclude la gara
+- -5 punti → tre dei cinque piloti pronosticati non concludono la gara
+- -10 punti → tutti e cinque i piloti pronosticati non concludono la gara
+
+ATTENZIONE:
+Il malus deve essere calcolato in base allo status ufficiale della Gara.
+
+Non considerare semplicemente "posizione > 5" come DNF.
+
+Usare lo `status` presente nei risultati ufficiali.
+
+Evita di applicare contemporaneamente -1, -5 e -10:
+deve essere applicato solamente il malus corrispondente al caso raggiunto.
+
+Esempio:
+3 piloti OUT → -5, non -3.
+
+5 piloti OUT → -10, non -5 e non -1.
+
+---
+
+# 6. TEMPISTICHE
+
+Ogni tipo di pronostico ha una propria deadline.
+
+QUALIFICHE:
+Q1 `type = 'Q' AND number = 1`
+
+SPRINT:
+`type = 'SPR'`
+
+GARA:
+`type = 'RAC'`
+
+Il database contiene già `session_date` nell'orario italiano corretto.
+
+NON effettuare conversioni timezone.
+
+Prima della deadline:
+- pronostico modificabile.
+
+Dopo la deadline:
+- pronostico non modificabile;
+- mostrare chiaramente "Pronostico chiuso".
+
+La deadline deve essere verificata anche lato server/RPC, non solamente nel frontend.
+
+---
+
+# 7. INTERFACCIA UTENTE
+
+La pagina deve essere strutturata in tre sezioni/cards:
+
+## QUALIFICHE
+
+Mostrare:
+
+Tempo pole:
+[ MM:SS.mmm ]
+
+Pole position:
+[ Seleziona pilota ▼ ]
+
+Deadline:
+"Chiude sab XX XXX, HH:MM"
+
+Pulsante:
+"Salva pronostico"
+
+---
+
+## SPRINT
+
+Mostrare:
+
+1° [pilota]
+2° [pilota]
+3° [pilota]
+
+Deadline:
+"Chiude sab XX XXX, HH:MM"
+
+Pulsante:
+"Salva pronostico"
+
+---
+
+## GARA
+
+Mostrare:
+
+1° [pilota]
+2° [pilota]
+3° [pilota]
+4° [pilota]
+5° [pilota]
+
+Pilota OUT:
+[seleziona pilota]
+
+Deadline:
+"Chiude dom XX XXX, HH:MM"
+
+Pulsante:
+"Salva pronostico"
+
+---
+
+# 8. VALIDAZIONI FRONTEND
+
+Impedire:
+
+- stesso pilota selezionato in più posizioni;
+- pilota OUT uguale a uno dei top 5;
+- tempo qualifiche non valido;
+- invio dopo deadline;
+- campi obbligatori mancanti.
+
+Mostrare messaggi di errore chiari in italiano.
+
+---
+
+# 9. DATI PILOTI
+
+I piloti devono essere caricati dal roster MotoGP 2026 già presente in Supabase.
+
+Usare `rider_seasons` come fonte dei piloti selezionabili.
+
+NON mostrare wildcard/test rider non appartenenti al roster giocabile.
+
+In particolare Augusto Fernández #47, presente in `riders` ma senza `rider_seasons`, NON deve essere selezionabile nei pronostici.
+
+---
+
+# 10. IMPORTANTISSIMO: NON CAMBIARE IL REGOLAMENTO
+
+Non implementare una logica generica tipo "pronostico posizione".
+
+Le tre tipologie hanno regole differenti:
+
+QUALIFICHE:
+- tempo pole
+- pilota pole
+
+SPRINT:
+- top 3
+
+GARA:
+- top 5
+- OUT
+- bonus
+- malus
+
+La UI e il database devono riflettere queste differenze.
+
+---
+
+# 11. RISULTATI E PUNTEGGI
+
+I punteggi NON devono essere calcolati solamente nel frontend.
+
+La logica di scoring deve essere centralizzata lato server/database/RPC, in modo che l'utente non possa manipolarla.
+
+Il frontend deve occuparsi principalmente di:
+- inserimento;
+- modifica prima della deadline;
+- visualizzazione dello stato;
+- visualizzazione dell'eventuale punteggio già calcolato.
+
+Non modificare manualmente i punteggi nel browser.
+
+---
+
+# 12. VERIFICHE FINALI
+
+Dopo l'implementazione:
+
+1. TypeScript check.
+2. Build Vite.
+3. Nessun errore console.
+4. Verificare che i piloti siano tutti distinti.
+5. Verificare che OUT non possa essere uno dei top 5.
+6. Verificare deadline Qualifiche = Q1.
+7. Verificare deadline Sprint = SPR.
+8. Verificare deadline Gara = RAC.
+9. Verificare che gli orari mostrati siano identici a `session_date`.
+10. Verificare che un pronostico chiuso non sia modificabile.
+11. Verificare che Augusto #47 non compaia tra i piloti selezionabili.
+12. Verificare che il tempo qualifiche accetti `01:27.756`.
+13. Verificare che il punteggio del tempo sia calcolato con le tolleranze indicate.
+14. Verificare la validazione dei duplicati.
+15. Verificare la logica bonus/malus Gara.
+
+NON modificare schema, RLS o RPC esistenti senza prima verificare cosa è già presente.
+Se la struttura database attuale non supporta correttamente tutte queste informazioni, fermati e segnala esattamente cosa manca invece di inventare una soluzione.
