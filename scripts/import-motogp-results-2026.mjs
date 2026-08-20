@@ -216,12 +216,12 @@ function riderNameForLine(line, riders, riderNumber) {
   const byNumber = riders.filter(row => Number(row.number) === Number(riderNumber));
   const candidates = byNumber.length > 0 ? byNumber : riders;
   const normalizedLine = normalizeText(line);
-  const matching = candidates.filter(row => {
+  const fullMatches = candidates.filter(row => {
     const full = normalizeText(`${row.name ?? ''} ${row.surname ?? ''}`);
-    const surname = normalizeText(row.surname);
-    return (full && normalizedLine.includes(full)) || (surname && normalizedLine.includes(surname));
+    return full && normalizedLine.includes(full);
   });
-  return matching[0] ?? null;
+  if (fullMatches.length === 1) return fullMatches[0];
+  return null;
 }
 
 function parsePdfRows(text, riders, sourceUrl, context) {
@@ -238,18 +238,34 @@ function parsePdfRows(text, riders, sourceUrl, context) {
       if (!upper.includes('NOT CLASSIFIED')) sectionName = '';
     }
 
-    const start = line.match(/^\s*(\d{1,3}|NC|DNF|DNS|DSQ)\s+(?:(\d{1,3})\s+)?(.+)$/i);
+    const start = line.match(
+      /^\s*(\d{1,3}|NC|DNF|DNS|DSQ)\s+(?:(\d{1,3})\s+)?(?:(\d{1,3})\s+)?(.+)$/i,
+    );
     if (!start) continue;
     const first = start[1].toUpperCase();
-    const hasPosition = /^\d+$/.test(first) && Boolean(start[2]);
-    const position = hasPosition ? Number(first) : null;
-    const riderNumber = Number(hasPosition ? start[2] : first);
+    const hasRaceColumns =
+      context.type !== 'Q' &&
+      /^\d+$/.test(first) &&
+      Boolean(start[3]) &&
+      Number(first) <= 30 &&
+      Number(start[2]) <= 30;
+    const hasPosition = /^\d+$/.test(first) && Boolean(start[2]) && !hasRaceColumns;
+    const position = hasRaceColumns ? Number(first) : hasPosition ? Number(first) : null;
+    const riderNumber = Number(
+      hasRaceColumns ? start[3] : hasPosition ? start[2] : first,
+    );
     if (!Number.isFinite(riderNumber)) continue;
 
     const rider = riderNameForLine(line, riders, riderNumber);
     if (!rider) {
       // Solo le righe che assomigliano a una riga dati contano come non interpretate.
       if (/\b(?:[A-Z]{3})\b/.test(start[3]) || /(?:\d+'\d+\.\d+|\d+:\d+:\d+)/.test(line)) {
+        counters.riderNotFound += 1;
+        details.riderNotFound.push({
+          ...context,
+          rider_number: riderNumber,
+          line: line.trim(),
+        });
         counters.unparsedRows += 1;
         details.unparsedRows.push({ ...context, line: line.trim() });
       }
@@ -259,7 +275,9 @@ function parsePdfRows(text, riders, sourceUrl, context) {
     const totalTime = timeToken(line);
     const explicitStatus = line.match(/\b(?:DNF|DNS|DSQ|NC|NOT CLASSIFIED|RETIRED)\b/i)?.[0] ?? first;
     const status = statusFromValue(explicitStatus, sectionName, position !== null);
-    const pointsMatch = line.match(/(?:^|\s)(\d+(?:\.\d+)?)\s*(?:pts?|points?)?\s*$/i);
+    const pointsMatch = hasRaceColumns
+      ? { 1: start[2] }
+      : line.match(/(?:^|\s)(\d+(?:\.\d+)?)\s*(?:pts?|points?)?\s*$/i);
     const points = context.type === 'Q'
       ? null
       : pointsMatch

@@ -4,3 +4,4 @@
 - [MotoGP roster sources](motogp-roster-sources.md) — roster endpoints use the content category UUID and `seasonYear`, not result-service identifiers.
 - [MotoGP calendar dates](motogp-calendar-dates.md) — use session timestamps for gameplay timing; event metadata can disagree with the session weekend.
 - [MotoGP session types](motogp-session-types.md) — preserve the raw API type and session number; a second race is not necessarily emitted as `RAC2`.
+- [MotoGP results importer](motogp-results-import.md) — require result PDFs and exact full-name rider matching before any write.
