@@ -207,19 +207,22 @@ function countDuplicates(rows, keyOf) {
 }
 
 async function verifyImportedData(expected) {
-  const [grandPrixRows, allSessionRows] = await Promise.all([
+  const [grandPrixRows, allGrandPrixRows, allSessionRows] = await Promise.all([
     supabaseRequest(
       `/grand_prix?season_id=eq.${encodeURIComponent(SEASON_ID)}` +
       '&select=id,season_id,name,short_name,country,circuit,date_start,date_end,is_test,status',
     ),
+    supabaseRequest('/grand_prix?select=id'),
     supabaseRequest(
       '/sessions?select=id,grand_prix_id,type,status,session_date,number',
     ),
   ]);
 
   const grandPrix = Array.isArray(grandPrixRows) ? grandPrixRows : [];
+  const allGrandPrix = Array.isArray(allGrandPrixRows) ? allGrandPrixRows : [];
   const allSessions = Array.isArray(allSessionRows) ? allSessionRows : [];
   const grandPrixIds = new Set(grandPrix.map(row => row.id));
+  const allGrandPrixIds = new Set(allGrandPrix.map(row => row.id));
   const sessions = allSessions.filter(row => grandPrixIds.has(row.grand_prix_id));
   const sessionsByGrandPrix = new Map();
 
@@ -240,7 +243,7 @@ async function verifyImportedData(expected) {
     id => !dbSessionIds.has(id),
   );
   const orphanSessions = allSessions.filter(
-    row => !grandPrixIds.has(row.grand_prix_id),
+    row => !allGrandPrixIds.has(row.grand_prix_id),
   );
   const duplicateGrandPrix = countDuplicates(grandPrix, row => row.id);
   const duplicateSessions = countDuplicates(sessions, row => row.id);
@@ -440,6 +443,9 @@ try {
 
   for (const sourceEvent of rawEvents) {
     const event = normalizeEvent(sourceEvent);
+    if (!event.id) {
+      anomalies.grandPrixWithoutId.push(event.name ?? '(senza nome)');
+    }
     const key = eventKey(event);
     if (eventByKey.has(key)) {
       anomalies.duplicateGrandPrix += 1;
@@ -488,6 +494,14 @@ try {
             return;
           }
           seenSessionKeys.add(key);
+
+          if (!session.id) {
+            anomalies.sessionsWithoutId.push({
+              grand_prix_id: event.id,
+              type: session.type,
+              session_date: session.session_date,
+            });
+          }
 
           if (!session.session_date) {
             anomalies.sessionsWithMissingDate.push({
@@ -594,24 +608,136 @@ try {
   const gpsWithType = type => grandPrixRecords.filter(grandPrix =>
     (sessionsByGrandPrix.get(grandPrix.id) ?? []).some(session => session.type === type),
   ).length;
+  const preImportErrors = criticalValidationErrors(
+    grandPrixRecords,
+    uniqueSessionRecords,
+  );
+  let databaseVerification = null;
+  let databaseSessionCounts = null;
+  const importErrors = [];
 
-  section('4 · REPORT FINALE DRY-RUN');
-  console.log(`Totale eventi API: ${rawEvents.length}`);
-  console.log(`Eventi unici: ${uniqueEvents.length}`);
-  console.log(`Eventi test: ${testEvents.length}`);
-  console.log(`GP reali: ${realEvents.length}`);
-  console.log(`Sessioni totali: ${uniqueSessionRecords.length}`);
-  KNOWN_SESSION_TYPES.forEach(type => console.log(`${type}: ${sessionCounts[type]}`));
-  console.log(`GP con Q: ${gpsWithType('Q')}`);
-  console.log(`GP con SPR: ${gpsWithType('SPR')}`);
-  console.log(`GP con RAC: ${gpsWithType('RAC')}`);
-  console.log(`Duplicati GP: ${anomalies.duplicateGrandPrix}`);
-  console.log(`Duplicati sessioni: ${anomalies.duplicateSessions}`);
-  console.log(`GP senza Q: ${anomalies.grandPrixWithoutQ.length}`);
-  console.log(`GP senza SPR: ${anomalies.grandPrixWithoutSprint.length}`);
-  console.log(`GP senza RAC: ${anomalies.grandPrixWithoutRace.length}`);
-  console.log(`Sessioni con data mancante: ${anomalies.sessionsWithMissingDate.length}`);
-  console.log(`Sessioni fuori finestra evento: ${anomalies.sessionsOutsideEventWindow.length}`);
+  if (IMPORT_MODE) {
+    section('4 · VALIDAZIONE CRITICA PRE-IMPORT');
+    if (preImportErrors.length > 0) {
+      preImportErrors.forEach(error => console.error(`  ✗ ${error}`));
+      throw new Error(
+        'Validazione critica fallita: import interrotto prima di ogni scrittura.',
+      );
+    }
+    console.log('  ✓ Validazioni critiche superate.');
+    console.log(
+      `  ✓ Anomalie date non bloccanti: ${anomalies.sessionsOutsideEventWindow.length}`,
+    );
+
+    section('5 · IMPORT SUPABASE (UPSERT SERVER-SIDE)');
+    await upsertRows('grand_prix', grandPrixRecords, 'id');
+    console.log(`  ✓ Grand Prix upsert: ${grandPrixRecords.length}`);
+    await upsertRows('sessions', uniqueSessionRecords, 'id');
+    console.log(`  ✓ Sessions upsert: ${uniqueSessionRecords.length}`);
+
+    section('6 · VERIFICA RELAZIONI SUPABASE');
+    await verifySeasonExists();
+    databaseVerification = await verifyImportedData({
+      grandPrix: grandPrixRecords,
+      sessions: uniqueSessionRecords,
+    });
+    databaseSessionCounts = Object.fromEntries(
+      KNOWN_SESSION_TYPES.map(type => [
+        type,
+        databaseVerification.sessions.filter(session => session.type === type).length,
+      ]),
+    );
+
+    if (databaseVerification.grandPrix.length !== grandPrixRecords.length) {
+      importErrors.push(
+        `Grand Prix DB attesi ${grandPrixRecords.length}, trovati ${databaseVerification.grandPrix.length}.`,
+      );
+    }
+    if (databaseVerification.sessions.length !== uniqueSessionRecords.length) {
+      importErrors.push(
+        `Sessioni DB attese ${uniqueSessionRecords.length}, trovate ${databaseVerification.sessions.length}.`,
+      );
+    }
+    if (databaseVerification.missingGrandPrix.length > 0) {
+      importErrors.push(
+        `Grand Prix importati ma non trovati: ${databaseVerification.missingGrandPrix.length}.`,
+      );
+    }
+    if (databaseVerification.missingSessions.length > 0) {
+      importErrors.push(
+        `Sessioni importate ma non trovate: ${databaseVerification.missingSessions.length}.`,
+      );
+    }
+    if (databaseVerification.duplicateGrandPrix > 0) {
+      importErrors.push(
+        `Grand Prix duplicati nel DB: ${databaseVerification.duplicateGrandPrix}.`,
+      );
+    }
+    if (databaseVerification.duplicateSessions > 0) {
+      importErrors.push(
+        `Sessioni duplicate nel DB: ${databaseVerification.duplicateSessions}.`,
+      );
+    }
+    if (databaseVerification.orphanSessions.length > 0) {
+      importErrors.push(
+        `Sessioni orfane nel DB: ${databaseVerification.orphanSessions.length}.`,
+      );
+    }
+    if (databaseVerification.grandPrixWithoutQ.length > 0) {
+      importErrors.push(`GP DB senza Q: ${databaseVerification.grandPrixWithoutQ.length}.`);
+    }
+    if (databaseVerification.grandPrixWithoutSprint.length > 0) {
+      importErrors.push(
+        `GP DB senza SPR: ${databaseVerification.grandPrixWithoutSprint.length}.`,
+      );
+    }
+    if (databaseVerification.grandPrixWithoutRace.length > 0) {
+      importErrors.push(
+        `GP DB senza RAC: ${databaseVerification.grandPrixWithoutRace.length}.`,
+      );
+    }
+  }
+
+  section(IMPORT_MODE ? 'IMPORT COMPLETATO' : '4 · REPORT FINALE DRY-RUN');
+  if (IMPORT_MODE) {
+    console.log('Grand Prix:');
+    console.log(`API: ${grandPrixRecords.length}`);
+    console.log(`DB: ${databaseVerification.grandPrix.length}`);
+    console.log('\nSessions:');
+    console.log(`API: ${uniqueSessionRecords.length}`);
+    console.log(`DB: ${databaseVerification.sessions.length}`);
+    console.log('\nPer tipo:');
+    KNOWN_SESSION_TYPES.forEach(type => {
+      console.log(`${type}: ${databaseSessionCounts[type]}`);
+    });
+    console.log('\nVerifiche:');
+    console.log(`- GP duplicati: ${databaseVerification.duplicateGrandPrix}`);
+    console.log(`- sessioni duplicate: ${databaseVerification.duplicateSessions}`);
+    console.log(`- sessioni orfane: ${databaseVerification.orphanSessions.length}`);
+    console.log(`- GP senza Q: ${databaseVerification.grandPrixWithoutQ.length}`);
+    console.log(`- GP senza SPR: ${databaseVerification.grandPrixWithoutSprint.length}`);
+    console.log(`- GP senza RAC: ${databaseVerification.grandPrixWithoutRace.length}`);
+    console.log(`- errori: ${preImportErrors.length + importErrors.length}`);
+    console.log('Scritture Supabase: UPSERT completati');
+  } else {
+    console.log(`Totale eventi API: ${rawEvents.length}`);
+    console.log(`Eventi unici: ${uniqueEvents.length}`);
+    console.log(`Eventi test: ${testEvents.length}`);
+    console.log(`GP reali: ${realEvents.length}`);
+    console.log(`Sessioni totali: ${uniqueSessionRecords.length}`);
+    KNOWN_SESSION_TYPES.forEach(type => console.log(`${type}: ${sessionCounts[type]}`));
+    console.log(`GP con Q: ${gpsWithType('Q')}`);
+    console.log(`GP con SPR: ${gpsWithType('SPR')}`);
+    console.log(`GP con RAC: ${gpsWithType('RAC')}`);
+    console.log(`Duplicati GP: ${anomalies.duplicateGrandPrix}`);
+    console.log(`Duplicati sessioni: ${anomalies.duplicateSessions}`);
+    console.log(`GP senza Q: ${anomalies.grandPrixWithoutQ.length}`);
+    console.log(`GP senza SPR: ${anomalies.grandPrixWithoutSprint.length}`);
+    console.log(`GP senza RAC: ${anomalies.grandPrixWithoutRace.length}`);
+    console.log(`Sessioni con data mancante: ${anomalies.sessionsWithMissingDate.length}`);
+    console.log(`Sessioni fuori finestra evento: ${anomalies.sessionsOutsideEventWindow.length}`);
+    console.log('Scritture Supabase: NESSUNA');
+  }
 
   console.log('\nEventuali anomalie:');
   const hasAnomalies = Object.values(anomalies).some(value =>
@@ -659,10 +785,28 @@ try {
     }
   }
 
-  console.log('\nRIEPILOGO PRONTO PER FUTURO IMPORT');
-  console.log(`grand_prix records: ${grandPrixRecords.length}`);
-  console.log(`sessions records: ${uniqueSessionRecords.length}`);
-  console.log('Scritture Supabase: NESSUNA');
+  if (IMPORT_MODE) {
+    section('RIEPILOGO GP');
+    console.log('GP | Circuito | Q | SPR | RAC | RAC2 | Data gara');
+    for (const grandPrix of [...databaseVerification.grandPrix].sort(compareEvents)) {
+      const sessions = databaseVerification.sessionsByGrandPrix.get(grandPrix.id) ?? [];
+      const types = new Set(sessions.map(session => session.type));
+      const raceDate = sessions
+        .filter(session => session.type === 'RAC')
+        .sort(compareSessions)[0]?.session_date ?? '—';
+      console.log(
+        `${grandPrix.name ?? '—'} | ${grandPrix.circuit ?? '—'} | ` +
+        `${types.has('Q') ? 'SÌ' : 'NO'} | ${types.has('SPR') ? 'SÌ' : 'NO'} | ` +
+        `${types.has('RAC') ? 'SÌ' : 'NO'} | ${types.has('RAC2') ? 'SÌ' : 'NO'} | ` +
+        `${raceDate}`,
+      );
+    }
+  } else {
+    console.log('\nRIEPILOGO PRONTO PER FUTURO IMPORT');
+    console.log(`grand_prix records: ${grandPrixRecords.length}`);
+    console.log(`sessions records: ${uniqueSessionRecords.length}`);
+    console.log('Scritture Supabase: NESSUNA');
+  }
 } catch (error) {
   console.error(
     '\n✗ Dry-run calendario fallito:',
