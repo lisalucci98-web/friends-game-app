@@ -1,0 +1,431 @@
+Implementa nella app FantaMotoGP una nuova pagina protetta:
+
+/pronostici
+
+La pagina deve permettere all'utente autenticato di inserire e modificare il proprio pronostico per il prossimo GP, rispettando automaticamente le deadline definite dal database.
+
+IMPORTANTE
+
+Il database è già stato creato e configurato in Supabase.
+
+NON modificare lo schema database, RLS, RPC, autenticazione o importer.
+
+Usa esclusivamente le strutture già esistenti:
+
+predictions
+prediction_entries
+grand_prix
+sessions
+riders
+rider_seasons
+seasons
+profiles
+
+La RPC disponibile è:
+
+submit_prediction
+
+con parametri:
+
+p_grand_prix_id
+p_pole_rider_id
+p_sprint_winner_rider_id
+p_race_podium_rider_ids
+1. Nuova pagina /pronostici
+
+La pagina deve essere accessibile solo agli utenti autenticati.
+
+Se l'utente non è autenticato:
+
+→ redirect /auth
+
+Aggiungi anche la voce:
+
+Pronostici
+
+alla navigazione principale.
+
+Usa lo stesso stile grafico già presente nell'app.
+
+2. Selezione GP
+
+In alto mostra:
+
+Pronostici
+MotoGP 2026
+
+
+[ GP selezionato ▼ ]
+
+Carica i GP dalla tabella:
+
+grand_prix
+
+per la stagione 2026.
+
+Devono essere ordinati cronologicamente.
+
+Di default seleziona:
+
+il prossimo GP non ancora iniziato
+
+Se tutti i GP 2026 sono già terminati, seleziona l'ultimo GP.
+
+Non hardcodare i GP.
+
+3. Informazioni sullo stato del GP
+
+Sotto il selettore mostra:
+
+[Nome GP]
+
+
+Circuito
+Data gara
+
+
+Qualifiche: ...
+Sprint: ...
+Gara: ...
+
+Utilizza sessions.session_date come fonte ufficiale delle date.
+
+Non ricostruire le date dal calendario manualmente.
+
+4. Deadline
+
+La pagina deve mostrare chiaramente lo stato di ogni parte del pronostico.
+
+Qualifiche
+
+La deadline è:
+
+sessions.type = 'Q'
+sessions.number = 2
+
+Quindi deve essere utilizzata Q2, non Q1.
+
+Mostra:
+
+Pole position
+Chiuderà: sabato 12:15
+Sprint
+
+Deadline:
+
+sessions.type = 'SPR'
+
+Mostra:
+
+Vincitore Sprint
+Chiuderà: sabato XX:XX
+Gara
+
+Deadline:
+
+sessions.type = 'RAC'
+
+Mostra:
+
+Podio gara
+Chiuderà: domenica XX:XX
+
+Usa l'orario della sessione senza inventare orari.
+
+5. Pronostico Pole Position
+
+Crea una sezione:
+
+🏁 POLE POSITION
+
+
+Chi farà la pole?
+
+
+[ Seleziona pilota ▼ ]
+
+
+⏱ Pronostico aperto
+Chiude sabato alle XX:XX
+
+Il dropdown deve contenere esclusivamente i piloti presenti nel roster:
+
+rider_seasons
+
+per la stagione 2026 con:
+
+active = true
+
+Mostra:
+
+#93 Marc Marquez
+#63 Francesco Bagnaia
+...
+
+Non utilizzare l'elenco generico riders come fonte dei piloti selezionabili.
+
+6. Pronostico Sprint
+
+Sezione:
+
+🏆 VINCITORE SPRINT
+
+
+Chi vincerà la Sprint?
+
+
+[ Seleziona pilota ▼ ]
+
+
+⏱ Pronostico aperto
+
+Stessa lista piloti del roster stagionale.
+
+Se la deadline è già passata:
+
+🔒 Pronostico chiuso
+
+Il campo deve diventare non modificabile.
+
+7. Podio Gara
+
+Sezione:
+
+🥇 PODIO GARA
+
+
+1° [ Pilota ▼ ]
+
+
+2° [ Pilota ▼ ]
+
+
+3° [ Pilota ▼ ]
+
+I tre piloti devono essere diversi.
+
+Se l'utente seleziona lo stesso pilota due volte:
+
+Un pilota può comparire una sola volta sul podio.
+
+Non permettere il salvataggio finché l'errore non viene corretto.
+
+8. Salvataggio
+
+In fondo alla pagina:
+
+[ SALVA PRONOSTICO ]
+
+Il salvataggio deve essere effettuato esclusivamente tramite RPC:
+
+supabase.rpc('submit_prediction', {
+  p_grand_prix_id: selectedGrandPrixId,
+  p_pole_rider_id: poleRiderId,
+  p_sprint_winner_rider_id: sprintWinnerRiderId,
+  p_race_podium_rider_ids: [
+    firstPlaceRiderId,
+    secondPlaceRiderId,
+    thirdPlaceRiderId
+  ]
+})
+
+Non eseguire INSERT/UPDATE direttamente sulle tabelle predictions o prediction_entries.
+
+9. Gestione delle deadline
+
+La UI deve disabilitare automaticamente le sezioni chiuse.
+
+Esempio:
+
+🏁 POLE POSITION
+
+
+🔒 Pronostico chiuso
+
+
+La Q2 è già iniziata.
+
+Mentre le altre possono rimanere modificabili:
+
+🏆 SPRINT
+
+
+🟢 Pronostico aperto
+Chiude sabato alle 15:00
+
+e:
+
+🥇 PODIO GARA
+
+
+🟢 Pronostico aperto
+Chiude domenica alle 14:00
+
+La UI deve usare il timestamp del database per visualizzare lo stato, ma la sicurezza definitiva resta quella della RPC.
+
+Non fidarti mai solamente del frontend.
+
+10. Caricamento pronostico esistente
+
+Quando l'utente apre un GP per cui ha già effettuato un pronostico:
+
+carica:
+
+predictions
+prediction_entries
+
+e precompila automaticamente:
+
+Pole
+Vincitore Sprint
+1° posto
+2° posto
+3° posto
+
+L'utente deve poter modificare il pronostico finché le relative deadline non sono scadute.
+
+11. Gestione parziale delle deadline
+
+È importante che le tre parti siano indipendenti.
+
+Esempio:
+
+Q2 già iniziata:
+
+🏁 Pole
+🔒 CHIUSA
+
+Sprint ancora aperta:
+
+🏆 Sprint
+🟢 APERTA
+
+Gara ancora aperta:
+
+🥇 Podio
+🟢 APERTO
+
+L'utente deve poter modificare le sezioni ancora aperte senza perdere quelle già chiuse.
+
+Se necessario, gestisci separatamente il salvataggio delle sezioni ancora modificabili, mantenendo compatibilità con la RPC esistente.
+
+Non modificare la RPC senza prima segnalarlo.
+
+12. Feedback dopo salvataggio
+
+Dopo il salvataggio riuscito:
+
+✓ Pronostico salvato!
+
+Mostra eventualmente:
+
+Pole: Marc Marquez
+Sprint: Francesco Bagnaia
+
+
+Podio:
+1. ...
+2. ...
+3. ...
+
+Se Supabase restituisce un errore:
+
+gestisci almeno:
+
+QUALIFYING_PREDICTION_CLOSED
+SPRINT_PREDICTION_CLOSED
+RACE_PREDICTION_CLOSED
+INVALID_POLE_RIDER
+INVALID_SPRINT_RIDER
+INVALID_PODIUM_RIDER
+DUPLICATE_RACE_PODIUM_RIDER
+
+e mostra un messaggio comprensibile all'utente.
+
+13. Countdown
+
+Se possibile, aggiungi un piccolo countdown vicino alla deadline:
+
+⏱ Chiude tra 2h 34m
+
+Aggiornato automaticamente.
+
+Quando arriva a zero:
+
+🔒 Pronostico chiuso
+
+Il countdown è solamente informativo: la validazione definitiva deve sempre essere effettuata dal database/RPC.
+
+14. Responsive
+
+La pagina deve funzionare bene:
+
+desktop;
+tablet;
+mobile.
+
+Su mobile le sezioni devono diventare card verticali.
+
+15. Loading / error states
+
+Gestisci:
+
+Caricamento
+Caricamento pronostici...
+Nessun GP
+Nessun GP disponibile.
+Errore
+Non è stato possibile caricare i pronostici.
+Riprova.
+Nessun rider
+Nessun pilota disponibile per questa stagione.
+16. Non modificare
+
+NON modificare:
+
+schema Supabase;
+RLS;
+submit_prediction;
+session_results;
+importer MotoGP;
+autenticazione;
+pagine risultati;
+sistema punteggi;
+gestione leghe.
+
+Modifica solamente i file frontend strettamente necessari per implementare:
+
+/pronostici
+
+e la relativa voce nella navigazione.
+
+17. Verifiche finali
+
+Al termine verifica:
+
+TypeScript;
+build;
+console browser;
+redirect utenti non autenticati;
+caricamento GP;
+caricamento roster;
+caricamento pronostico esistente;
+selezione Q2 come deadline qualifiche;
+selezione SPR;
+selezione RAC;
+disabilitazione corretta dopo deadline;
+salvataggio tramite RPC;
+gestione errori RPC;
+nessun INSERT/UPDATE diretto dal frontend sulle tabelle dei pronostici.
+Output finale
+
+Riportami:
+
+file modificati;
+cosa è stato implementato;
+query Supabase utilizzate;
+RPC utilizzata;
+verifiche effettuate;
+eventuali problemi o limitazioni.
+
+Non modificare il database per risolvere eventuali problemi: segnalameli prima.

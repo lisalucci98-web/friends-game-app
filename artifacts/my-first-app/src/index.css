@@ -668,6 +668,495 @@
   }
 }
 
+/* Predictions editor — race-weekend choices with independent deadlines */
+.predictions-app-page {
+  overflow: visible;
+  background:
+    radial-gradient(circle at 86% 12%, hsl(15 72% 56% / 0.13), transparent 27rem),
+    radial-gradient(circle at 8% 76%, hsl(172 29% 49% / 0.1), transparent 24rem),
+    hsl(var(--background));
+}
+
+.predictions-app-page .app-content {
+  display: block;
+  min-height: auto;
+  padding: 72px 24px 150px;
+}
+
+.predictions-app-page .app-copy {
+  width: min(100%, 980px);
+  margin-inline: auto;
+  text-align: left;
+}
+
+.predictions-app-page .app-copy > .eyebrow {
+  justify-content: flex-start;
+  margin-bottom: 18px;
+}
+
+.predictions-app-page .welcome-title {
+  max-width: 760px;
+  font-size: clamp(3.1rem, 7vw, 6.5rem);
+}
+
+.predictions-app-page .welcome-description {
+  max-width: 560px;
+  margin: 26px 0 36px;
+  font-size: 1rem;
+}
+
+.predictions-shell {
+  width: 100%;
+  margin-top: 18px;
+  animation: rise-in 0.7s 0.16s ease-out both;
+}
+
+.predictions-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid hsl(var(--foreground) / 0.1);
+  border-radius: 20px;
+  background: hsl(var(--card) / 0.68);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(12px);
+}
+
+.predictions-select-control {
+  display: grid;
+  flex: 1;
+  gap: 8px;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--app-font-mono);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.predictions-select-wrap {
+  position: relative;
+  display: block;
+}
+
+.predictions-select-wrap select,
+.prediction-rider-select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid hsl(var(--foreground) / 0.14);
+  border-radius: 12px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--card) / 0.84);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.predictions-select-wrap select {
+  appearance: none;
+  padding: 13px 40px 13px 15px;
+}
+
+.predictions-select-wrap svg {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  pointer-events: none;
+  color: hsl(var(--muted-foreground));
+  transform: translateY(-50%);
+}
+
+.predictions-select-wrap select:focus-visible,
+.prediction-rider-select:focus-visible {
+  border-color: hsl(var(--primary) / 0.7);
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.13);
+}
+
+.predictions-select-wrap select:disabled,
+.prediction-rider-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.predictions-season-label {
+  padding: 12px 2px;
+  color: hsl(var(--primary));
+  font-family: var(--app-font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.predictions-event-meta {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 2px 20px;
+  border-bottom: 1px solid hsl(var(--foreground) / 0.1);
+}
+
+.predictions-round {
+  display: block;
+  margin-bottom: 8px;
+  color: hsl(var(--primary));
+  font-family: var(--app-font-mono);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.predictions-event-meta h2 {
+  margin: 0;
+  color: hsl(var(--foreground));
+  font-family: var(--app-font-serif);
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+}
+
+.predictions-event-meta p {
+  margin: 8px 0 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.94rem;
+}
+
+.predictions-event-date {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 170px;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.76rem;
+}
+
+.predictions-event-date svg {
+  grid-row: span 2;
+  color: hsl(var(--primary));
+}
+
+.predictions-event-date strong {
+  color: hsl(var(--foreground));
+  font-size: 0.88rem;
+}
+
+.predictions-deadlines {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 16px 0 20px;
+}
+
+.prediction-deadline {
+  display: grid;
+  gap: 5px;
+  min-height: 88px;
+  padding: 15px;
+  border: 1px solid hsl(var(--foreground) / 0.1);
+  border-radius: 15px;
+  background: hsl(var(--card) / 0.58);
+}
+
+.prediction-deadline > span {
+  color: hsl(var(--muted-foreground));
+  font-family: var(--app-font-mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.prediction-deadline strong {
+  color: hsl(var(--foreground));
+  font-size: 0.85rem;
+}
+
+.prediction-deadline small {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.72rem;
+}
+
+.prediction-deadline.is-open {
+  border-color: hsl(152 45% 38% / 0.3);
+  background: hsl(152 45% 38% / 0.06);
+}
+
+.prediction-deadline.is-open strong {
+  color: hsl(152 45% 32%);
+}
+
+.prediction-deadline.is-closed {
+  border-color: hsl(var(--foreground) / 0.12);
+  background: hsl(var(--foreground) / 0.035);
+}
+
+.prediction-deadline.is-closed strong {
+  color: hsl(var(--muted-foreground));
+}
+
+.prediction-deadline.is-unavailable {
+  opacity: 0.68;
+}
+
+.predictions-form {
+  display: grid;
+  gap: 12px;
+}
+
+.prediction-section {
+  overflow: hidden;
+  border: 1px solid hsl(var(--foreground) / 0.1);
+  border-radius: 18px;
+  background: hsl(var(--card) / 0.66);
+  box-shadow: var(--shadow-sm);
+}
+
+.prediction-section-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  padding: 18px 19px 14px;
+  border-bottom: 1px solid hsl(var(--foreground) / 0.08);
+}
+
+.prediction-section-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 12px;
+  background: hsl(var(--primary) / 0.1);
+  font-size: 1.15rem;
+}
+
+.prediction-section-heading p {
+  margin: 0 0 3px;
+  color: hsl(var(--primary));
+  font-family: var(--app-font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.prediction-section-heading h3 {
+  margin: 0;
+  color: hsl(var(--foreground));
+  font-family: var(--app-font-serif);
+  font-size: 1.35rem;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+
+.prediction-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  font-family: var(--app-font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.prediction-status.is-open {
+  color: hsl(152 45% 32%);
+}
+
+.prediction-status.is-closed,
+.prediction-status.is-unavailable {
+  color: hsl(var(--muted-foreground));
+}
+
+.prediction-section-body {
+  padding: 17px 19px 20px;
+}
+
+.prediction-rider-select {
+  appearance: auto;
+  max-width: 100%;
+  padding: 13px 14px;
+}
+
+.prediction-podium-fields {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.prediction-podium-fields label {
+  display: grid;
+  gap: 7px;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--app-font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.prediction-field-error {
+  margin: 12px 0 0;
+  color: hsl(var(--destructive));
+  font-size: 0.8rem;
+}
+
+.predictions-actions {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 14px 0 4px;
+}
+
+.prediction-save-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 220px;
+  padding: 13px 20px;
+  border: 0;
+  border-radius: 999px;
+  color: hsl(var(--primary-foreground));
+  background: hsl(var(--primary));
+  box-shadow: 3px 4px 0 hsl(var(--foreground) / 0.14);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.prediction-save-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.prediction-save-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.prediction-saved-note {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+}
+
+.prediction-success,
+.prediction-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.prediction-success {
+  color: hsl(152 45% 32%);
+}
+
+.prediction-error {
+  color: hsl(var(--destructive));
+}
+
+.predictions-state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 42px 20px;
+  border: 1px solid hsl(var(--foreground) / 0.1);
+  border-radius: 18px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--card) / 0.55);
+  text-align: center;
+}
+
+.predictions-state svg {
+  color: hsl(var(--primary));
+}
+
+.predictions-state strong {
+  color: hsl(var(--foreground));
+}
+
+.predictions-state p {
+  max-width: 520px;
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.predictions-state--error svg,
+.predictions-state--error strong {
+  color: hsl(var(--destructive));
+}
+
+@media (max-width: 760px) {
+  .predictions-app-page .app-content {
+    padding: 62px 18px 142px;
+  }
+
+  .predictions-app-page .welcome-title {
+    font-size: clamp(3.1rem, 15vw, 4.8rem);
+  }
+
+  .predictions-toolbar {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .predictions-season-label {
+    padding: 0 2px 2px;
+  }
+
+  .predictions-event-meta {
+    display: grid;
+    gap: 15px;
+    padding: 22px 2px 17px;
+  }
+
+  .predictions-event-date {
+    min-width: 0;
+  }
+
+  .predictions-deadlines {
+    grid-template-columns: 1fr;
+  }
+
+  .prediction-section-heading {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .prediction-status {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .prediction-podium-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .bottom-nav {
+    width: min(calc(100% - 20px), 520px);
+  }
+
+  .bottom-nav-item {
+    padding-inline: 4px;
+    font-size: 0.62rem;
+  }
+}
+
 /* Results viewer — a wider, calmer race-weekend reading surface */
 .results-app-page {
   overflow: visible;
