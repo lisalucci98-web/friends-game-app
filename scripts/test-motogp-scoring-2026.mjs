@@ -57,12 +57,12 @@ await test('tempo esatto', 10, {
   p_actual: ACTUAL_POLE_TIME,
 });
 await test('limite +0.010 s', 10, {
-  p_predicted: ACTUAL_POLE_TIME + 0.010,
-  p_actual: ACTUAL_POLE_TIME,
+  p_predicted: '116.170',
+  p_actual: '116.160',
 });
 await test('limite -0.010 s', 10, {
-  p_predicted: ACTUAL_POLE_TIME - 0.010,
-  p_actual: ACTUAL_POLE_TIME,
+  p_predicted: '116.150',
+  p_actual: '116.160',
 });
 await test('immediatamente oltre ±0.010 s, fascia 0.1%', 5, {
   p_predicted: ACTUAL_POLE_TIME + 0.010001,
