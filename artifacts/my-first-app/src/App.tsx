@@ -2364,7 +2364,7 @@ function PronosticiPage() {
   const selectedGrandPrix = grandPrix.find((item) => item.id === selectedGrandPrixId) ?? null;
   const selectedSessions = sessions.filter((item) => item.grand_prix_id === selectedGrandPrixId);
   const qualifyingSession =
-    selectedSessions.find((item) => item.type === 'Q' && String(item.number) === '2') ?? null;
+    selectedSessions.find((item) => item.type === 'Q' && String(item.number) === '1') ?? null;
   const sprintSession = selectedSessions.find((item) => item.type === 'SPR') ?? null;
   const raceSession =
     selectedSessions.find((item) => item.type === 'RAC' && String(item.number) === '1') ??
