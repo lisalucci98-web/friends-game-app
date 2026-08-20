@@ -1,0 +1,336 @@
+Voglio implementare il database per il sistema di pronostici del FantaMotoGP.
+
+IMPORTANTE:
+- Per questo task NON modificare App.tsx.
+- NON modificare la UI.
+- NON modificare routing.
+- NON modificare autenticazione.
+- NON modificare le tabelle esistenti di seasons, grand_prix, sessions, riders, rider_seasons, leagues o league_members.
+- NON modificare gli importer MotoGP.
+- NON modificare session_results.
+- Prima di eseguire qualsiasi modifica, verifica lo schema esistente e le relazioni già presenti.
+- Usa solo utenti autenticati (`auth.uid()`), mai `anon`.
+- Non usare né esporre la service_role key nel frontend.
+
+OBIETTIVO
+
+Creare la struttura database necessaria per permettere a ogni utente di inserire i propri pronostici per ogni Gran Premio.
+
+Il sistema deve supportare:
+
+1. Pronostico tempo della pole position.
+2. Pronostico pole position.
+3. Pronostico Top 3 Sprint.
+4. Pronostico Top 5 Gara.
+5. Pronostico pilota OUT della Gara.
+6. Deadline diverse per Qualifiche, Sprint e Gara.
+7. Più leghe per lo stesso utente.
+8. Un solo pronostico per utente, lega e Gran Premio.
+9. Modifica consentita fino alla relativa deadline.
+10. Nessuna modifica possibile dopo la deadline.
+11. Il backend deve impedire modifiche/inserimenti oltre la deadline: non affidarsi solamente alla UI.
+
+==================================================
+1. TABELLA predictions
+==================================================
+
+Crea:
+
+public.predictions
+
+con almeno:
+
+- id uuid primary key default gen_random_uuid()
+- user_id uuid not null references auth.users(id)
+- league_id uuid not null references public.leagues(id)
+- grand_prix_id uuid not null references public.grand_prix(id)
+- qualifying_pole_rider_id uuid null references public.riders(id)
+- qualifying_pole_time numeric(10,3) null
+- qualifying_submitted_at timestamptz null
+- sprint_submitted_at timestamptz null
+- race_out_rider_id uuid null references public.riders(id)
+- race_submitted_at timestamptz null
+- created_at timestamptz not null default now()
+- updated_at timestamptz not null default now()
+
+Aggiungi un vincolo UNIQUE su:
+
+(user_id, league_id, grand_prix_id)
+
+in modo che ogni utente abbia un solo pronostico per ogni lega e GP.
+
+NOTA:
+Non creare ancora colonne inutili per i punteggi. I punteggi verranno implementati in un task successivo.
+
+==================================================
+2. TABELLA prediction_entries
+==================================================
+
+Crea:
+
+public.prediction_entries
+
+con:
+
+- id uuid primary key default gen_random_uuid()
+- prediction_id uuid not null references public.predictions(id) on delete cascade
+- prediction_type text not null
+- position integer null
+- rider_id uuid not null references public.riders(id)
+- created_at timestamptz not null default now()
+
+prediction_type deve accettare esclusivamente:
+
+- 'SPRINT'
+- 'RACE'
+
+Usa un CHECK constraint.
+
+Per SPRINT:
+- position deve essere 1, 2 oppure 3.
+
+Per RACE:
+- position deve essere 1, 2, 3, 4 oppure 5.
+
+Crea inoltre un vincolo UNIQUE su:
+
+(prediction_id, prediction_type, position)
+
+e un vincolo che impedisca allo stesso rider di essere scelto più volte nello stesso prediction_type.
+
+In particolare:
+
+- lo stesso pilota non può comparire due volte nella Top 3 Sprint;
+- lo stesso pilota non può comparire due volte nella Top 5 Gara.
+
+Il pilota OUT della Gara NON deve essere memorizzato in prediction_entries: viene memorizzato in predictions.race_out_rider_id.
+
+==================================================
+3. RLS predictions
+==================================================
+
+Abilita RLS su public.predictions.
+
+Un utente autenticato deve poter:
+
+SELECT:
+solo i propri predictions, quindi:
+
+user_id = auth.uid()
+
+INSERT:
+solo record con:
+
+user_id = auth.uid()
+
+UPDATE:
+solo i propri predictions.
+
+DELETE:
+per ora NON consentire il delete tramite frontend.
+
+NON creare policy anon.
+
+==================================================
+4. RLS prediction_entries
+==================================================
+
+Abilita RLS su public.prediction_entries.
+
+Un utente deve poter leggere e modificare solo gli entries appartenenti a un prediction di sua proprietà.
+
+La verifica deve essere fatta tramite public.predictions.user_id = auth.uid().
+
+NON creare policy anon.
+
+==================================================
+5. DEADLINE
+==================================================
+
+È fondamentale NON inserire una deadline manualmente nella tabella predictions.
+
+La deadline deve essere determinata dai dati già presenti in:
+
+public.sessions
+
+Per ogni GP:
+
+Qualifiche:
+deadline = session_date della sessione Q2, se presente.
+Se Q2 non esiste, usare la prima sessione Q disponibile.
+
+Sprint:
+deadline = session_date della sessione SPR.
+
+Gara:
+deadline = session_date della sessione RAC con il numero/sessione gara corretto.
+
+IMPORTANTE:
+Per le qualifiche abbiamo già verificato che esistono Q1 e Q2 e che la classifica finale viene associata alla Q2. Per la deadline del pronostico qualifiche deve quindi essere utilizzata preferibilmente Q2.
+
+Non usare grand_prix.date_start/date_end per determinare le deadline.
+
+Usare sempre sessions.session_date.
+
+==================================================
+6. RPC submit_prediction
+==================================================
+
+Crea una funzione PostgreSQL/RPC sicura:
+
+public.submit_prediction(...)
+
+La funzione deve essere SECURITY DEFINER e deve impostare un search_path sicuro.
+
+La funzione deve verificare:
+
+1. auth.uid() non sia NULL.
+2. L'utente appartenga alla league_id indicata.
+3. Il grand_prix_id esista.
+4. Il GP appartenga alla stagione corretta.
+5. La sessione/deadline richiesta esista.
+6. La deadline non sia già trascorsa.
+7. I rider selezionati esistano.
+8. Per Sprint:
+   - esattamente 3 piloti;
+   - posizioni 1,2,3;
+   - nessun duplicato.
+9. Per Gara:
+   - esattamente 5 piloti;
+   - posizioni 1,2,3,4,5;
+   - nessun duplicato;
+   - race_out_rider_id non può essere uno dei cinque piloti.
+10. Per Qualifiche:
+   - qualifying_pole_rider_id deve essere un rider valido;
+   - qualifying_pole_time deve essere un tempo valido.
+11. Non consentire modifiche alla parte del pronostico dopo la relativa deadline.
+
+La funzione deve essere idempotente per:
+
+(user_id, league_id, grand_prix_id)
+
+Se il pronostico esiste già e la relativa sessione è ancora aperta, deve aggiornarlo invece di creare un secondo prediction.
+
+Se una parte è già chiusa, non deve consentire di modificarla.
+
+Esempio:
+
+- Qualifiche chiuse
+- Sprint ancora aperta
+
+L'utente deve poter modificare Sprint senza poter modificare Qualifiche.
+
+Quindi NON bloccare necessariamente l'intero prediction solo perché una delle tre deadline è passata.
+
+==================================================
+7. STRUTTURA INPUT RPC
+==================================================
+
+Progetta l'RPC in modo che possa ricevere:
+
+- p_league_id
+- p_grand_prix_id
+- p_qualifying_pole_rider_id
+- p_qualifying_pole_time
+- p_sprint_rider_ids
+- p_race_rider_ids
+- p_race_out_rider_id
+
+Per gli array Sprint e Gara, la posizione deve essere determinata dall'ordine dell'array:
+
+Sprint:
+[1° pilota, 2° pilota, 3° pilota]
+
+Gara:
+[1° pilota, 2° pilota, 3° pilota, 4° pilota, 5° pilota]
+
+Non permettere al client di specificare arbitrariamente una posizione diversa dall'indice dell'array.
+
+==================================================
+8. TRANSAZIONE
+==================================================
+
+La funzione deve effettuare le modifiche in una singola transazione atomica.
+
+Se una validazione fallisce:
+
+- nessun prediction deve essere creato/modificato;
+- nessun prediction_entry deve essere creato/modificato.
+
+Restituire un errore esplicito e leggibile, ad esempio:
+
+- NOT_AUTHENTICATED
+- NOT_LEAGUE_MEMBER
+- GRAND_PRIX_NOT_FOUND
+- QUALIFYING_CLOSED
+- SPRINT_CLOSED
+- RACE_CLOSED
+- INVALID_RIDER
+- DUPLICATE_RIDER
+- OUT_RIDER_IN_TOP5
+- INVALID_QUALIFYING_TIME
+
+==================================================
+9. SICUREZZA
+==================================================
+
+Non fare affidamento solamente sulle policy RLS per il controllo delle deadline.
+
+La funzione submit_prediction deve verificare le deadline server-side.
+
+Non utilizzare service_role nel frontend.
+
+Non creare policy anon.
+
+==================================================
+10. VERIFICA
+==================================================
+
+Dopo aver creato lo schema:
+
+- verifica che le tabelle siano state create;
+- verifica le foreign key;
+- verifica i CHECK constraint;
+- verifica UNIQUE;
+- verifica RLS;
+- verifica che non esistano policy anon;
+- verifica che submit_prediction sia SECURITY DEFINER;
+- verifica che il search_path della funzione sia sicuro.
+
+Esegui test READ/WRITE controllati con l'utente autenticato disponibile.
+
+NON creare dati di test permanenti.
+
+Se è necessario creare dati temporanei per verificare una funzione, cancellali al termine.
+
+==================================================
+11. REPORT FINALE
+==================================================
+
+Alla fine restituisci un report indicando:
+
+Tabelle create:
+- predictions
+- prediction_entries
+
+Constraint:
+- ...
+
+RLS:
+- ...
+
+RPC:
+- submit_prediction
+
+Deadline:
+- Qualifiche → Q2.session_date
+- Sprint → SPR.session_date
+- Gara → RAC.session_date
+
+Test eseguiti:
+- ...
+
+Eventuali problemi:
+- ...
+
+NON modificare App.tsx o altri file dell'app in questo task.
