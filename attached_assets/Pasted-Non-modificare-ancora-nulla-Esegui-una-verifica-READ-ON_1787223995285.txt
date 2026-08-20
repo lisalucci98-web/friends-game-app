@@ -1,0 +1,133 @@
+Non modificare ancora nulla.
+
+Esegui una verifica READ-ONLY completa del backend dei pronostici esistente.
+
+Voglio preparare una migrazione SQL per estendere il sistema al regolamento completo FantaMotoGP.
+
+Verifica e restituisci ESATTAMENTE:
+
+1. Struttura completa di:
+   - public.predictions
+   - public.prediction_entries
+
+   Per ogni colonna:
+   - nome
+   - tipo
+   - nullable
+   - default
+   - eventuali foreign key
+
+2. Tutti i vincoli:
+   - PRIMARY KEY
+   - UNIQUE
+   - CHECK
+   - FOREIGN KEY
+
+3. Tutte le policy RLS sulle due tabelle:
+   - nome
+   - operation
+   - USING
+   - WITH CHECK
+
+4. Firma completa della RPC:
+   `submit_prediction`
+
+   Indicami:
+   - parametri
+   - tipi
+   - return type
+   - logica attuale
+   - validazioni
+   - deadline
+   - cosa viene effettivamente salvato
+
+5. Cerca eventuali altre RPC relative a:
+   - predictions
+   - scoring
+   - points
+   - results
+
+6. Verifica se esistono già colonne o strutture per:
+   - pole rider
+   - pole time
+   - Sprint P1/P2/P3
+   - Gara P1/P2/P3
+   - Gara P4/P5
+   - OUT rider
+   - score
+   - bonus
+   - malus
+
+7. Verifica le relazioni disponibili verso:
+   - auth.users / profili utenti
+   - leagues
+   - grand_prix
+   - sessions
+   - riders
+   - rider_seasons
+   - session_results
+
+8. Verifica come vengono identificati i risultati ufficiali:
+   - session_results.position
+   - session_results.status
+   - session_results.points
+   - eventuali altri campi utili.
+
+9. NON eseguire:
+   - INSERT
+   - UPDATE
+   - DELETE
+   - ALTER
+   - CREATE
+   - DROP
+
+10. NON modificare:
+   - schema
+   - RLS
+   - RPC
+   - UI
+   - App.tsx
+
+Obiettivo finale della verifica:
+
+preparare successivamente una singola migrazione SQL sicura che permetta di implementare:
+
+QUALIFICHE
+- pole_time
+- pole_rider_id
+
+SPRINT
+- P1
+- P2
+- P3
+
+GARA
+- P1
+- P2
+- P3
+- P4
+- P5
+- OUT
+
+SCORING
+- tempo pole: 10/5/3/1/0
+- pole rider: 5/2/0
+- Sprint: 3/1/0
+- Gara: 5/3/1/0
+- OUT: 2/0
+- bonus ordine esatto: 5/3/1/0
+- bonus tutti nei primi 5: 2/0
+- malus: -1/-5/-10
+
+DEADLINE
+- Qualifiche → Q1
+- Sprint → SPR
+- Gara → RAC
+
+La deadline deve essere verificata server-side.
+
+IMPORTANTE:
+Non inventare la struttura del database.
+Se qualcosa non è presente, indicarlo esplicitamente.
+
+Restituisci un report tecnico completo ma senza modificare nulla.
