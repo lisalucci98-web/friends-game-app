@@ -1,0 +1,542 @@
+Certo. A questo punto userei i dati storici come **dataset di riferimento ufficiale** per verificare che lo scoring implementato in Supabase produca gli stessi punteggi del vecchio FantaMotoGP.
+
+Ti consiglio di mandare a Replit questo prompt, chiedendo **prima analisi e test, senza modificare il database**:
+
+````text
+## Task #10 — Validazione scoring FantaMotoGP tramite dati storici reali
+
+Abbiamo a disposizione i dati storici dei pronostici e dei punteggi ottenuti dai partecipanti nelle gare precedenti.
+
+Questi dati devono essere utilizzati come DATASET DI RIFERIMENTO per verificare che la nuova implementazione dello scoring FantaMotoGP sia coerente con il regolamento e con i punteggi storicamente assegnati.
+
+### OBIETTIVO
+
+Non modificare ancora database, RPC, UI o dati di produzione.
+
+Voglio che tu:
+
+1. analizzi i dati storici forniti;
+2. li trasformi in fixture/test data locali;
+3. verifichi la compatibilità con l'attuale modello di scoring;
+4. confronti i punteggi storici attesi con quelli prodotti dalle funzioni di scoring disponibili;
+5. individui eventuali differenze;
+6. produca un report dettagliato prima di proporre qualsiasi modifica.
+
+I punteggi storici sono considerati il riferimento funzionale del vecchio FantaMotoGP.
+
+---
+
+# REGOLAMENTO DI RIFERIMENTO
+
+## QUALIFICHE — TEMPO POLE
+
+Formato:
+
+MM:SS.mmm
+
+Punteggio:
+
+- 10 punti: errore assoluto <= 0.010 s
+- 5 punti: errore <= 0.1%
+- 3 punti: errore <= 0.25%
+- 1 punto: errore <= 0.5%
+- 0 punti: oltre 0.5%
+
+IMPORTANTE:
+
+La soglia ±0.010 s deve essere assoluta e inclusiva.
+
+Esempio:
+
+116.150 vs 116.160 → 10 punti
+116.170 vs 116.160 → 10 punti
+116.149 vs 116.160 → 5 punti
+
+La funzione deve utilizzare:
+
+abs(predicted - actual)
+
+e non confronti asimmetrici.
+
+## QUALIFICHE — POLE POSITION
+
+- 5 punti se il pilota pronosticato ottiene la pole;
+- 2 punti se il pilota pronosticato arriva secondo;
+- 0 negli altri casi.
+
+Il punteggio qualifiche complessivo è quindi:
+
+tempo pole + risultato pilota pole.
+
+---
+
+# SPRINT
+
+Il pronostico contiene:
+
+- P1
+- P2
+- P3
+
+Punteggio per ciascun pilota:
+
+- 3 punti posizione esatta;
+- 1 punto se la posizione differisce di una;
+- 0 punti negli altri casi.
+
+I piloti pronosticati sono distinti.
+
+---
+
+# GARA
+
+Il pronostico contiene:
+
+- P1
+- P2
+- P3
+- P4
+- P5
+- pilota OUT
+
+Per ogni posizione Top 5:
+
+- 5 punti posizione esatta;
+- 3 punti se differisce di una posizione;
+- 1 punto se il pilota arriva comunque nei primi 5 ma in altra posizione;
+- 0 se arriva fuori dalla Top 5.
+
+Pilota OUT:
+
+- 2 punti se il pilota selezionato è effettivamente OUT/non classificato secondo le regole ufficiali.
+
+Il pilota OUT deve essere diverso dai cinque piloti della Top 5.
+
+---
+
+# BONUS GARA
+
+## Ordine esatto Top 5
+
+- 5 punti se tutte le prime 5 posizioni sono corrette nell'ordine;
+- 3 punti se vengono indovinate 4 delle prime 5;
+- 1 punto se vengono indovinate 3 delle prime 5.
+
+## Top 5 indipendentemente dall'ordine
+
+- 2 punti se tutti i cinque piloti pronosticati sono effettivamente nei primi cinque, indipendentemente dall'ordine.
+
+---
+
+# MALUS GARA
+
+I malus valgono esclusivamente per la Gara.
+
+- -1 punto se un pilota selezionato non conclude la gara;
+- -5 punti se tre dei cinque piloti selezionati non concludono la gara;
+- -10 punti se tutti e cinque i piloti selezionati non concludono la gara.
+
+Verificare attentamente come vengono interpretati:
+
+- DNF
+- DNS
+- DSQ
+- NC / Not Classified
+
+rispetto ai dati presenti in session_results.
+
+Non assumere automaticamente che qualsiasi status diverso da CLASSIFIED sia DNF: verificare la logica esistente.
+
+---
+
+# DATI STORICI DI RIFERIMENTO
+
+## GP 1 — Gran Bretagna 2026
+
+### Qualifiche
+
+```text
+lucifero1966@gmail.com     R. Fernandez      01:56.148   7
+tommaso.strada95@gmail.com M. Bezzecchi      01:56.067   5
+alessandro.cavasso.1995@gmail.com M. Bezzecchi 01:56.128 5
+marty.bria1996@gmail.com   R. Fernandez      01:56.020   5
+simo.salva92@gmail.com     M. Bezzecchi      01:56.250   5
+nikyturets@gmail.com       M. Bezzecchi      01:56.354   3
+ivan23dell@gmail.com       M. Bezzecchi      01:55.828   1
+````
+
+Altri partecipanti senza pronostico qualifiche:
+
+```text
+mosemilan8@gmail.com
+dalla.pozza.silvia@gmail.com
+alandellosbel8@gmail.com
+marino.dilorenzo@gmail.com
+davide.bettio.3@gmail.com
+```
+
+### Sprint
+
+```text
+alessandro.cavasso.1995@gmail.com  J. Martin / A. Ogura / M. Bezzecchi       9
+simo.salva92@gmail.com             J. Martin / A. Ogura / R. Fernandez        6
+marty.bria1996@gmail.com            J. Martin / R. Fernandez / A. Ogura        4
+nikyturets@gmail.com                R. Fernandez / A. Ogura / F. Di Giannantonio 3
+marino.dilorenzo@gmail.com          A. Ogura / J. Martin / R. Fernandez        2
+tommaso.strada95@gmail.com          M. Bezzecchi / J. Martin / A. Ogura       2
+lucifero1966@gmail.com              R. Fernandez / M. Marquez / J. Martin     0
+```
+
+### Gara
+
+```text
+nikyturets@gmail.com
+A. Ogura / J. Martin / M. Bezzecchi / R. Fernandez / F. Di Giannantonio / J. Mir
+12
+
+simo.salva92@gmail.com
+J. Martin / A. Ogura / R. Fernandez / M. Bezzecchi / A. Marquez / J. Mir
+11
+
+alandellosbel8@gmail.com
+J. Martin / M. Bezzecchi / A. Ogura / M. Marquez / R. Fernandez / J. Mir
+8
+
+alessandro.cavasso.1995@gmail.com
+M. Bezzecchi / J. Martin / A. Ogura / F. Di Giannantonio / R. Fernandez / J. Mir
+8
+
+marty.bria1996@gmail.com
+J. Martin / A. Ogura / R. Fernandez / M. Bezzecchi / F. Di Giannantonio / P. Acosta
+6
+
+ivan23dell@gmail.com
+J. Martin / M. Bezzecchi / A. Ogura / R. Fernandez / F. Di Giannantonio / L. Marini
+6
+
+lucifero1966@gmail.com
+J. Martin / A. Ogura / M. Marquez / F. Di Giannantonio / M. Bezzecchi / F. Morbidelli
+3
+```
+
+### Totali storici GP 1
+
+```text
+alessandro.cavasso.1995@gmail.com  Q=5  S=9  R=8   TOTAL=22
+simo.salva92@gmail.com             Q=5  S=6  R=11  TOTAL=22
+nikyturets@gmail.com               Q=3  S=3  R=12  TOTAL=18
+marty.bria1996@gmail.com           Q=5  S=4  R=6   TOTAL=15
+lucifero1966@gmail.com             Q=7  S=0  R=3   TOTAL=10
+alandellosbel8@gmail.com            Q=0  S=0  R=8   TOTAL=8
+ivan23dell@gmail.com               Q=1  S=0  R=6   TOTAL=7
+tommaso.strada95@gmail.com         Q=5  S=2  R=0   TOTAL=7
+marino.dilorenzo@gmail.com         Q=0  S=2  R=0   TOTAL=2
+```
+
+---
+
+# GP 2 — 30/31 MAGGIO 2026
+
+### Qualifiche
+
+```text
+simo.salva92@gmail.com             F. Di Giannantonio  01:43.970  5
+marty.bria1996@gmail.com            F. Di Giannantonio  01:44.000  5
+marino.dilorenzo@gmail.com          F. Di Giannantonio  01:44.220  1
+nikyturets@gmail.com                F. Di Giannantonio  01:44.247  1
+tommaso.strada95@gmail.com          F. Bagnaia           01:44.200  1
+alessandro.cavasso.1995@gmail.com   F. Bagnaia           01:44.658  0
+dalla.pozza.silvia@gmail.com        F. Di Giannantonio   01:34.600  0
+ivan23dell@gmail.com                F. Di Giannantonio   01:44.473  0
+```
+
+### Sprint
+
+```text
+alessandro.cavasso.1995@gmail.com   M. Bezzecchi / J. Martin / M. Marquez  3
+ivan23dell@gmail.com                 M. Bezzecchi / J. Martin / M. Marquez  3
+alandellosbel8@gmail.com             M. Bezzecchi / J. Martin / M. Marquez  3
+marty.bria1996@gmail.com             M. Bezzecchi / R. Fernandez / J. Martin 2
+nikyturets@gmail.com                 J. Martin / M. Marquez / F. Bagnaia     1
+simo.salva92@gmail.com               M. Bezzecchi / A. Marquez / R. Fernandez 0
+lucifero1966@gmail.com               M. Bezzecchi / M. Marquez / F. Bagnaia  0
+tommaso.strada95@gmail.com           F. Di Giannantonio / M. Bezzecchi / F. Bagnaia 0
+```
+
+### Gara
+
+```text
+ivan23dell@gmail.com
+J. Martin / M. Bezzecchi / R. Fernandez / M. Marquez / P. Acosta / F. Aldeguer
+6
+
+nikyturets@gmail.com
+M. Bezzecchi / J. Martin / F. Di Giannantonio / R. Fernandez / A. Ogura / J. Mir
+14
+
+dalla.pozza.silvia@gmail.com
+M. Bezzecchi / J. Martin / M. Marquez / F. Di Giannantonio / F. Bagnaia / E. Bastianini
+16
+
+marino.dilorenzo@gmail.com
+M. Bezzecchi / J. Martin / F. Di Giannantonio / R. Fernandez / F. Aldeguer / J. Miller
+11
+
+alandellosbel8@gmail.com
+M. Bezzecchi / J. Martin / R. Fernandez / M. Marquez / F. Di Giannantonio / J. Mir
+16
+
+lucifero1966@gmail.com
+M. Bezzecchi / J. Martin / M. Marquez / F. Aldeguer / F. Bagnaia / R. Fernandez
+11
+
+tommaso.strada95@gmail.com
+J. Martin / M. Bezzecchi / F. Di Giannantonio / R. Fernandez / M. Marquez / J. Mir
+7
+
+marty.bria1996@gmail.com
+M. Bezzecchi / J. Martin / F. Bagnaia / R. Fernandez / F. Di Giannantonio / M. Marquez
+23
+
+simo.salva92@gmail.com
+M. Bezzecchi / F. Di Giannantonio / J. Martin / F. Bagnaia / R. Fernandez / P. Acosta
+12
+```
+
+### Totali storici GP 2
+
+```text
+marty.bria1996@gmail.com            Q=5  S=2  R=23  TOTAL=30
+alandellosbel8@gmail.com             Q=0  S=3  R=16  TOTAL=19
+simo.salva92@gmail.com               Q=5  S=0  R=12  TOTAL=17
+nikyturets@gmail.com                 Q=1  S=1  R=14  TOTAL=16
+dalla.pozza.silvia@gmail.com        Q=0  S=0  R=16  TOTAL=16
+marino.dilorenzo@gmail.com          Q=1  S=0  R=11  TOTAL=12
+lucifero1966@gmail.com              Q=0  S=0  R=11  TOTAL=11
+ivan23dell@gmail.com                Q=0  S=3  R=6   TOTAL=9
+tommaso.strada95@gmail.com          Q=1  S=0  R=7   TOTAL=8
+alessandro.cavasso.1995@gmail.com   Q=0  S=3  R=0   TOTAL=3
+```
+
+---
+
+# GP 3 — 5/7 GIUGNO 2026
+
+### Qualifiche
+
+```text
+tommaso.strada95@gmail.com          M. Marquez           01:36.450  6
+ivan23dell@gmail.com                F. Di Giannantonio   01:36.837  5
+dalla.pozza.silvia@gmail.com        P. Acosta            01:36.900  5
+alessandro.cavasso.1995@gmail.com   M. Marquez           01:35.457  5
+simo.salva92@gmail.com              P. Acosta            01:36.640  5
+nikyturets@gmail.com                P. Acosta            01:36.500  3
+marino.dilorenzo@gmail.com          P. Acosta            01:36.380  3
+marty.bria1996@gmail.com            P. Acosta            01:36.489  3
+```
+
+### Sprint
+
+```text
+lucifero1966@gmail.com              M. Marquez / P. Acosta / M. Bezzecchi  9
+marty.bria1996@gmail.com            M. Marquez / P. Acosta / F. Di Giannantonio 6
+alandellosbel8@gmail.com             M. Marquez / F. Di Giannantonio / P. Acosta 4
+marino.dilorenzo@gmail.com          M. Marquez / F. Di Giannantonio / P. Acosta 4
+simo.salva92@gmail.com              M. Marquez / F. Di Giannantonio / P. Acosta 4
+nikyturets@gmail.com                P. Acosta / M. Marquez / J. Martin 2
+alessandro.cavasso.1995@gmail.com   P. Acosta / F. Di Giannantonio / M. Marquez 1
+tommaso.strada95@gmail.com          M. Bezzecchi / M. Marquez / J. Martin 1
+```
+
+### Gara
+
+```text
+nikyturets@gmail.com
+M. Marquez / P. Acosta / M. Bezzecchi / J. Martin / F. Di Giannantonio / J. Mir
+11
+
+alandellosbel8@gmail.com
+M. Marquez / P. Acosta / M. Bezzecchi / F. Di Giannantonio / F. Aldeguer / J. Mir
+11
+
+marino.dilorenzo@gmail.com
+M. Marquez / P. Acosta / F. Aldeguer / M. Bezzecchi / F. Di Giannantonio / D. Moreira
+9
+
+dalla.pozza.silvia@gmail.com
+M. Marquez / M. Bezzecchi / P. Acosta / J. Martin / A. Fernandez / E. Bastianini
+7
+
+tommaso.strada95@gmail.com
+M. Marquez / M. Bezzecchi / F. Di Giannantonio / P. Acosta / J. Martin / J. Mir
+7
+
+marty.bria1996@gmail.com
+M. Marquez / P. Acosta / M. Bezzecchi / F. Aldeguer / R. Fernandez / J. Miller
+5
+
+alessandro.cavasso.1995@gmail.com
+M. Bezzecchi / P. Acosta / M. Marquez / J. Martin / R. Fernandez / J. Mir
+3
+
+simo.salva92@gmail.com
+M. Marquez / M. Bezzecchi / P. Acosta / J. Martin / F. Aldeguer / B. Binder
+3
+
+lucifero1966@gmail.com
+M. Bezzecchi / F. Di Giannantonio / M. Marquez / P. Acosta / F. Bagnaia / E. Bastianini
+2
+
+ivan23dell@gmail.com
+M. Bezzecchi / J. Martin / P. Acosta / F. Aldeguer / R. Fernandez / M. Marquez
+-2
+```
+
+### Totali storici GP 3
+
+```text
+nikyturets@gmail.com               Q=3  S=2  R=11  TOTAL=16
+marino.dilorenzo@gmail.com         Q=3  S=4  R=9   TOTAL=16
+alandellosbel8@gmail.com            Q=0  S=4  R=11  TOTAL=15
+tommaso.strada95@gmail.com         Q=6  S=1  R=7   TOTAL=14
+marty.bria1996@gmail.com           Q=3  S=6  R=5   TOTAL=14
+dalla.pozza.silvia@gmail.com       Q=5  S=0  R=7   TOTAL=12
+simo.salva92@gmail.com             Q=5  S=4  R=3   TOTAL=12
+lucifero1966@gmail.com             Q=0  S=9  R=2   TOTAL=11
+alessandro.cavasso.1995@gmail.com  Q=5  S=1  R=3   TOTAL=9
+ivan23dell@gmail.com               Q=5  S=0  R=-2  TOTAL=3
+```
+
+---
+
+# DATI IMPORTANTI
+
+I punteggi storici sono quelli effettivamente assegnati nel vecchio FantaMotoGP e devono essere trattati come expected values.
+
+NON cercare di modificare i dati storici per farli coincidere con la nuova implementazione.
+
+Se il nuovo scoring produce un risultato diverso:
+
+1. evidenzia la differenza;
+2. indica il partecipante;
+3. indica GP;
+4. indica categoria (Qualifica/Sprint/Gara);
+5. indica pronostico;
+6. indica risultato ufficiale;
+7. indica punteggio storico;
+8. indica punteggio prodotto dalla nuova RPC;
+9. spiega quale regola genera la differenza.
+
+---
+
+# IMPORTANTE: NON MODIFICARE IL DATABASE
+
+In questa fase:
+
+* nessun INSERT;
+* nessun UPDATE;
+* nessun DELETE;
+* nessuna ALTER;
+* nessuna modifica RPC;
+* nessuna modifica RLS;
+* nessuna modifica alle prediction reali;
+* nessuna modifica ai risultati ufficiali.
+
+Se serve una fixture per testare `score_prediction`, crearla esclusivamente localmente/mockata oppure spiegare esattamente perché non è possibile eseguire il test senza una transazione Supabase con rollback.
+
+Non creare fixture persistenti nel database di produzione.
+
+---
+
+# TEST DA PRODURRE
+
+Creare una suite automatica, se non esiste già, che verifichi almeno:
+
+### Qualifiche
+
+* tempo esatto;
+* ±0.010;
+* appena oltre ±0.010;
+* 0.1%;
+* 0.25%;
+* 0.5%;
+* oltre 0.5%;
+* pole position;
+* secondo posto.
+
+### Sprint
+
+* P1 esatto;
+* P2 esatto;
+* P3 esatto;
+* errore di una posizione;
+* errore superiore a una posizione;
+* duplicati.
+
+### Gara
+
+* Top 5 esatta;
+* errore di una posizione;
+* pilota nella Top 5 ma posizione diversa;
+* pilota fuori Top 5;
+* OUT;
+* bonus ordine;
+* bonus 4/5;
+* bonus 3/5;
+* bonus cinque piloti indipendentemente dall'ordine;
+* malus -1;
+* malus -5;
+* malus -10.
+
+### Stati pilota
+
+Verificare esplicitamente il comportamento di:
+
+* CLASSIFIED;
+* DNF;
+* DNS;
+* DSQ;
+* non classificato.
+
+---
+
+# RISULTATO FINALE RICHIESTO
+
+Al termine NON dichiarare semplicemente "test superati".
+
+Produrre una tabella:
+
+| GP  | Utente | Categoria | Atteso | Ottenuto | Stato |
+| --- | ------ | --------- | -----: | -------: | ----- |
+| GP1 | ...    | Qualifica |      7 |        7 | PASS  |
+| GP1 | ...    | Sprint    |      9 |        9 | PASS  |
+| GP1 | ...    | Gara      |      8 |        8 | PASS  |
+
+E un riepilogo:
+
+* test totali;
+* test passati;
+* test falliti;
+* test saltati;
+* differenze rispetto ai dati storici;
+* eventuali regole non ancora verificabili;
+* eventuali bug individuati.
+
+## CRITERIO DI COMPLETAMENTO
+
+Il Task #10 può essere dichiarato completato solo se:
+
+1. i dati storici sono stati utilizzati come fixture;
+2. lo scoring viene confrontato con gli expected values;
+3. tutte le differenze vengono spiegate;
+4. le regole principali sono coperte da test automatici;
+5. non vengono modificati dati di produzione.
+
+Se emergono differenze tra vecchio punteggio e nuova RPC, NON correggere automaticamente la RPC.
+
+Prima mostra il report della discrepanza e proponi la correzione.
+
+```
+
+**Questo è un passaggio molto utile**, perché ora avete qualcosa che prima mancava: non solo il regolamento teorico, ma **punteggi reali già assegnati a persone reali**. Possiamo quindi usare i primi 3 GP come una sorta di *golden dataset* per capire se il nuovo FantaMotoGP calcola davvero i punti come il vecchio.
+```
