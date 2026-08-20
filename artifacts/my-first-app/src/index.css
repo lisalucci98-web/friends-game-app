@@ -288,6 +288,51 @@
   margin-inline: auto;
 }
 
+.profile-predictions-section {
+  width: min(100%, 980px);
+  margin: 72px auto 0;
+  padding-top: 48px;
+  border-top: 1px solid hsl(var(--foreground) / 0.1);
+  text-align: left;
+}
+
+.profile-predictions-heading {
+  margin-bottom: 26px;
+}
+
+.profile-predictions-heading .eyebrow {
+  justify-content: flex-start;
+  margin-bottom: 12px;
+}
+
+.profile-predictions-heading h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 500;
+  line-height: 0.98;
+}
+
+.profile-predictions-heading p:last-child {
+  margin: 14px 0 0;
+  color: hsl(var(--muted-foreground));
+}
+
+.embedded-page {
+  min-height: auto;
+  background: transparent;
+}
+
+.embedded-app-content {
+  display: block;
+  min-height: auto;
+  padding: 0;
+}
+
+.embedded-page .predictions-shell {
+  margin-top: 0;
+}
+
 .bottom-nav {
   position: fixed;
   z-index: 10;
@@ -687,6 +732,10 @@
   width: min(100%, 980px);
   margin-inline: auto;
   text-align: left;
+}
+
+.predictions-app-page.embedded-page {
+  width: 100%;
 }
 
 .predictions-app-page .app-copy > .eyebrow {
@@ -1102,6 +1151,11 @@
 }
 
 @media (max-width: 760px) {
+  .profile-predictions-section {
+    margin-top: 54px;
+    padding-top: 36px;
+  }
+
   .predictions-app-page .app-content {
     padding: 62px 18px 142px;
   }

@@ -222,64 +222,74 @@ function MainPageLayout({
   title,
   text,
   className,
+  embedded = false,
   children,
 }: {
   eyebrow: string;
   title: string;
   text: string;
   className?: string;
+  embedded?: boolean;
   children?: ReactNode;
 }) {
   const [location, navigate] = useLocation();
   const sections = [
     { path: '/home', label: 'Home', icon: HomeIcon },
     { path: '/leghe', label: 'Leghe', icon: Trophy },
-    { path: '/pronostici', label: 'Pronostici', icon: Medal },
     { path: '/risultati', label: 'Risultati', icon: Flag },
     { path: '/profilo', label: 'Profilo', icon: UserRound },
     { path: '/impostazioni', label: 'Impostazioni', icon: Settings },
   ];
 
   return (
-    <main className={`welcome-page app-page${className ? ` ${className}` : ''}`} data-testid="page-app">
-      <header className="welcome-nav">
-        <div className="brand-lockup" data-testid="text-brand">
-          <span className="brand-mark" aria-hidden="true">M</span>
-          <span>MyFirstApp</span>
-        </div>
-        <AuthStatus />
-      </header>
+    <main
+      className={`welcome-page app-page${className ? ` ${className}` : ''}${embedded ? ' embedded-page' : ''}`}
+      data-testid="page-app"
+    >
+      {!embedded && (
+        <header className="welcome-nav">
+          <div className="brand-lockup" data-testid="text-brand">
+            <span className="brand-mark" aria-hidden="true">M</span>
+            <span>MyFirstApp</span>
+          </div>
+          <AuthStatus />
+        </header>
+      )}
 
-      <section className="app-content" aria-labelledby="app-page-title">
-        <div className="app-copy">
-          <p className="eyebrow">{eyebrow}</p>
-          <h1 className="welcome-title" id="app-page-title">
-            {title}
-          </h1>
-          <p className="welcome-description">{text}</p>
-          {children}
-        </div>
+      <section className={`app-content${embedded ? ' embedded-app-content' : ''}`} aria-labelledby="app-page-title">
+        {embedded ? children : (
+          <div className="app-copy">
+            <p className="eyebrow">{eyebrow}</p>
+            <h1 className="welcome-title" id="app-page-title">
+              {title}
+            </h1>
+            <p className="welcome-description">{text}</p>
+            {children}
+          </div>
+        )}
       </section>
 
-      <nav className="bottom-nav" aria-label="Navigazione principale">
-        {sections.map(({ path, label, icon: Icon }) => {
-          const isActive = location === path;
+      {!embedded && (
+        <nav className="bottom-nav" aria-label="Navigazione principale">
+          {sections.map(({ path, label, icon: Icon }) => {
+            const isActive = location === path;
 
-          return (
-            <button
-              className={`bottom-nav-item${isActive ? ' is-active' : ''}`}
-              key={path}
-              type="button"
-              data-testid={`nav-${label.toLowerCase()}`}
-              onClick={() => navigate(path)}
-              aria-current={isActive ? 'page' : undefined}
-            >
-              <Icon size={19} strokeWidth={isActive ? 2.4 : 1.9} aria-hidden="true" />
-              <span>{label}</span>
-            </button>
-          );
-        })}
-      </nav>
+            return (
+              <button
+                className={`bottom-nav-item${isActive ? ' is-active' : ''}`}
+                key={path}
+                type="button"
+                data-testid={`nav-${label.toLowerCase()}`}
+                onClick={() => navigate(path)}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <Icon size={19} strokeWidth={isActive ? 2.4 : 1.9} aria-hidden="true" />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
     </main>
   );
 }
@@ -2139,7 +2149,7 @@ function AuthPage() {
   );
 }
 
-function PronosticiPage() {
+function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
   const { user, isAuthLoading } = useAuth();
   const [season, setSeason] = useState<ResultsSeason | null>(null);
   const [grandPrix, setGrandPrix] = useState<GrandPrix[]>([]);
@@ -2465,6 +2475,7 @@ function PronosticiPage() {
   return (
     <MainPageLayout
       className="predictions-app-page"
+      embedded={embedded}
       eyebrow="FantaMotoGP · 2026"
       title="Pronostici"
       text="Scegli i tuoi protagonisti del prossimo Gran Premio."
@@ -2741,6 +2752,16 @@ function ProtectedPronosticiPage() {
   );
 }
 
+function LegacyPronosticiRedirect() {
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    navigate('/profilo');
+  }, [navigate]);
+
+  return null;
+}
+
 function ProtectedLeagueDetailPage() {
   return (
     <ProtectedPage>
@@ -2980,6 +3001,14 @@ function ProfilePage() {
           </p>
         )}
       </form>
+      <section className="profile-predictions-section" aria-labelledby="profile-predictions-title">
+        <div className="profile-predictions-heading">
+          <p className="eyebrow">Il tuo FantaMotoGP</p>
+          <h2 id="profile-predictions-title">Pronostici</h2>
+          <p>Scegli i tuoi protagonisti del prossimo Gran Premio.</p>
+        </div>
+        <PronosticiPage embedded />
+      </section>
     </MainPageLayout>
   );
 }
@@ -3004,7 +3033,7 @@ function Router() {
         <Route path="/auth" component={AuthPage} />
         <Route path="/home" component={ProtectedHomePage} />
         <Route path="/leghe" component={ProtectedLeaguesPage} />
-        <Route path="/pronostici" component={ProtectedPronosticiPage} />
+        <Route path="/pronostici" component={LegacyPronosticiRedirect} />
         <Route path="/risultati" component={ProtectedResultsPage} />
         <Route path="/leghe/:leagueId" component={ProtectedLeagueDetailPage} />
         <Route path="/profilo" component={ProtectedProfilePage} />
