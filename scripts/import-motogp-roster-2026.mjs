@@ -196,7 +196,6 @@ async function verifyImportedRoster(expected) {
   );
   const duplicateRelations = countDuplicates(
     riderSeasons,
-    joinedRows,
     row => `${row.rider_id}:${row.season_id}`,
   );
   const orphanRelations = riderSeasons.filter(
@@ -210,6 +209,7 @@ async function verifyImportedRoster(expected) {
     teamById,
     riderById,
     riderSeasons,
+    joinedRows,
     teamCount,
     riderCount,
     duplicateRelations,
