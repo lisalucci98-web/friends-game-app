@@ -2,3 +2,4 @@
 - [League creation boundary](league-creation-boundary.md) — create leagues exclusively through the database RPC so creator membership stays atomic.
 - [MotoGP classification source](motogp-classification-source.md) — session classifications require official PDF extraction; the public JSON standings endpoint is season-level only.
 - [MotoGP roster sources](motogp-roster-sources.md) — roster endpoints use the content category UUID and `seasonYear`, not result-service identifiers.
+- [MotoGP calendar dates](motogp-calendar-dates.md) — use session timestamps for gameplay timing; event metadata can disagree with the session weekend.
