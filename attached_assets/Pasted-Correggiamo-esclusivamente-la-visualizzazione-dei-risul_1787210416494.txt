@@ -1,0 +1,103 @@
+Correggiamo esclusivamente la visualizzazione dei risultati.
+
+NON modificare:
+- database
+- RLS
+- autenticazione
+- script di import
+- struttura delle tabelle
+- logica dei pronostici (non ancora implementata)
+
+Modifica solo:
+- artifacts/my-first-app/src/App.tsx
+- eventualmente artifacts/my-first-app/src/index.css se necessario
+
+OBIETTIVO 1 — QUALIFICHE
+
+La pagina /risultati deve visualizzare correttamente la classifica finale delle qualifiche.
+
+Per la sessione Q utilizzare i record di session_results relativi alla sessione qualifiche.
+
+La classifica deve essere ordinata per posizione.
+
+IMPORTANTE:
+i risultati importati derivano dal PDF ufficiale QualifyingResults.pdf, quindi rappresentano la classifica combinata Q1 + Q2.
+
+Visualizzare:
+- posizione
+- numero
+- pilota
+- team
+- tempo
+- eventuale indicazione pole position sul primo classificato
+
+Non confondere Q1 e Q2 con la classifica finale.
+
+Se i dati attualmente presenti in session_results non permettono di distinguere correttamente la classifica combinata, NON inventare dati: mostra chiaramente quale campo manca e fermati.
+
+OBIETTIVO 2 — PUNTI SPRINT
+
+Nella visualizzazione della Sprint i punti devono essere calcolati in base alla posizione:
+
+1 = 12
+2 = 9
+3 = 7
+4 = 6
+5 = 5
+6 = 4
+7 = 3
+8 = 2
+9 = 1
+10 o oltre = 0
+
+Questi valori devono essere usati nella UI indipendentemente dal valore eventualmente presente nel campo points del database.
+
+OBIETTIVO 3 — PUNTI GARA
+
+Nella visualizzazione della Gara i punti devono essere:
+
+1 = 25
+2 = 20
+3 = 16
+4 = 13
+5 = 11
+6 = 10
+7 = 9
+8 = 8
+9 = 7
+10 = 6
+11 = 5
+12 = 4
+13 = 3
+14 = 2
+15 = 1
+16 o oltre = 0
+
+Anche qui usare questi valori per la visualizzazione, indipendentemente dal campo points del database.
+
+I piloti DNF / DNS / DSQ / Not classified devono avere 0 punti nella visualizzazione, salvo che la posizione ufficiale sia valida secondo i dati importati.
+
+OBIETTIVO 4 — NON MODIFICARE I DATI
+
+NON aggiornare session_results.
+NON fare INSERT/UPDATE/DELETE.
+I punteggi sono una regola di visualizzazione/calcolo e non devono essere sovrascritti nel database in questo task.
+
+VERIFICA
+
+Dopo la modifica esegui:
+- TypeScript
+- build
+- controllo console
+
+Verifica manualmente /risultati per:
+- Qualifiche
+- Sprint
+- Gara
+
+In particolare controlla:
+- Qualifiche: compare la classifica finale combinata;
+- Sprint: posizione 9 = 1 punto, posizione 10 = 0;
+- Gara: posizione 15 = 1 punto, posizione 16 = 0.
+
+Non modificare altro.

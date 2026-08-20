@@ -382,6 +382,49 @@ function isResultClassified(result: RawSessionResult) {
   );
 }
 
+const sprintPointsByPosition: Record<number, number> = {
+  1: 12,
+  2: 9,
+  3: 7,
+  4: 6,
+  5: 5,
+  6: 4,
+  7: 3,
+  8: 2,
+  9: 1,
+};
+
+const racePointsByPosition: Record<number, number> = {
+  1: 25,
+  2: 20,
+  3: 16,
+  4: 13,
+  5: 11,
+  6: 10,
+  7: 9,
+  8: 8,
+  9: 7,
+  10: 6,
+  11: 5,
+  12: 4,
+  13: 3,
+  14: 2,
+  15: 1,
+};
+
+function resultDisplayPoints(result: RawSessionResult, sessionType: string) {
+  if (sessionType === 'Q' || !isResultClassified(result)) return 0;
+  const position = resultPosition(result.position);
+  if (position === null) return 0;
+  const points =
+    sessionType === 'SPR'
+      ? sprintPointsByPosition[position] ?? 0
+      : sessionType === 'RAC'
+        ? racePointsByPosition[position] ?? 0
+        : 0;
+  return points;
+}
+
 function resultPosition(value: number | string | null) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
@@ -464,7 +507,7 @@ function ResultsRows({
               </div>
               <div className="result-mobile-data">
                 <strong>{resultTiming(result)}</strong>
-                {sessionType !== 'Q' && <span>{result.points ?? 0} pt</span>}
+                  {sessionType !== 'Q' && <span>{resultDisplayPoints(result, sessionType)} pt</span>}
                 <span className={`result-status${isClassified ? '' : ' is-muted'}`}>
                   {isClassified ? <CheckCircle2 size={13} aria-hidden="true" /> : null}
                   {status}
@@ -493,7 +536,9 @@ function ResultsRows({
                 <span>{result.total_time}</span>
               ) : null}
             </div>
-            {sessionType !== 'Q' && <div className="result-points">{result.points ?? 0}</div>}
+            {sessionType !== 'Q' && (
+              <div className="result-points">{resultDisplayPoints(result, sessionType)}</div>
+            )}
             <div className={`result-status${isClassified ? '' : ' is-muted'}`}>
               {isClassified ? <CheckCircle2 size={13} aria-hidden="true" /> : null}
               {status}
