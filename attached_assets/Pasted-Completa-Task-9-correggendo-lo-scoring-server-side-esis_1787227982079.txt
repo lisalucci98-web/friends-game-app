@@ -1,0 +1,158 @@
+Completa Task #9 correggendo lo scoring server-side esistente.
+
+IMPORTANTE:
+- Non modificare il regolamento.
+- Non modificare il test per adattarlo al comportamento attuale.
+- La funzione database è la fonte autorevole dello scoring.
+- Non modificare risultati ufficiali, UI, routing o autenticazione.
+- Prima di ogni modifica verifica la definizione attuale delle RPC.
+
+BUG DA CORREGGERE
+
+La funzione:
+
+public.calculate_qualifying_time_points
+
+presenta un errore nella gestione della tolleranza assoluta.
+
+Con tempo ufficiale:
+01:56.160
+
+Il regolamento stabilisce:
+
+errore assoluto <= 0.010 secondi → 10 punti
+
+Pertanto devono essere veri entrambi:
+
++0.010 s → 10 punti
+-0.010 s → 10 punti
+
+Attualmente:
++0.010 → 10
+-0.010 → 5
+
+CORREGGI LA FUNZIONE SQL affinché il confronto utilizzi esplicitamente l'errore assoluto:
+
+abs(predicted_time - official_time) <= 0.010
+
+La soglia deve essere inclusiva.
+
+NON modificare le altre fasce regolamentari:
+
+- <= 0.010 s → 10 punti
+- <= 0.1% → 5 punti
+- <= 0.25% → 3 punti
+- <= 0.5% → 1 punto
+- oltre → 0 punti
+
+ATTENZIONE ALL'ORDINE:
+la fascia da 10 punti deve essere verificata prima delle fasce percentuali.
+
+TEST
+
+Mantieni e amplia:
+
+scripts/test-motogp-scoring-2026.mjs
+
+Verifica almeno:
+
+QUALIFICA:
+1. tempo esatto → 10
+2. +0.010 s → 10
+3. -0.010 s → 10
+4. appena oltre ±0.010 s → non 10
+5. entro 0.1% → 5
+6. entro 0.25% → 3
+7. entro 0.5% → 1
+8. oltre 0.5% → 0
+
+Poi verifica anche:
+
+POLE:
+- P1 → 5
+- P2 → 2
+- P3+ → 0
+
+SPRINT:
+- posizione esatta → 3
+- errore di una posizione → 1
+- oltre Top 3 → 0
+
+GARA:
+- posizione esatta → 5
+- errore di una posizione → 3
+- pilota comunque nella Top 5 → 1
+- 6° o oltre → 0
+
+OUT:
+- OUT corretto → 2
+- OUT errato → 0
+
+BONUS ORDINE:
+- 5/5 ordine esatto → 5
+- 4/5 posizioni esatte → 3
+- 3/5 posizioni esatte → 1
+
+BONUS TOP 5:
+- tutti i 5 piloti pronosticati presenti nella Top 5, indipendentemente dall'ordine → 2
+
+IMPORTANTE:
+Il bonus "ordine esatto" deve contare le POSIZIONI CORRETTE, non semplicemente quanti piloti sono presenti nella Top 5.
+
+MALUS:
+- 1 pilota pronosticato DNF/non classificato → -1
+- 3 → -5
+- 5 → -10
+
+Verifica esplicitamente:
+- CLASSIFIED
+- DNF
+- DNS
+- DSQ
+- eventuali altri status non classificati
+
+END-TO-END
+
+Serve inoltre una fixture isolata e controllata per testare realmente:
+
+score_prediction
+
+La fixture deve essere creata in modo sicuro e non deve modificare dati di produzione permanentemente.
+
+Se il database permette una transazione/rollback:
+- crea fixture;
+- esegui score_prediction;
+- verifica il breakdown;
+- verifica il totale;
+- rollback.
+
+Se non è possibile garantire rollback, NON creare dati persistenti.
+
+TEST IDempotenza:
+eseguendo due volte lo scoring dello stesso prediction il risultato deve essere identico e non deve sommare nuovamente i punti.
+
+TEST REGRESSIONE:
+il caso -0.010 secondi deve necessariamente risultare 10.
+
+Al termine esegui:
+
+- test scoring completo;
+- TypeScript;
+- build;
+- eventuali test SQL/RPC;
+- verifica che nessun dato ufficiale sia stato modificato.
+
+REPORT FINALE
+
+Riporta chiaramente:
+
+- SQL/RPC modificata;
+- comportamento precedente;
+- comportamento corretto;
+- numero test eseguiti;
+- test passati/falliti;
+- risultato end-to-end;
+- verifica idempotenza;
+- eventuali problemi residui.
+
+NON dichiarare Task #9 completato se anche un solo test regolamentare fondamentale fallisce.
