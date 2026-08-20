@@ -705,10 +705,17 @@ function ResultsPage() {
   }, [isAuthLoading, reloadToken, user]);
 
   const selectedGrandPrix = grandPrix.find((item) => item.id === selectedGrandPrixId) ?? null;
+  const selectedGrandPrixSessions = sessions.filter(
+    (item) => item.grand_prix_id === selectedGrandPrixId && item.type === activeSession,
+  );
   const selectedSession =
-    sessions.find(
-      (item) => item.grand_prix_id === selectedGrandPrixId && item.type === activeSession,
-    ) ?? null;
+    activeSession === 'Q'
+      ? selectedGrandPrixSessions.find((item) => String(item.number) === '2') ??
+        selectedGrandPrixSessions.find((item) =>
+          results.some((result) => result.session_id === item.id),
+        ) ??
+        null
+      : selectedGrandPrixSessions[0] ?? null;
   const teamById = new Map(teams.map((team) => [team.id, team.name ?? 'Team non disponibile']));
   const teamIdByRider = new Map(riderSeasons.map((item) => [item.rider_id, item.team_id]));
   const riderById = new Map(riders.map((rider) => [rider.id, rider]));
