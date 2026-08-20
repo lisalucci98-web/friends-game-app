@@ -489,29 +489,39 @@ function predictionRiderName(rider: PredictionRider | null) {
   return [rider.name, rider.surname].filter(Boolean).join(' ') || rider.nickname || 'Pilota';
 }
 
-function predictionDateTime(value: string | null) {
-  if (!value) return 'Orario non disponibile';
+const ITALIAN_TIME_ZONE = 'Europe/Rome';
+
+function parsePredictionDate(value: string | null) {
+  if (!value) return null;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatItalianDateTime(value: string | null) {
+  if (!value) return 'Orario non disponibile';
+  const date = parsePredictionDate(value);
+  if (!date) return value;
   return new Intl.DateTimeFormat('it-IT', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: ITALIAN_TIME_ZONE,
   }).format(date);
 }
 
 function predictionShortTime(value: string | null) {
   if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
+  const date = parsePredictionDate(value);
+  if (!date) return '—';
   return new Intl.DateTimeFormat('it-IT', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: ITALIAN_TIME_ZONE,
   }).format(date);
 }
 
@@ -2416,7 +2426,11 @@ function PronosticiPage() {
                 <div className={`prediction-deadline ${item.status.className}`} key={item.label}>
                   <span>{item.label}</span>
                   <strong>{item.status.label}</strong>
-                  <small>{item.value ? predictionDateTime(item.value) : 'Sessione non disponibile'}</small>
+                   <small>
+                     {item.value
+                       ? `🇮🇹 Ora italiana · ${formatItalianDateTime(item.value)}`
+                       : 'Sessione non disponibile'}
+                   </small>
                 </div>
               ))}
             </div>
