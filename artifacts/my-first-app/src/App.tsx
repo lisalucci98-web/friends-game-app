@@ -2156,10 +2156,10 @@ function PronosticiPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => italianWallClockNow());
 
   useEffect(() => {
-    const interval = window.setInterval(() => setNow(Date.now()), 30_000);
+    const interval = window.setInterval(() => setNow(italianWallClockNow()), 30_000);
     return () => window.clearInterval(interval);
   }, []);
 
@@ -2375,8 +2375,10 @@ function PronosticiPage() {
     sprint: sprintSession?.session_date ?? null,
     race: raceSession?.session_date ?? null,
   };
-  const isOpen = (deadline: string | null) =>
-    Boolean(deadline && new Date(deadline).getTime() > now);
+  const isOpen = (deadline: string | null) => {
+    const deadlineClock = predictionDeadlineWallClock(deadline);
+    return deadlineClock !== null && deadlineClock > now;
+  };
   const qualifyingOpen = isOpen(deadlineState.qualifying);
   const sprintOpen = isOpen(deadlineState.sprint);
   const raceOpen = isOpen(deadlineState.race);
