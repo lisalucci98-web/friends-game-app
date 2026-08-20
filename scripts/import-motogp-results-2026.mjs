@@ -10,7 +10,6 @@
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -51,10 +50,8 @@ const details = {
   missingSessions: [],
   orphanResults: [],
   requestFailures: [],
-  wildcardTestRiders: [],
 };
 const missingRiderKeys = new Set();
-const wildcardRiderCache = new Map();
 
 function section(title) {
   console.log(`\n${'═'.repeat(76)}\n${title}\n${'═'.repeat(76)}`);
@@ -225,108 +222,6 @@ function apiRiderSummary(rider) {
   };
 }
 
-function isWildcardOrTestRider(rider) {
-  const step = rider?.current_career_step ?? {};
-  return step.type === 'Wildcard' || step.team?.type === 'Test';
-}
-
-function riderKey(name, surname, number) {
-  return `${normalizeText(`${name ?? ''} ${surname ?? ''}`)}:${Number(number)}`;
-}
-
-function apiWildcardForLine(line, riderNumber, apiRiders) {
-  const normalizedLine = normalizeText(line);
-  return apiRiders.find(rider => {
-    const step = rider.current_career_step ?? {};
-    const number = Number(step.number ?? rider.number);
-    const category = normalizeText(step.category?.name ?? '');
-    const fullName = normalizeText(`${rider.name ?? ''} ${rider.surname ?? ''}`);
-    return (
-      number === Number(riderNumber) &&
-      category === 'MOTOGP' &&
-      isWildcardOrTestRider(rider) &&
-      fullName &&
-      normalizedLine.includes(fullName)
-    );
-  }) ?? null;
-}
-
-function apiWildcardsInPdf(text, apiRiders) {
-  const normalizedText = normalizeText(text);
-  return apiRiders.filter(rider => {
-    const step = rider.current_career_step ?? {};
-    const number = Number(step.number ?? rider.number);
-    const category = normalizeText(step.category?.name ?? '');
-    const fullName = normalizeText(`${rider.name ?? ''} ${rider.surname ?? ''}`);
-    return (
-      Number.isFinite(number) &&
-      category === 'MOTOGP' &&
-      isWildcardOrTestRider(rider) &&
-      fullName &&
-      normalizedText.includes(fullName) &&
-      new RegExp(`\\b${number}\\b`).test(normalizedText)
-    );
-  });
-}
-
-function localRiderForApiRider(riders, apiRider) {
-  const step = apiRider.current_career_step ?? {};
-  const number = Number(step.number ?? apiRider.number);
-  const fullName = normalizeText(`${apiRider.name ?? ''} ${apiRider.surname ?? ''}`);
-  return riders.find(rider =>
-    normalizeText(`${rider.name ?? ''} ${rider.surname ?? ''}`) === fullName &&
-    Number(rider.number) === number,
-  ) ?? null;
-}
-
-function prepareWildcardRider(apiRider, riders) {
-  const existing = localRiderForApiRider(riders, apiRider);
-  if (existing) {
-    details.wildcardTestRiders.push({
-      ...apiRiderSummary(apiRider),
-      action: 'già presente in public.riders',
-      rider_id: existing.id,
-    });
-    return existing;
-  }
-
-  const step = apiRider.current_career_step ?? {};
-  const rider = {
-    id: randomUUID(),
-    name: apiRider.name ?? null,
-    surname: apiRider.surname ?? null,
-    nickname: apiRider.nickname ?? null,
-    number: Number(step.number ?? apiRider.number),
-    nationality: apiRider.country?.name ?? null,
-    country_iso: apiRider.country?.iso ?? null,
-    active: false,
-  };
-  details.wildcardTestRiders.push({
-    ...apiRiderSummary(apiRider),
-    action: IMPORT_MODE
-      ? 'da inserire in public.riders'
-      : 'inserimento previsto (dry-run)',
-    rider_id: rider.id,
-  });
-  riders.push(rider);
-  return rider;
-}
-
-function prepareWildcardsForPdf(text, riders, apiRiders) {
-  const prepared = [];
-  for (const apiRider of apiWildcardsInPdf(text, apiRiders)) {
-    const key = riderKey(
-      apiRider.name,
-      apiRider.surname,
-      apiRider.current_career_step?.number ?? apiRider.number,
-    );
-    const rider = wildcardRiderCache.get(key) ?? prepareWildcardRider(apiRider, riders);
-    wildcardRiderCache.set(key, rider);
-    prepared.push(rider);
-  }
-  return prepared;
-}
-
 function apiRiderForMissing(detail, apiRiders) {
   const normalizedLine = normalizeText(detail.line);
   const numberMatches = apiRiders.filter(rider => {
@@ -489,10 +384,11 @@ function criticalErrors(expected) {
   const errors = [];
   if (expected.gpCount !== 22) errors.push(`GP elaborati ${expected.gpCount}/22.`);
   for (const type of ['Q', 'SPR', 'RAC']) {
-    if (expected.sessionCounts[type] !== expected.disputedGpCount) {
-      errors.push(`${type}: ${expected.sessionCounts[type]}/${expected.disputedGpCount} sessioni disputate.`);
+    if (expected.sessionCounts[type] !== 22) {
+      errors.push(`${type}: ${expected.sessionCounts[type]}/22 sessioni elaborate.`);
     }
   }
+  if (counters.missingPdfFuture) errors.push(`PDF mancanti: ${counters.missingPdfFuture}.`);
   if (counters.missingPdfDisputed) {
     errors.push(`PDF mancanti per GP disputati: ${counters.missingPdfDisputed}.`);
   }
@@ -559,10 +455,15 @@ try {
     ),
     [],
   );
-  const seasonRiders = riders.map(rider => ({
-    ...rider,
-    number: riderSeasons.find(row => row.rider_id === rider.id)?.number ?? rider.number ?? null,
-  }));
+  const riderById = new Map(riders.map(rider => [rider.id, rider]));
+  const seasonRiders = riderSeasons
+    .map(row => {
+      const rider = riderById.get(row.rider_id);
+      return rider
+        ? { ...rider, number: row.number ?? rider.number ?? null }
+        : null;
+    })
+    .filter(Boolean);
   const apiRoster = listFrom(
     await apiGet(
       `/riders?seasonYear=${SEASON_YEAR}&categoryUuid=${MOTOGP_CONTENT_CATEGORY_ID}`,
@@ -632,7 +533,7 @@ try {
       RAC: apiSessions.filter(row => sessionType(row) === 'RAC'),
     };
     const selected = {};
-    const gpReport = { name: gp.name, sessions: {}, results: {} };
+    const gpReport = { name: gp.name, circuit: gp.circuit, sessions: {}, results: {}, nonClassified: {} };
     const dbRace = dbForGp.find(row => row.type === 'RAC');
     const isDisputed = isPastDate(dbRace?.session_date, now) || isPastDate(gp.date_end, now);
     if (isDisputed) disputedGps.push(gp.id);
@@ -675,7 +576,6 @@ try {
         gpReport.sessions[type] = 'PDF NON LEGGIBILE';
         continue;
       }
-      prepareWildcardsForPdf(extracted.text, seasonRiders, apiRoster);
       const parseRiders = seasonRiders;
       const parsed = parsePdfRows(extracted.text, parseRiders, extracted.sourceUrl, {
         gp: gp.name,
@@ -691,7 +591,6 @@ try {
             files.classification,
             `${String(gpIndex + 1).padStart(2, '0')}-q2-pole-${dbSession.id}`,
           );
-          prepareWildcardsForPdf(polePdf.text, seasonRiders, apiRoster);
           const poleRows = parsePdfRows(polePdf.text, seasonRiders, polePdf.sourceUrl, {
             gp: gp.name,
             type,
@@ -713,11 +612,21 @@ try {
       allResults.push(...rows);
       gpReport.sessions[type] = dbSession.id;
       gpReport.results[type] = rows.length;
+      gpReport.nonClassified[type] = rows.filter(row => row.status !== 'CLASSIFIED').length;
+      if (type === 'Q') {
+        const pole = rows.find(row => row.position === 1);
+        gpReport.pole = pole
+          ? { rider_id: pole.rider_id, rider_number: pole.rider_number, total_time: pole.total_time }
+          : null;
+      }
     }
     reportRows.push(gpReport);
     console.log(
       `${String(gpIndex + 1).padStart(2, '0')} · ${gp.name ?? gp.id} | ` +
-      `Q ${gpReport.results.Q ?? 0} | SPR ${gpReport.results.SPR ?? 0} | RAC ${gpReport.results.RAC ?? 0}`,
+      `Circuito: ${gp.circuit ?? '—'} | ` +
+      `Q ${gpReport.results.Q ?? 0} (pole ${gpReport.pole?.total_time ?? '—'}) | ` +
+      `SPR ${gpReport.results.SPR ?? 0} (NC ${gpReport.nonClassified.SPR ?? 0}) | ` +
+      `RAC ${gpReport.results.RAC ?? 0} (NC ${gpReport.nonClassified.RAC ?? 0})`,
     );
   }
 
@@ -725,18 +634,17 @@ try {
   const expected = {
     gpCount: grandPrixRows.length,
     sessionCounts,
-    disputedGpCount: disputedGps.length,
   };
   const errors = criticalErrors(expected);
   counters.criticalErrors = errors.length;
 
   section('IMPORT RISULTATI MOTOGP 2026');
-  console.log(`GP totali: ${grandPrixRows.length}`);
+  console.log(`GP elaborati: ${grandPrixRows.length} / 22`);
   console.log(`GP disputati: ${disputedGps.length}`);
   console.log(`GP futuri: ${grandPrixRows.length - disputedGps.length}`);
   for (const type of ['Q', 'SPR', 'RAC']) {
     console.log(`${type === 'Q' ? 'QUALIFICHE' : type === 'SPR' ? 'SPRINT' : 'GARA'}`);
-    console.log(`sessioni: ${sessionCounts[type]} / ${disputedGps.length}`);
+    console.log(`sessioni: ${sessionCounts[type]} / 22`);
     console.log(`risultati: ${resultCounts[type]}`);
   }
   section('VALIDAZIONI');
@@ -750,17 +658,6 @@ try {
   console.log(`sessioni mancanti: ${counters.missingSessions}`);
   console.log(`risultati orfani: ${counters.orphanResults}`);
   console.log(`errori critici: ${counters.criticalErrors}`);
-  console.log('\nWILDCARD/TEST RIDER');
-  if (details.wildcardTestRiders.length === 0) {
-    console.log('nessuno rilevato nei PDF elaborati');
-  } else {
-    for (const rider of details.wildcardTestRiders) {
-      console.log(
-        `- ${rider.name} ${rider.surname} #${rider.number} → ${rider.action}`,
-      );
-    }
-  }
-
   if (details.missingPdfFuture.length) {
     console.log('\nPDF mancanti futuri:', JSON.stringify(details.missingPdfFuture, null, 2));
   }
@@ -791,25 +688,6 @@ try {
     console.log(`Risultati pronti per l’import: ${allResults.length}`);
   } else {
     section('SCRITTURA SUPABASE');
-    const wildcardRows = details.wildcardTestRiders
-      .filter(row => row.action === 'da inserire in public.riders')
-      .map(row => ({
-        id: row.rider_id,
-        name: row.name,
-        surname: row.surname,
-        number: row.number,
-        nationality: row.nationality,
-        country_iso: row.country_iso ?? null,
-        active: false,
-      }));
-    if (wildcardRows.length > 0) {
-      await supabaseRequest('/riders', {
-        method: 'POST',
-        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-        body: JSON.stringify(wildcardRows),
-      });
-      console.log(`Wildcard/test rider in riders: ${wildcardRows.length}`);
-    }
     await upsertRows(allResults);
     console.log(`UPSERT completato: ${allResults.length} risultati.`);
     const verification = await verifyStoredRows(allResults);
