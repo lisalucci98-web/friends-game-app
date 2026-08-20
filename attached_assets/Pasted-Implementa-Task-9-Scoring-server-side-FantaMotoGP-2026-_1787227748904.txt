@@ -1,0 +1,282 @@
+Implementa Task #9 — Scoring server-side FantaMotoGP 2026.
+
+IMPORTANTE:
+- Prima verifica lo schema reale Supabase esistente.
+- Non inventare colonne o tabelle già esistenti.
+- Non modificare UI, routing, autenticazione o importer MotoGP se non strettamente necessario.
+- Lo scoring deve essere eseguito lato database/server, mai affidandosi al frontend.
+- Non modificare i risultati ufficiali importati.
+- Non modificare le regole del regolamento riportate sotto.
+
+OBIETTIVO
+
+Implementare il calcolo dei punteggi FantaMotoGP utilizzando:
+- predictions
+- prediction_entries
+- session_results
+- sessions
+- grand_prix
+- riders/rider_seasons
+
+Lo scoring deve essere deterministico, idempotente e ricalcolabile.
+
+REGOLAMENTO
+
+1. PRONOSTICO TEMPO QUALIFICA
+
+Il tempo pronosticato è espresso in MM:SS.mmm.
+
+Punteggio:
+- 10 punti: errore assoluto <= 0.010 secondi
+- 5 punti: errore relativo <= 0.1%
+- 3 punti: errore relativo <= 0.25%
+- 1 punto: errore relativo <= 0.5%
+- 0 punti oltre tale tolleranza
+
+Il confronto deve essere effettuato contro il tempo ufficiale della pole position nella classifica qualifiche finale.
+
+2. PRONOSTICO POLE
+
+Pilota pronosticato:
+- 5 punti se arriva 1°
+- 2 punti se arriva 2°
+- 0 punti altrimenti
+
+3. SPRINT — TOP 3
+
+Per ogni posizione pronosticata:
+- 3 punti se la posizione è esatta
+- 1 punto se il pilota arriva una posizione sopra o sotto quella pronosticata
+- 0 punti altrimenti
+
+Un pilota fuori dalla Top 3 vale 0 punti.
+
+4. GARA — TOP 5
+
+Per ogni pilota pronosticato:
+- 5 punti se posizione esatta
+- 3 punti se differenza di una posizione
+- 1 punto se il pilota arriva comunque nella Top 5
+- 0 punti se arriva 6° o oltre / non classificato
+
+5. PILOTA OUT
+
+Il pilota OUT deve essere diverso dai cinque piloti della Top 5.
+
+- 2 punti se il pilota è effettivamente OUT/non classificato nella gara
+- 0 altrimenti
+
+Considerare correttamente gli status ufficiali:
+- CLASSIFIED
+- DNF
+- DNS
+- DSQ
+- eventuali altri status non classificati
+
+6. BONUS GARA — ORDINE ESATTO TOP 5
+
+- 5 punti se tutte le prime 5 posizioni sono corrette nello stesso ordine
+- 3 punti se vengono indovinati 4 dei 5 piloti nelle rispettive prime 5 posizioni
+- 1 punto se vengono indovinati 3 dei 5 piloti nelle prime 5 posizioni
+
+7. BONUS GARA — TUTTI I 5 PILOTI
+
+- 2 punti se tutti e 5 i piloti pronosticati sono effettivamente nella Top 5, indipendentemente dall'ordine
+
+8. MALUS GARA
+
+Applicare esclusivamente alla gara, non a qualifiche o Sprint.
+
+Tra i cinque piloti pronosticati nella Top 5:
+- -1 punto se 1 pilota non termina la gara
+- -5 punti se 3 piloti non terminano la gara
+- -10 punti se tutti e 5 non terminano la gara
+
+Definire chiaramente dal codice quali status sono considerati "non termina la gara".
+Non considerare semplicemente la posizione: utilizzare lo status ufficiale presente in session_results.
+
+DEADLINE
+
+Lo scoring può essere eseguito soltanto dopo che la relativa sessione ufficiale è conclusa.
+
+Qualifiche:
+- utilizzare la Q2 come sessione qualifiche finale;
+- il risultato ufficiale è quello della classifica combinata importata.
+
+Sprint:
+- utilizzare la sessione SPR.
+
+Gara:
+- utilizzare la sessione RAC numero 1.
+
+Non usare RAC2 come gara principale.
+
+PUNTI E PERSISTENZA
+
+Prima verifica se esistono già colonne/tabelle dedicate allo scoring.
+
+Se esiste già una struttura per salvare:
+- qualifying points
+- sprint points
+- race points
+- bonus
+- malus
+- total points
+
+utilizzarla.
+
+Se non esiste una struttura adeguata, NON inventare una struttura senza prima documentarla.
+
+Preferibilmente implementare una funzione/RPC server-side che:
+1. riceva prediction/grand_prix;
+2. recuperi i risultati ufficiali;
+3. calcoli tutti i punteggi;
+4. restituisca un breakdown dettagliato;
+5. permetta un successivo salvataggio idempotente.
+
+Il risultato dovrebbe distinguere almeno:
+
+qualifying:
+- qualifying_time_points
+- qualifying_pole_points
+
+sprint:
+- sprint_points
+
+race:
+- race_position_points
+- race_out_points
+- race_bonus_exact_order
+- race_bonus_top5
+- race_malus
+
+totale:
+- total_points
+
+IMPORTANTE
+
+Non fare affidamento su valori inviati dal frontend.
+
+Il server deve recuperare direttamente:
+- prediction
+- prediction_entries
+- session_results
+- sessioni ufficiali
+
+e calcolare autonomamente i punti.
+
+GESTIONE CASI LIMITE
+
+Gestire esplicitamente:
+- prediction senza qualifiche;
+- prediction senza Sprint;
+- prediction senza gara;
+- sessione senza risultati;
+- pilota non classificato;
+- DNF;
+- DNS;
+- DSQ;
+- risultati incompleti;
+- sessione Q1 e Q2;
+- RAC/RAC2;
+- prediction modificata prima della deadline;
+- prediction modificata dopo la deadline;
+- GP futuro;
+- GP già concluso;
+- pilota wildcard/test non presente nel roster giocabile.
+
+Augusto Fernández #47:
+- può comparire nei risultati ufficiali;
+- non deve essere selezionabile nel pronostico;
+- il suo risultato deve comunque essere utilizzabile nello scoring se necessario.
+
+IDEMPOTENZA
+
+Lo scoring dello stesso prediction/GP eseguito più volte deve produrre esattamente lo stesso risultato.
+
+Non devono essere sommati nuovamente i punti ad ogni esecuzione.
+
+VALIDAZIONE
+
+Prima di modificare il database:
+- ispeziona schema reale;
+- ispeziona eventuali funzioni/RPC esistenti;
+- individua come sono rappresentati i punteggi;
+- verifica le foreign key;
+- verifica RLS;
+- verifica la struttura reale di session_results.
+
+Poi implementa esclusivamente ciò che è necessario.
+
+TEST
+
+Dopo l'implementazione crea/aggiorna la suite di test per Task #8.
+
+I test devono verificare almeno:
+
+QUALIFICA:
+- tempo esatto;
+- ±0.010 s;
+- oltre ±0.010 ma entro 0.1%;
+- entro 0.25%;
+- entro 0.5%;
+- oltre 0.5%;
+- pole corretta;
+- pilota arrivato secondo;
+- pilota arrivato oltre il secondo.
+
+SPRINT:
+- tre posizioni esatte;
+- una posizione di errore;
+- pilota fuori Top 3;
+- DNF.
+
+GARA:
+- cinque posizioni esatte;
+- errore di una posizione;
+- pilota nella Top 5 ma posizione diversa;
+- pilota 6°;
+- DNF;
+- DNS;
+- DSQ;
+- OUT corretto;
+- OUT errato;
+- OUT duplicato con Top 5.
+
+BONUS:
+- 5/5 ordine esatto;
+- 4/5;
+- 3/5;
+- tutti e 5 nella Top 5 indipendentemente dall'ordine.
+
+MALUS:
+- 1 DNF;
+- 3 DNF;
+- 5 DNF;
+- nessun DNF.
+
+END-TO-END:
+- prediction reale + risultati ufficiali → breakdown completo → totale.
+
+Eseguire:
+- TypeScript;
+- test automatici;
+- build;
+- eventuali test SQL/RPC;
+- verifica idempotenza.
+
+NON ESEGUIRE test che modifichino dati di produzione senza una modalità controllata/rollback.
+
+REPORT FINALE
+
+Al termine restituisci:
+1. schema effettivamente utilizzato;
+2. eventuali modifiche SQL;
+3. RPC/funzioni create o modificate;
+4. come viene salvato il punteggio;
+5. breakdown prodotto;
+6. test eseguiti e risultati;
+7. eventuali casi ancora non coperti;
+8. file modificati.
+
+Non dichiarare Task #9 completato se lo scoring non è realmente implementato e verificabile lato server.
