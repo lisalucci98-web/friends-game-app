@@ -1,0 +1,155 @@
+Gli orari delle deadline mostrati nella pagina /pronostici devono essere visualizzati sempre in ora italiana, indipendentemente dal paese in cui si svolge il GP.
+
+Problema attuale
+
+La pagina mostra ad esempio:
+
+Qualifiche — chiude sab 29 ago, 13:15
+Sprint — chiude sab 29 ago, 17:00
+Gara — chiude dom 30 ago, 16:00
+
+Non è però garantito che questi siano gli orari italiani.
+
+Gli orari presenti in:
+
+public.sessions.session_date
+
+devono essere interpretati/convertiti correttamente rispetto al timezone dell'evento e poi mostrati all'utente in:
+
+Europe/Rome
+Obiettivo
+
+L'utente che utilizza FantaMotoGP dall'Italia deve vedere sempre:
+
+🇮🇹 Ora italiana
+
+anche quando il GP si svolge in:
+
+Giappone
+Australia
+USA
+Qatar
+Thailandia
+Indonesia
+ecc.
+IMPORTANTE
+
+Non modificare:
+
+database;
+sessions.session_date;
+schema;
+RLS;
+RPC submit_prediction;
+importer;
+API MotoGP.
+
+La modifica deve essere esclusivamente nella gestione/display delle date nel frontend.
+
+Implementazione
+
+Crea una funzione centralizzata, ad esempio:
+
+formatItalianDateTime(date)
+
+che utilizzi esplicitamente:
+
+Europe/Rome
+
+e non il timezone locale del browser.
+
+Preferire una soluzione basata sulle API native JavaScript:
+
+new Intl.DateTimeFormat('it-IT', {
+  timeZone: 'Europe/Rome',
+  weekday: 'short',
+  day: '2-digit',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
+oppure una soluzione equivalente affidabile.
+
+Attenzione fondamentale
+
+Prima di implementare la conversione, verifica come è memorizzato realmente session_date.
+
+Non assumere automaticamente che:
+
+2026-08-29 13:15:00+00
+
+significhi necessariamente le 13:15 italiane.
+
+Confronta un GP noto con gli orari ufficiali delle sessioni e determina se il timestamp Supabase rappresenta:
+
+UTC;
+ora locale del circuito;
+un timestamp già convertito.
+
+Se necessario, controlla anche il comportamento dell'importer che ha popolato sessions.session_date.
+
+Regola finale
+
+La deadline deve essere calcolata utilizzando lo stesso istante temporale utilizzato dalla RPC submit_prediction, quindi non introdurre una seconda logica di deadline indipendente.
+
+Il frontend deve soltanto:
+
+leggere la sessione;
+utilizzare il timestamp corretto;
+convertirlo in Europe/Rome;
+visualizzarlo.
+Esempio
+
+Se una sessione ha luogo alle:
+
+13:15 UTC
+
+deve essere mostrata in Italia come:
+
+15:15
+
+durante l'ora legale.
+
+Se invece l'API fornisce già:
+
+15:15+02:00
+
+non bisogna aggiungere nuovamente due ore.
+
+Visualizzazione
+
+Mantieni il formato italiano:
+
+Qualifiche
+🟢 Aperto · chiude sab 29 ago, 15:15
+
+e sotto:
+
+sabato 29 agosto alle ore 15:15
+
+Per evitare ambiguità aggiungi, se possibile:
+
+🇮🇹 Ora italiana
+Countdown
+
+Anche il countdown deve essere basato sullo stesso istante assoluto della deadline, non su una semplice differenza tra ore locali.
+
+Verifica
+
+Testa almeno:
+
+un GP europeo;
+un GP asiatico;
+un GP americano;
+un GP in timezone UTC+3/+4.
+
+Verifica che:
+
+deadline visualizzata;
+countdown;
+stato Aperto/Chiuso
+
+siano coerenti.
+
+Non modificare la RPC o il database per risolvere il problema senza prima segnalarmelo.
