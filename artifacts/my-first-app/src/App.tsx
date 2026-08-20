@@ -361,6 +361,10 @@ type Team = {
 type Prediction = {
   id: string;
   grand_prix_id: string;
+  league_id: string;
+  qualifying_pole_rider_id: string | null;
+  qualifying_pole_time: string | number | null;
+  race_out_rider_id: string | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -642,24 +646,34 @@ function predictionDeadlineWallClock(value: string | null) {
 function predictionErrorMessage(error: { message?: string | null } | null) {
   const rawMessage = error?.message ?? '';
   const code = [
+    'QUALIFYING_CLOSED',
+    'SPRINT_CLOSED',
+    'RACE_CLOSED',
     'QUALIFYING_PREDICTION_CLOSED',
     'SPRINT_PREDICTION_CLOSED',
     'RACE_PREDICTION_CLOSED',
+    'INVALID_QUALIFYING_TIME',
     'INVALID_POLE_RIDER',
     'INVALID_SPRINT_RIDER',
-    'INVALID_PODIUM_RIDER',
-    'DUPLICATE_RACE_PODIUM_RIDER',
+    'INVALID_RIDER',
+    'DUPLICATE_RIDER',
+    'OUT_RIDER_IN_TOP5',
     'NOT_AUTHENTICATED',
   ].find((item) => rawMessage.toUpperCase().includes(item));
 
   const messages: Record<string, string> = {
+    QUALIFYING_CLOSED: 'Il pronostico delle qualifiche è già chiuso.',
+    SPRINT_CLOSED: 'Il pronostico della Sprint è già chiuso.',
+    RACE_CLOSED: 'Il pronostico della gara è già chiuso.',
     QUALIFYING_PREDICTION_CLOSED: 'Il pronostico della Pole è già chiuso.',
     SPRINT_PREDICTION_CLOSED: 'Il pronostico della Sprint è già chiuso.',
-    RACE_PREDICTION_CLOSED: 'Il pronostico del podio è già chiuso.',
+    RACE_PREDICTION_CLOSED: 'Il pronostico della gara è già chiuso.',
+    INVALID_QUALIFYING_TIME: 'Il tempo deve rispettare il formato MM:SS.mmm.',
     INVALID_POLE_RIDER: 'Il pilota scelto per la Pole non è valido.',
     INVALID_SPRINT_RIDER: 'Il pilota scelto per la Sprint non è valido.',
-    INVALID_PODIUM_RIDER: 'Uno dei piloti del podio non è valido.',
-    DUPLICATE_RACE_PODIUM_RIDER: 'Un pilota può comparire una sola volta sul podio.',
+    INVALID_RIDER: 'Uno dei piloti scelti non è valido.',
+    DUPLICATE_RIDER: 'Un pilota può comparire una sola volta nella stessa sezione.',
+    OUT_RIDER_IN_TOP5: 'Il pilota OUT deve essere diverso dalla Top 5.',
     NOT_AUTHENTICATED: 'Devi effettuare l’accesso per salvare il pronostico.',
   };
 
@@ -2155,11 +2169,15 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
   const [grandPrix, setGrandPrix] = useState<GrandPrix[]>([]);
   const [sessions, setSessions] = useState<RaceSession[]>([]);
   const [roster, setRoster] = useState<PredictionRider[]>([]);
+  const [leagues, setLeagues] = useState<League[]>([]);
   const [selectedGrandPrixId, setSelectedGrandPrixId] = useState<string | null>(null);
+  const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(null);
   const [prediction, setPrediction] = useState<Prediction | null>(null);
   const [poleRiderId, setPoleRiderId] = useState('');
-  const [sprintWinnerRiderId, setSprintWinnerRiderId] = useState('');
-  const [podiumRiderIds, setPodiumRiderIds] = useState(['', '', '']);
+  const [poleTime, setPoleTime] = useState('');
+  const [sprintRiderIds, setSprintRiderIds] = useState(['', '', '']);
+  const [raceRiderIds, setRaceRiderIds] = useState(['', '', '', '', '']);
+  const [raceOutRiderId, setRaceOutRiderId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingPrediction, setIsLoadingPrediction] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -2175,18 +2193,12 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
 
   useEffect(() => {
     let isMounted = true;
-
     async function loadPronosticiData() {
       if (isAuthLoading || !user) return;
       setIsLoading(true);
       setErrorMessage(null);
 
-      const seasonResponse = await supabase
-        .from('seasons')
-        .select('id, year')
-        .eq('year', 2026)
-        .maybeSingle();
-
+      const seasonResponse = await supabase.from('seasons').select('id, year').eq('year', 2026).maybeSingle();
       if (seasonResponse.error || !seasonResponse.data) {
         if (isMounted) {
           setErrorMessage('Non è stato possibile caricare la stagione 2026.');
@@ -2194,23 +2206,29 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
         }
         return;
       }
-
       const seasonRow = seasonResponse.data as ResultsSeason;
-      const grandPrixResponse = await supabase
-        .from('grand_prix')
-        .select('id, name, short_name, country, circuit, date_start, date_end')
-        .eq('season_id', seasonRow.id)
-        .eq('is_test', false)
-        .order('date_start', { ascending: true });
-
-      if (grandPrixResponse.error) {
+      const [grandPrixResponse, rosterResponse, membershipsResponse] = await Promise.all([
+        supabase
+          .from('grand_prix')
+          .select('id, name, short_name, country, circuit, date_start, date_end')
+          .eq('season_id', seasonRow.id)
+          .eq('is_test', false)
+          .order('date_start', { ascending: true }),
+        supabase
+          .from('rider_seasons')
+          .select('rider_id, number')
+          .eq('season_id', seasonRow.id)
+          .eq('active', true)
+          .order('number', { ascending: true }),
+        supabase.from('league_members').select('league_id').eq('user_id', user.id),
+      ]);
+      if (grandPrixResponse.error || rosterResponse.error || membershipsResponse.error) {
         if (isMounted) {
-          setErrorMessage('Non è stato possibile caricare i Gran Premi.');
+          setErrorMessage('Non è stato possibile caricare i dati dei pronostici.');
           setIsLoading(false);
         }
         return;
       }
-
       const grandPrixRows = (grandPrixResponse.data ?? []) as GrandPrix[];
       const grandPrixIds = grandPrixRows.map((item) => item.id);
       const sessionsResponse = grandPrixIds.length
@@ -2221,78 +2239,56 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
             .in('type', ['Q', 'SPR', 'RAC'])
             .order('session_date', { ascending: true })
         : { data: [], error: null };
-
-      if (sessionsResponse.error) {
-        if (isMounted) {
-          setErrorMessage('Non è stato possibile caricare le sessioni ufficiali.');
-          setIsLoading(false);
-        }
-        return;
-      }
-
-      const rosterResponse = await supabase
-        .from('rider_seasons')
-        .select('rider_id, number')
-        .eq('season_id', seasonRow.id)
-        .eq('active', true)
-        .order('number', { ascending: true });
-
-      if (rosterResponse.error) {
-        if (isMounted) {
-          setErrorMessage('Non è stato possibile caricare il roster MotoGP.');
-          setIsLoading(false);
-        }
-        return;
-      }
-
       const rosterRows = (rosterResponse.data ?? []) as PredictionRosterRow[];
       const rosterIds = rosterRows.map((item) => item.rider_id);
       const ridersResponse = rosterIds.length
-        ? await supabase
-            .from('riders')
-            .select('id, name, surname, nickname, number')
-            .in('id', rosterIds)
+        ? await supabase.from('riders').select('id, name, surname, nickname, number').in('id', rosterIds)
         : { data: [], error: null };
-
-      if (ridersResponse.error) {
+      if (sessionsResponse.error || ridersResponse.error) {
         if (isMounted) {
-          setErrorMessage('Non è stato possibile caricare i piloti del roster.');
+          setErrorMessage('Non è stato possibile caricare sessioni o piloti.');
           setIsLoading(false);
         }
         return;
       }
-
       const riderById = new Map(
         ((ridersResponse.data ?? []) as PredictionRider[]).map((rider) => [rider.id, rider]),
       );
-      const roster = rosterRows
+      const activeRoster = rosterRows
         .map((row) => {
           const rider = riderById.get(row.rider_id);
-          return rider
-            ? { ...rider, number: row.number ?? rider.number }
-            : null;
+          return rider ? { ...rider, number: row.number ?? rider.number } : null;
         })
         .filter((rider): rider is PredictionRider => rider !== null);
-
+      const leagueIds = (membershipsResponse.data ?? []).map((item) => item.league_id);
+      const leaguesResponse = leagueIds.length
+        ? await supabase.from('leagues').select('id, name, invite_code, created_at').in('id', leagueIds).order('created_at')
+        : { data: [], error: null };
+      if (leaguesResponse.error) {
+        if (isMounted) {
+          setErrorMessage('Non è stato possibile caricare le tue leghe.');
+          setIsLoading(false);
+        }
+        return;
+      }
       if (!isMounted) return;
-
       const defaultGrandPrix =
         grandPrixRows.find((item) => item.date_start && new Date(item.date_start).getTime() > Date.now()) ??
         grandPrixRows[grandPrixRows.length - 1] ??
         null;
-
       setSeason(seasonRow);
       setGrandPrix(grandPrixRows);
       setSessions((sessionsResponse.data ?? []) as RaceSession[]);
-      setRoster(roster);
+      setRoster(activeRoster);
+      setLeagues((leaguesResponse.data ?? []) as League[]);
       setSelectedGrandPrixId((current) =>
-        current && grandPrixRows.some((item) => item.id === current)
-          ? current
-          : defaultGrandPrix?.id ?? null,
+        current && grandPrixRows.some((item) => item.id === current) ? current : defaultGrandPrix?.id ?? null,
+      );
+      setSelectedLeagueId((current) =>
+        current && leagueIds.includes(current) ? current : leagueIds[0] ?? null,
       );
       setIsLoading(false);
     }
-
     void loadPronosticiData();
     return () => {
       isMounted = false;
@@ -2301,24 +2297,24 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
 
   useEffect(() => {
     let isMounted = true;
-
     async function loadExistingPrediction() {
-      if (!user || !selectedGrandPrixId) return;
+      if (!user || !selectedGrandPrixId || !selectedLeagueId) return;
       setIsLoadingPrediction(true);
       setSaveError(null);
       setSaveMessage(null);
       setPrediction(null);
       setPoleRiderId('');
-      setSprintWinnerRiderId('');
-      setPodiumRiderIds(['', '', '']);
-
+      setPoleTime('');
+      setSprintRiderIds(['', '', '']);
+      setRaceRiderIds(['', '', '', '', '']);
+      setRaceOutRiderId('');
       const predictionResponse = await supabase
         .from('predictions')
-        .select('id, grand_prix_id, created_at, updated_at')
+        .select('id, grand_prix_id, league_id, qualifying_pole_rider_id, qualifying_pole_time, race_out_rider_id, created_at, updated_at')
         .eq('user_id', user.id)
         .eq('grand_prix_id', selectedGrandPrixId)
+        .eq('league_id', selectedLeagueId)
         .maybeSingle();
-
       if (predictionResponse.error) {
         if (isMounted) {
           setSaveError('Non è stato possibile caricare il pronostico esistente.');
@@ -2326,18 +2322,15 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
         }
         return;
       }
-
       const predictionRow = predictionResponse.data as Prediction | null;
       if (!predictionRow) {
         if (isMounted) setIsLoadingPrediction(false);
         return;
       }
-
       const entriesResponse = await supabase
         .from('prediction_entries')
         .select('id, prediction_id, prediction_type, position, rider_id, created_at')
         .eq('prediction_id', predictionRow.id);
-
       if (entriesResponse.error) {
         if (isMounted) {
           setSaveError('Non è stato possibile caricare i dettagli del pronostico.');
@@ -2345,36 +2338,30 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
         }
         return;
       }
-
       const entries = (entriesResponse.data ?? []) as PredictionEntry[];
-      const pole = entries.find((entry) => entry.prediction_type === 'POLE');
-      const sprint = entries.find((entry) => entry.prediction_type === 'SPRINT_WINNER');
-      const podium = [1, 2, 3].map(
-        (position) =>
-          entries.find(
-            (entry) => entry.prediction_type === 'RACE_PODIUM' && Number(entry.position) === position,
-          )?.rider_id ?? '',
-      );
-
+      const byType = (type: string, positions: number[]) =>
+        positions.map((position) =>
+          entries.find((entry) => entry.prediction_type === type && Number(entry.position) === position)?.rider_id ?? '',
+        );
       if (isMounted) {
         setPrediction(predictionRow);
-        setPoleRiderId(pole?.rider_id ?? '');
-        setSprintWinnerRiderId(sprint?.rider_id ?? '');
-        setPodiumRiderIds(podium);
+        setPoleRiderId(predictionRow.qualifying_pole_rider_id ?? '');
+        setPoleTime(predictionRow.qualifying_pole_time == null ? '' : String(predictionRow.qualifying_pole_time));
+        setSprintRiderIds(byType('SPRINT', [1, 2, 3]));
+        setRaceRiderIds(byType('RACE', [1, 2, 3, 4, 5]));
+        setRaceOutRiderId(predictionRow.race_out_rider_id ?? '');
         setIsLoadingPrediction(false);
       }
     }
-
     void loadExistingPrediction();
     return () => {
       isMounted = false;
     };
-  }, [selectedGrandPrixId, user]);
+  }, [selectedGrandPrixId, selectedLeagueId, user]);
 
   const selectedGrandPrix = grandPrix.find((item) => item.id === selectedGrandPrixId) ?? null;
   const selectedSessions = sessions.filter((item) => item.grand_prix_id === selectedGrandPrixId);
-  const qualifyingSession =
-    selectedSessions.find((item) => item.type === 'Q' && String(item.number) === '1') ?? null;
+  const qualifyingSession = selectedSessions.find((item) => item.type === 'Q' && String(item.number) === '1') ?? null;
   const sprintSession = selectedSessions.find((item) => item.type === 'SPR') ?? null;
   const raceSession =
     selectedSessions.find((item) => item.type === 'RAC' && String(item.number) === '1') ??
@@ -2392,67 +2379,67 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
   const qualifyingOpen = isOpen(deadlineState.qualifying);
   const sprintOpen = isOpen(deadlineState.sprint);
   const raceOpen = isOpen(deadlineState.race);
-  const hasDuplicatePodium =
-    podiumRiderIds.filter(Boolean).length !== new Set(podiumRiderIds.filter(Boolean)).size;
+  const hasDuplicateSprint = sprintRiderIds.filter(Boolean).length !== new Set(sprintRiderIds.filter(Boolean)).size;
+  const hasDuplicateRace = raceRiderIds.filter(Boolean).length !== new Set(raceRiderIds.filter(Boolean)).size;
+  const outInRace = Boolean(raceOutRiderId) && raceRiderIds.includes(raceOutRiderId);
+  const poleTimeValid = /^\d{2}:\d{2}\.\d{3}$/.test(poleTime);
   const canSave =
-    Boolean(selectedGrandPrixId) &&
-    Boolean(poleRiderId) &&
-    Boolean(sprintWinnerRiderId) &&
-    podiumRiderIds.every(Boolean) &&
-    !hasDuplicatePodium &&
+    Boolean(selectedGrandPrixId && selectedLeagueId && poleRiderId && poleTimeValid) &&
+    sprintRiderIds.every(Boolean) &&
+    raceRiderIds.every(Boolean) &&
+    Boolean(raceOutRiderId) &&
+    !hasDuplicateSprint &&
+    !hasDuplicateRace &&
+    !outInRace &&
     !isSaving &&
     !isLoadingPrediction;
 
-  function updatePodium(position: number, riderId: string) {
-    setPodiumRiderIds((current) =>
-      current.map((value, index) => (index === position ? riderId : value)),
-    );
+  function clearSaveFeedback() {
     setSaveMessage(null);
     setSaveError(null);
   }
 
-  async function handleSave() {
-    setSaveMessage(null);
-    setSaveError(null);
+  function updateRiderList(setter: React.Dispatch<React.SetStateAction<string[]>>, position: number, value: string) {
+    setter((current) => current.map((item, index) => (index === position ? value : item)));
+    clearSaveFeedback();
+  }
 
-    if (!selectedGrandPrixId || !canSave) {
+  async function handleSave() {
+    clearSaveFeedback();
+    if (!canSave) {
       setSaveError(
-        hasDuplicatePodium
-          ? 'Un pilota può comparire una sola volta sul podio.'
-          : 'Completa tutte le sezioni ancora disponibili prima di salvare.',
+        !poleTimeValid
+          ? 'Inserisci il tempo nel formato MM:SS.mmm.'
+          : hasDuplicateSprint || hasDuplicateRace
+            ? 'Un pilota può comparire una sola volta nella stessa sezione.'
+            : outInRace
+              ? 'Il pilota OUT deve essere diverso dalla Top 5.'
+              : 'Completa tutte le sezioni ancora disponibili prima di salvare.',
       );
       return;
     }
-
-    if (!user) {
-      setSaveError('Devi effettuare l’accesso per salvare il pronostico.');
-      return;
-    }
-
     setIsSaving(true);
     const { error } = await supabase.rpc('submit_prediction', {
       p_grand_prix_id: selectedGrandPrixId,
-      p_pole_rider_id: poleRiderId,
-      p_sprint_winner_rider_id: sprintWinnerRiderId,
-      p_race_podium_rider_ids: podiumRiderIds,
+      p_league_id: selectedLeagueId,
+      p_qualifying_pole_rider_id: poleRiderId,
+      p_qualifying_pole_time: poleTime,
+      p_sprint_rider_ids: sprintRiderIds,
+      p_race_rider_ids: raceRiderIds,
+      p_race_out_rider_id: raceOutRiderId,
     });
-
     if (error) {
       setSaveError(predictionErrorMessage(error));
       setIsSaving(false);
       return;
     }
-
     setSaveMessage('Pronostico salvato!');
-    setPrediction((current) => current);
     setIsSaving(false);
   }
 
-  const riderOptions = roster.length === 0 ? (
-    <option value="">Nessun pilota disponibile per questa stagione.</option>
-  ) : (
+  const riderOptions = (placeholder = 'Seleziona pilota') => (
     <>
-      <option value="">Seleziona pilota</option>
+      <option value="">{roster.length ? placeholder : 'Nessun pilota disponibile per questa stagione.'}</option>
       {roster.map((rider) => (
         <option value={rider.id} key={rider.id}>
           #{rider.number ?? '—'} {predictionRiderName(rider)}
@@ -2460,193 +2447,89 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
       ))}
     </>
   );
-
   function predictionSectionStatus(deadline: string | null, open: boolean) {
     if (!deadline) return { label: 'Non disponibile', className: 'is-unavailable' };
-    return open
-      ? { label: `Aperto · chiude ${predictionShortTime(deadline)}`, className: 'is-open' }
-      : { label: 'Chiuso', className: 'is-closed' };
+    return open ? { label: `Aperto · chiude ${predictionShortTime(deadline)}`, className: 'is-open' } : { label: 'Chiuso', className: 'is-closed' };
   }
-
   const qualifyingStatus = predictionSectionStatus(deadlineState.qualifying, qualifyingOpen);
   const sprintStatus = predictionSectionStatus(deadlineState.sprint, sprintOpen);
   const raceStatus = predictionSectionStatus(deadlineState.race, raceOpen);
 
   return (
-    <MainPageLayout
-      className="predictions-app-page"
-      embedded={embedded}
-      eyebrow="FantaMotoGP · 2026"
-      title="Pronostici"
-      text="Scegli i tuoi protagonisti del prossimo Gran Premio."
-    >
+    <MainPageLayout className="predictions-app-page" embedded={embedded} eyebrow="FantaMotoGP · 2026" title="Pronostici" text="Scegli i tuoi protagonisti del prossimo Gran Premio.">
       <div className="predictions-shell">
         <div className="predictions-toolbar">
           <label className="predictions-select-control" htmlFor="predictions-gp">
             <span>Gran Premio</span>
             <span className="predictions-select-wrap">
-              <select
-                id="predictions-gp"
-                value={selectedGrandPrixId ?? ''}
-                onChange={(event) => setSelectedGrandPrixId(event.target.value || null)}
-                disabled={isLoading || grandPrix.length === 0}
-              >
+              <select id="predictions-gp" value={selectedGrandPrixId ?? ''} onChange={(event) => setSelectedGrandPrixId(event.target.value || null)} disabled={isLoading || !grandPrix.length}>
                 <option value="">Seleziona un GP</option>
-                {grandPrix.map((item, index) => (
-                  <option value={item.id} key={item.id}>
-                    {String(index + 1).padStart(2, '0')} · {item.name ?? item.short_name ?? 'Gran Premio'}
-                  </option>
-                ))}
+                {grandPrix.map((item, index) => <option value={item.id} key={item.id}>{String(index + 1).padStart(2, '0')} · {item.name ?? item.short_name ?? 'Gran Premio'}</option>)}
+              </select>
+              <ChevronDown size={16} aria-hidden="true" />
+            </span>
+          </label>
+          <label className="predictions-select-control" htmlFor="predictions-league">
+            <span>Lega</span>
+            <span className="predictions-select-wrap">
+              <select id="predictions-league" value={selectedLeagueId ?? ''} onChange={(event) => setSelectedLeagueId(event.target.value || null)} disabled={isLoading || !leagues.length}>
+                <option value="">Seleziona una lega</option>
+                {leagues.map((league) => <option value={league.id} key={league.id}>{league.name}</option>)}
               </select>
               <ChevronDown size={16} aria-hidden="true" />
             </span>
           </label>
           <span className="predictions-season-label">{season?.year ?? 2026}</span>
         </div>
-
         {isLoading ? (
           <div className="predictions-state" role="status">Caricamento pronostici...</div>
         ) : errorMessage ? (
-          <div className="predictions-state predictions-state--error" role="alert">
-            <AlertCircle size={20} aria-hidden="true" />
-            <strong>Non è stato possibile caricare i pronostici.</strong>
-            <p>{errorMessage}</p>
-          </div>
-        ) : grandPrix.length === 0 ? (
-          <div className="predictions-state" role="status">
-            <CalendarDays size={20} aria-hidden="true" />
-            <strong>Nessun GP disponibile.</strong>
-          </div>
+          <div className="predictions-state predictions-state--error" role="alert"><AlertCircle size={20} aria-hidden="true" /><strong>Non è stato possibile caricare i pronostici.</strong><p>{errorMessage}</p></div>
+        ) : !grandPrix.length ? (
+          <div className="predictions-state" role="status"><CalendarDays size={20} aria-hidden="true" /><strong>Nessun GP disponibile.</strong></div>
+        ) : !leagues.length ? (
+          <div className="predictions-state" role="status"><Flag size={20} aria-hidden="true" /><strong>Non appartieni ancora a nessuna lega.</strong><p>Entra in una lega prima di salvare un pronostico.</p></div>
         ) : selectedGrandPrix ? (
           <>
             <div className="predictions-event-meta">
-              <div>
-                <span className="predictions-round">
-                  GP {String(grandPrix.findIndex((item) => item.id === selectedGrandPrix.id) + 1).padStart(2, '0')}
-                </span>
-                <h2>{selectedGrandPrix.name ?? selectedGrandPrix.short_name}</h2>
-                <p>{selectedGrandPrix.circuit ?? selectedGrandPrix.country ?? 'Circuito non disponibile'}</p>
-              </div>
-              <div className="predictions-event-date">
-                <CalendarDays size={16} aria-hidden="true" />
-                <span>Data gara</span>
-                <strong>{resultDate(selectedGrandPrix.date_start)}</strong>
-              </div>
+              <div><span className="predictions-round">GP {String(grandPrix.findIndex((item) => item.id === selectedGrandPrix.id) + 1).padStart(2, '0')}</span><h2>{selectedGrandPrix.name ?? selectedGrandPrix.short_name}</h2><p>{selectedGrandPrix.circuit ?? selectedGrandPrix.country ?? 'Circuito non disponibile'}</p></div>
+              <div className="predictions-event-date"><CalendarDays size={16} aria-hidden="true" /><span>Data gara</span><strong>{resultDate(selectedGrandPrix.date_start)}</strong></div>
             </div>
-
             <div className="predictions-deadlines" aria-label="Deadline pronostici">
-              {[
-                { label: 'Qualifiche', value: deadlineState.qualifying, status: qualifyingStatus },
-                { label: 'Sprint', value: deadlineState.sprint, status: sprintStatus },
-                { label: 'Gara', value: deadlineState.race, status: raceStatus },
-              ].map((item) => (
-                <div className={`prediction-deadline ${item.status.className}`} key={item.label}>
-                  <span>{item.label}</span>
-                  <strong>{item.status.label}</strong>
-                   <small>
-                     {item.value
-                       ? `🇮🇹 Ora italiana · ${formatItalianDateTime(item.value)}`
-                       : 'Sessione non disponibile'}
-                   </small>
-                </div>
+              {[{ label: 'Qualifiche', value: deadlineState.qualifying, status: qualifyingStatus }, { label: 'Sprint', value: deadlineState.sprint, status: sprintStatus }, { label: 'Gara', value: deadlineState.race, status: raceStatus }].map((item) => (
+                <div className={`prediction-deadline ${item.status.className}`} key={item.label}><span>{item.label}</span><strong>{item.status.label}</strong><small>{item.value ? `🇮🇹 Ora italiana · ${formatItalianDateTime(item.value)}` : 'Sessione non disponibile'}</small></div>
               ))}
             </div>
-
-            {isLoadingPrediction ? (
-              <div className="predictions-state" role="status">Caricamento pronostico...</div>
-            ) : roster.length === 0 ? (
-              <div className="predictions-state" role="status">
-                <Flag size={20} aria-hidden="true" />
-                <strong>Nessun pilota disponibile per questa stagione.</strong>
-              </div>
+            {isLoadingPrediction ? <div className="predictions-state" role="status">Caricamento pronostico...</div> : !roster.length ? (
+              <div className="predictions-state" role="status"><Flag size={20} aria-hidden="true" /><strong>Nessun pilota disponibile per questa stagione.</strong></div>
             ) : (
               <div className="predictions-form">
-                <PredictionSection
-                  icon="🏁"
-                  title="Pole position"
-                  prompt="Chi farà la pole?"
-                  deadline={deadlineState.qualifying}
-                  open={qualifyingOpen}
-                  status={qualifyingStatus}
-                >
-                  <select
-                    className="prediction-rider-select"
-                    value={poleRiderId}
-                    onChange={(event) => {
-                      setPoleRiderId(event.target.value);
-                      setSaveMessage(null);
-                      setSaveError(null);
-                    }}
-                    disabled={!qualifyingOpen || isSaving}
-                  >
-                    {riderOptions}
-                  </select>
-                </PredictionSection>
-
-                <PredictionSection
-                  icon="🏆"
-                  title="Vincitore Sprint"
-                  prompt="Chi vincerà la Sprint?"
-                  deadline={deadlineState.sprint}
-                  open={sprintOpen}
-                  status={sprintStatus}
-                >
-                  <select
-                    className="prediction-rider-select"
-                    value={sprintWinnerRiderId}
-                    onChange={(event) => {
-                      setSprintWinnerRiderId(event.target.value);
-                      setSaveMessage(null);
-                      setSaveError(null);
-                    }}
-                    disabled={!sprintOpen || isSaving}
-                  >
-                    {riderOptions}
-                  </select>
-                </PredictionSection>
-
-                <PredictionSection
-                  icon="🥇"
-                  title="Podio Gara"
-                  prompt="Scegli i primi tre classificati."
-                  deadline={deadlineState.race}
-                  open={raceOpen}
-                  status={raceStatus}
-                >
-                  <div className="prediction-podium-fields">
-                    {podiumRiderIds.map((riderId, position) => (
-                      <label key={position}>
-                        <span>{position + 1}° posto</span>
-                        <select
-                          className="prediction-rider-select"
-                          value={riderId}
-                          onChange={(event) => updatePodium(position, event.target.value)}
-                          disabled={!raceOpen || isSaving}
-                        >
-                          {riderOptions}
-                        </select>
-                      </label>
-                    ))}
+                <PredictionSection icon="🏁" title="Qualifiche" prompt="Pronostico tempo e pilota della pole." deadline={deadlineState.qualifying} open={qualifyingOpen} status={qualifyingStatus}>
+                  <div className="prediction-podium-fields prediction-qualifying-fields">
+                    <label><span>Tempo pole</span><input className="prediction-rider-select" value={poleTime} onChange={(event) => { setPoleTime(event.target.value); clearSaveFeedback(); }} placeholder="01:27.756" inputMode="numeric" pattern="\d{2}:\d{2}\.\d{3}" disabled={!qualifyingOpen || isSaving} /></label>
+                    <label><span>Pilota pole</span><select className="prediction-rider-select" value={poleRiderId} onChange={(event) => { setPoleRiderId(event.target.value); clearSaveFeedback(); }} disabled={!qualifyingOpen || isSaving}>{riderOptions()}</select></label>
                   </div>
-                  {hasDuplicatePodium && (
-                    <p className="prediction-field-error" role="alert">
-                      Un pilota può comparire una sola volta sul podio.
-                    </p>
-                  )}
+                  {poleTime && !poleTimeValid && <p className="prediction-field-error" role="alert">Formato richiesto: MM:SS.mmm</p>}
                 </PredictionSection>
-
+                <PredictionSection icon="🏆" title="Sprint" prompt="Scegli i primi tre classificati." deadline={deadlineState.sprint} open={sprintOpen} status={sprintStatus}>
+                  <div className="prediction-podium-fields">
+                    {sprintRiderIds.map((riderId, position) => <label key={position}><span>{position + 1}° posto</span><select className="prediction-rider-select" value={riderId} onChange={(event) => updateRiderList(setSprintRiderIds, position, event.target.value)} disabled={!sprintOpen || isSaving}>{riderOptions()}</select></label>)}
+                  </div>
+                  {hasDuplicateSprint && <p className="prediction-field-error" role="alert">Un pilota può comparire una sola volta nella Top 3 Sprint.</p>}
+                </PredictionSection>
+                <PredictionSection icon="🥇" title="Gara" prompt="Scegli la Top 5 e il pilota OUT." deadline={deadlineState.race} open={raceOpen} status={raceStatus}>
+                  <div className="prediction-podium-fields">
+                    {raceRiderIds.map((riderId, position) => <label key={position}><span>{position + 1}° posto</span><select className="prediction-rider-select" value={riderId} onChange={(event) => updateRiderList(setRaceRiderIds, position, event.target.value)} disabled={!raceOpen || isSaving}>{riderOptions()}</select></label>)}
+                    <label><span>Pilota OUT</span><select className="prediction-rider-select" value={raceOutRiderId} onChange={(event) => { setRaceOutRiderId(event.target.value); clearSaveFeedback(); }} disabled={!raceOpen || isSaving}>{riderOptions('Seleziona pilota OUT')}</select></label>
+                  </div>
+                  {hasDuplicateRace && <p className="prediction-field-error" role="alert">Un pilota può comparire una sola volta nella Top 5 Gara.</p>}
+                  {outInRace && <p className="prediction-field-error" role="alert">Il pilota OUT deve essere diverso dalla Top 5.</p>}
+                </PredictionSection>
                 <div className="predictions-actions">
                   {prediction && <span className="prediction-saved-note">Pronostico esistente caricato</span>}
                   {saveMessage && <p className="prediction-success" role="status"><CheckCircle2 size={16} aria-hidden="true" />{saveMessage}</p>}
                   {saveError && <p className="prediction-error" role="alert"><AlertCircle size={16} aria-hidden="true" />{saveError}</p>}
-                  <button
-                    className="prediction-save-button"
-                    type="button"
-                    onClick={() => void handleSave()}
-                    disabled={!canSave}
-                  >
-                    {isSaving ? <><Clock3 size={17} aria-hidden="true" /> Salvataggio...</> : <><Save size={17} aria-hidden="true" /> Salva pronostico</>}
-                  </button>
+                  <button className="prediction-save-button" type="button" onClick={() => void handleSave()} disabled={!canSave}>{isSaving ? <><Clock3 size={17} aria-hidden="true" /> Salvataggio...</> : <><Save size={17} aria-hidden="true" /> Salva pronostico</>}</button>
                 </div>
               </div>
             )}

@@ -1,0 +1,244 @@
+Il database Supabase è ora aggiornato con la migrazione completa dei pronostici FantaMotoGP.
+
+Procedi con l’implementazione completa della pagina Profilo → Pronostici, senza modificare lo schema database o creare nuove tabelle/RPC alternative.
+
+OBIETTIVO
+
+Implementare nel frontend il sistema completo di inserimento pronostici secondo il Regolamento FantaMotoGP 2025.
+
+La pagina deve permettere all’utente autenticato di inserire/modificare i propri pronostici per ogni GP.
+
+SEZIONI
+
+1. QUALIFICHE
+- Pronostico tempo della pole.
+- Input formato obbligatorio MM:SS.mmm.
+- Pronostico pilota pole.
+- Il pilota deve appartenere al roster attivo della stagione.
+- Nessun pilota duplicato necessario in questa sezione.
+
+2. SPRINT
+- Selezione Top 3:
+  - P1
+  - P2
+  - P3
+- Nessun pilota può essere selezionato più di una volta.
+
+3. GARA
+- Selezione Top 5:
+  - P1
+  - P2
+  - P3
+  - P4
+  - P5
+- Selezione pilota OUT.
+- Il pilota OUT deve essere diverso dai cinque piloti della Top 5.
+- Nessun pilota può essere duplicato nella Top 5.
+
+DEADLINE
+
+NON calcolare o convertire timezone nel frontend.
+
+Usare direttamente `sessions.session_date`, che nel database è già espresso nell'orario locale italiano corretto.
+
+Le chiusure sono:
+
+- Qualifiche → inizio Q1 (`type = 'Q'`, `number = 1`)
+- Sprint → inizio Sprint (`type = 'SPR'`)
+- Gara → inizio Gara (`type = 'RAC'`)
+
+ATTENZIONE:
+per le qualifiche NON utilizzare Q2 come deadline.
+
+La UI deve mostrare chiaramente:
+- "Aperto"
+- oppure "Chiuso"
+- data e ora della deadline presa direttamente dal database.
+
+Dopo la deadline non deve essere possibile modificare quella specifica sezione.
+
+IMPORTANTE:
+le sezioni devono essere indipendenti.
+
+Esempio:
+- dopo Q1 il pronostico qualifiche è bloccato;
+- Sprint può essere ancora modificabile;
+- Gara può essere ancora modificabile.
+
+SALVATAGGIO
+
+Usare esclusivamente la RPC aggiornata `submit_prediction`.
+
+NON scrivere direttamente nelle tabelle `predictions` o `prediction_entries`.
+
+La RPC deve essere chiamata con i parametri della nuova struttura:
+
+- p_grand_prix_id
+- p_league_id
+- p_qualifying_pole_rider_id
+- p_qualifying_pole_time
+- p_sprint_rider_ids
+- p_race_rider_ids
+- p_race_out_rider_id
+
+Non utilizzare più la vecchia struttura:
+
+- p_pole_rider_id
+- p_sprint_winner_rider_id
+- p_race_podium_rider_ids
+
+PERSISTENZA
+
+Quando la pagina viene aperta:
+
+1. recuperare il pronostico esistente dell'utente per il GP/lega;
+2. precompilare tutti i campi già salvati;
+3. consentire di modificare soltanto le sezioni ancora aperte;
+4. non cancellare o sovrascrivere una sezione già chiusa.
+
+Se la RPC gestisce già atomicamente l'aggiornamento delle entries, affidarsi alla RPC e non duplicare questa logica nel frontend.
+
+VALIDAZIONE TEMPO
+
+Il tempo deve rispettare:
+
+MM:SS.mmm
+
+Esempi validi:
+01:27.756
+01:59.123
+
+Esempi non validi:
+1:27.756
+01:27.75
+01:27756
+01:27
+
+Non accettare valori negativi o valori fuori formato.
+
+SCORING
+
+NON calcolare i punti nel frontend.
+
+Lo scoring deve essere quello implementato server-side dalla migrazione/RPC.
+
+Il frontend deve soltanto visualizzare eventuali punti già presenti nel database, se disponibili.
+
+REGOLAMENTO
+
+QUALIFICA — TEMPO POLE:
+- 10 punti ±0.010 s
+- 5 punti ±0.1%
+- 3 punti ±0.25%
+- 1 punto ±0.5%
+
+QUALIFICA — PILOTA POLE:
+- 5 punti se pole
+- 2 punti se secondo
+
+SPRINT:
+- 3 punti posizione esatta
+- 1 punto posizione sbagliata di una posizione
+- 0 oltre il terzo posto
+
+GARA:
+- 5 punti posizione esatta
+- 3 punti differenza di una posizione
+- 1 punto se comunque nei primi 5
+- 0 se fuori dai primi 5
+
+PILOTA OUT:
+- 2 punti se il pilota selezionato è dichiarato OUT.
+
+BONUS:
+- 5 punti se l'ordine Top 5 è completamente corretto
+- 3 punti se 4 dei 5 piloti sono corretti
+- 1 punto se 3 dei 5 piloti sono corretti
+- 2 punti se tutti e 5 i piloti sono nei primi 5 indipendentemente dall'ordine
+
+MALUS:
+- -1 se un pilota selezionato non termina la gara
+- -5 se tre piloti selezionati non terminano la gara
+- -10 se tutti e cinque i piloti selezionati non terminano la gara
+
+UI
+
+Creare una UI chiara e semplice nella pagina Profilo.
+
+Per ogni GP mostrare una card/sezione:
+
+🏁 GP
+
+QUALIFICHE
+[Tempo pole]
+[Pilota pole]
+Deadline: ...
+
+SPRINT
+[P1]
+[P2]
+[P3]
+Deadline: ...
+
+GARA
+[P1]
+[P2]
+[P3]
+[P4]
+[P5]
+
+Pilota OUT: [...]
+
+Deadline: ...
+
+Usare dropdown/searchable select per i piloti, mostrando:
+- numero
+- nome
+- cognome
+
+Escludere Augusto Fernández #47 dalla lista selezionabile, perché non appartiene al roster `rider_seasons` attivo.
+
+RESPONSIVE
+
+La pagina deve funzionare bene sia desktop sia mobile.
+
+STATI
+
+Gestire chiaramente:
+- caricamento;
+- nessun GP disponibile;
+- nessun pronostico ancora inserito;
+- pronostico già salvato;
+- sezione chiusa;
+- errore salvataggio;
+- salvataggio riuscito.
+
+Non mostrare "salvato" se la RPC non ha restituito successo.
+
+VERIFICA TECNICA
+
+Prima di considerare il task completato:
+
+1. verificare la firma reale della RPC `submit_prediction`;
+2. verificare i nomi esatti dei parametri;
+3. verificare che la chiamata Supabase corrisponda alla nuova firma;
+4. verificare TypeScript;
+5. eseguire build;
+6. controllare console browser;
+7. verificare che un utente non autenticato venga reindirizzato al login;
+8. verificare che dopo Q1 la sezione qualifiche sia realmente non modificabile;
+9. verificare che Sprint e Gara restino modificabili fino alle rispettive deadline;
+10. verificare che nessun pilota possa essere duplicato;
+11. verificare che OUT non possa coincidere con la Top 5;
+12. verificare che Augusto Fernández #47 non compaia tra le opzioni.
+
+NON modificare:
+- schema database;
+- RLS;
+- autenticazione;
+- importer MotoGP;
+- session_results;
+- pagina Risultati;
+- routing esistente, salvo la route necessaria se la pagina Pronostici non è ancora raggiungibile.
+
+Prima di modificare qualsiasi cosa, verifica il codice esistente e riutilizza i componenti/stili già presenti nell'app.
