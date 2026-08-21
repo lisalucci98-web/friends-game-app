@@ -385,6 +385,308 @@
   outline-offset: 2px;
 }
 
+/* Regulation guide — an editorial reference page using the existing theme */
+.regolamento-app-page {
+  overflow: visible;
+  background:
+    radial-gradient(circle at 88% 10%, hsl(15 72% 56% / 0.13), transparent 28rem),
+    radial-gradient(circle at 8% 78%, hsl(172 29% 49% / 0.1), transparent 24rem),
+    hsl(var(--background));
+}
+
+.regolamento-app-page .app-content {
+  display: block;
+  min-height: auto;
+  padding: 72px 24px 150px;
+}
+
+.regolamento-app-page .app-copy {
+  width: min(100%, 980px);
+  margin-inline: auto;
+  text-align: left;
+}
+
+.regolamento-app-page .app-copy > .eyebrow {
+  justify-content: flex-start;
+  margin-bottom: 18px;
+}
+
+.regolamento-app-page .welcome-title {
+  max-width: 800px;
+  font-size: clamp(3rem, 7vw, 6.2rem);
+}
+
+.regolamento-app-page .welcome-description {
+  max-width: 560px;
+  margin: 26px 0 42px;
+}
+
+.regolamento-shell {
+  display: grid;
+  gap: 28px;
+  animation: rise-in 0.7s 0.14s ease-out both;
+}
+
+.regolamento-section {
+  padding: 30px;
+  border: 1px solid hsl(var(--foreground) / 0.1);
+  border-radius: 22px;
+  background: hsl(var(--card) / 0.66);
+  box-shadow: var(--shadow-sm);
+  transition: transform 180ms ease;
+}
+
+.regolamento-section:hover {
+  transform: translateY(-2px);
+}
+
+.regolamento-section-wide {
+  padding-bottom: 26px;
+}
+
+.regolamento-section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.regolamento-index {
+  padding-top: 4px;
+  color: hsl(var(--primary));
+  font-family: var(--app-font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.regolamento-kicker {
+  margin: 0 0 7px;
+  color: hsl(var(--primary));
+  font-family: var(--app-font-mono);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.regolamento-section h2 {
+  margin: 0;
+  color: hsl(var(--foreground));
+  font-family: var(--app-font-serif);
+  font-size: clamp(1.55rem, 3vw, 2.4rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+
+.regolamento-table-grid,
+.regolamento-split {
+  display: grid;
+  gap: 16px;
+}
+
+.regolamento-table-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.regolamento-table-wrap {
+  overflow-x: auto;
+  border: 1px solid hsl(var(--foreground) / 0.1);
+  border-radius: 15px;
+  background: hsl(var(--background) / 0.45);
+}
+
+.regolamento-table {
+  width: 100%;
+  min-width: 360px;
+  border-collapse: collapse;
+  color: hsl(var(--foreground));
+  font-size: 0.88rem;
+  text-align: left;
+}
+
+.regolamento-table caption {
+  padding: 14px 15px 10px;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--app-font-mono);
+  font-size: 0.61rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.regolamento-table th,
+.regolamento-table td {
+  padding: 12px 15px;
+  border-top: 1px solid hsl(var(--foreground) / 0.08);
+  vertical-align: top;
+}
+
+.regolamento-table th {
+  color: hsl(var(--muted-foreground));
+  font-family: var(--app-font-mono);
+  font-size: 0.59rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.regolamento-points {
+  width: 70px;
+  color: hsl(var(--primary));
+  font-family: var(--app-font-mono);
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.regolamento-note {
+  margin: 18px 0 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.84rem;
+  line-height: 1.65;
+}
+
+.regolamento-callout {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 16px 18px;
+  border-left: 3px solid hsl(var(--primary));
+  border-radius: 0 13px 13px 0;
+  background: hsl(var(--primary) / 0.08);
+}
+
+.regolamento-callout strong {
+  font-size: 0.9rem;
+}
+
+.regolamento-callout span {
+  color: hsl(var(--primary));
+  font-family: var(--app-font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.regolamento-bonus-section {
+  border-color: hsl(var(--primary) / 0.34);
+}
+
+.regolamento-cumulative {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin: -2px 0 20px;
+  padding: 20px;
+  border: 1px solid hsl(var(--primary) / 0.45);
+  border-radius: 16px;
+  background: hsl(var(--primary) / 0.08);
+}
+
+.regolamento-cumulative-mark {
+  color: hsl(var(--primary));
+  font-family: var(--app-font-mono);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 0.9;
+}
+
+.regolamento-cumulative strong {
+  color: hsl(var(--primary));
+  font-family: var(--app-font-mono);
+  font-size: clamp(0.86rem, 2vw, 1.05rem);
+  letter-spacing: 0.05em;
+}
+
+.regolamento-cumulative p {
+  max-width: 600px;
+  margin: 8px 0 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.regolamento-examples {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.regolamento-example {
+  padding: 18px;
+  border: 1px solid hsl(var(--foreground) / 0.1);
+  border-radius: 15px;
+  background: hsl(var(--background) / 0.55);
+}
+
+.regolamento-example-label {
+  margin: 0 0 14px;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--app-font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.regolamento-example-lines {
+  display: grid;
+  gap: 7px;
+  font-family: var(--app-font-mono);
+  font-size: 0.78rem;
+}
+
+.regolamento-example-lines div,
+.regolamento-example-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.regolamento-example-lines strong,
+.regolamento-example-total strong {
+  color: hsl(var(--primary));
+}
+
+.regolamento-example-total {
+  margin-top: 13px;
+  padding-top: 11px;
+  border-top: 1px solid hsl(var(--foreground) / 0.12);
+  font-family: var(--app-font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.regolamento-split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.regolamento-formula {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 22px;
+  border-radius: 16px;
+  background: hsl(var(--foreground) / 0.05);
+  font-family: var(--app-font-mono);
+}
+
+.regolamento-formula span,
+.regolamento-formula small {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.7rem;
+}
+
+.regolamento-formula strong {
+  color: hsl(var(--primary));
+  font-size: clamp(1rem, 2.5vw, 1.35rem);
+}
+
+.regolamento-formula small {
+  line-height: 1.5;
+}
+
 .welcome-copy {
   animation: rise-in 0.8s 0.08s ease-out both;
 }

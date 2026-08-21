@@ -16,6 +16,7 @@ import NotFound from '@/pages/not-found';
 import {
   AlertCircle,
   ArrowRight,
+  BookOpen,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -238,6 +239,7 @@ function MainPageLayout({
     { path: '/leghe', label: 'Leghe', icon: Trophy },
     { path: '/risultati', label: 'Risultati', icon: Flag },
     { path: '/profilo', label: 'Profilo', icon: UserRound },
+    { path: '/regolamento', label: 'Regolamento', icon: BookOpen },
     { path: '/impostazioni', label: 'Impostazioni', icon: Settings },
   ];
 
@@ -301,6 +303,168 @@ function HomePage() {
       title="Benvenuta!"
       text="Questa è la home della mia prima app."
     />
+  );
+}
+
+type RegulationRow = {
+  result: string;
+  points: string;
+};
+
+function RegulationTable({
+  caption,
+  rows,
+}: {
+  caption: string;
+  rows: RegulationRow[];
+}) {
+  return (
+    <div className="regolamento-table-wrap">
+      <table className="regolamento-table" data-testid={`table-${caption.toLowerCase().replace(/\s+/g, '-')}`}>
+        <caption>{caption}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Risultato</th>
+            <th scope="col">Punti</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={`${row.result}-${row.points}`}>
+              <td>{row.result}</td>
+              <td className="regolamento-points">{row.points}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function RegulationExample({
+  label,
+  rows,
+  total,
+}: {
+  label: string;
+  rows: Array<{ name: string; value: string }>;
+  total: string;
+}) {
+  return (
+    <div className="regolamento-example">
+      <p className="regolamento-example-label">{label}</p>
+      <div className="regolamento-example-lines">
+        {rows.map((row) => (
+          <div key={row.name}><span>{row.name}</span><strong>{row.value}</strong></div>
+        ))}
+      </div>
+      <div className="regolamento-example-total"><span>Totale</span><strong>{total}</strong></div>
+    </div>
+  );
+}
+
+function RegolamentoPage() {
+  return (
+    <MainPageLayout
+      className="regolamento-app-page"
+      eyebrow="FantaMotoGP · 2026"
+      title="Regolamento FantaMotoGP"
+      text="Una guida rapida al calcolo dei punti per ogni Gran Premio."
+    >
+      <div className="regolamento-shell">
+        <section className="regolamento-section regolamento-section-wide" aria-labelledby="regolamento-qualifiche">
+          <div className="regolamento-section-heading">
+            <span className="regolamento-index">01</span>
+            <div><p className="regolamento-kicker">Qualifiche</p><h2 id="regolamento-qualifiche">Pole position e tempo pole</h2></div>
+          </div>
+          <div className="regolamento-table-grid">
+            <RegulationTable caption="Pole position" rows={[
+              { result: 'P1', points: '+5' },
+              { result: 'P2', points: '+2' },
+              { result: 'Altra posizione', points: '0' },
+            ]} />
+            <RegulationTable caption="Tempo pole" rows={[
+              { result: '≤ 0,010 s', points: '+10' },
+              { result: '> 0,010 s e ≤ 0,1%', points: '+5' },
+              { result: '> 0,1% e ≤ 0,25%', points: '+3' },
+              { result: '> 0,25% e ≤ 0,5%', points: '+1' },
+              { result: '> 0,5%', points: '0' },
+            ]} />
+          </div>
+          <p className="regolamento-note">I limiti sono inclusivi. Per la soglia assoluta si considera il valore assoluto della differenza tra il tempo pronosticato e il tempo ufficiale.</p>
+        </section>
+
+        <section className="regolamento-section" aria-labelledby="regolamento-sprint">
+          <div className="regolamento-section-heading"><span className="regolamento-index">02</span><div><p className="regolamento-kicker">Sprint</p><h2 id="regolamento-sprint">Pronostica la Top 3</h2></div></div>
+          <RegulationTable caption="Punteggio Sprint" rows={[
+            { result: 'Posizione esatta', points: '+3' },
+            { result: 'Una posizione di differenza', points: '+1' },
+            { result: 'Più di una posizione di differenza', points: '0' },
+            { result: 'Pilota non classificato/assente', points: '0' },
+          ]} />
+          <p className="regolamento-note">Non sono previsti bonus Sprint.</p>
+        </section>
+
+        <section className="regolamento-section" aria-labelledby="regolamento-gara">
+          <div className="regolamento-section-heading"><span className="regolamento-index">03</span><div><p className="regolamento-kicker">Gara</p><h2 id="regolamento-gara">La Top 5 ufficiale</h2></div></div>
+          <RegulationTable caption="Punteggio Gara" rows={[
+            { result: 'Posizione esatta nella Top 5', points: '+5' },
+            { result: 'Una posizione di differenza e risultato nella Top 5', points: '+3' },
+            { result: 'Altro pilota nella Top 5', points: '+1' },
+            { result: 'Risultato oltre la Top 5', points: '0' },
+            { result: 'Pilota non classificato/assente', points: '0' },
+          ]} />
+          <div className="regolamento-callout"><strong>Per ricevere i punti relativi alla posizione, il pilota deve risultare nella Top 5 ufficiale.</strong><span>Pronostico P5 → risultato ufficiale P6 = 0 punti.</span></div>
+        </section>
+
+        <section className="regolamento-section regolamento-bonus-section" aria-labelledby="regolamento-bonus">
+          <div className="regolamento-section-heading"><span className="regolamento-index">04</span><div><p className="regolamento-kicker">Bonus Gara</p><h2 id="regolamento-bonus">Ogni intuizione conta</h2></div></div>
+          <div className="regolamento-cumulative"><span className="regolamento-cumulative-mark">+</span><div><strong>I bonus Gara sono CUMULABILI.</strong><p>Non sono alternativi: quando una condizione è soddisfatta, il relativo bonus si aggiunge agli altri.</p></div></div>
+          <RegulationTable caption="Bonus Gara" rows={[
+            { result: 'Ordine completo P1-P5 corretto', points: '+5' },
+            { result: 'Tutti e 5 i piloti nella Top 5', points: '+2' },
+            { result: '4 piloti nella Top 5', points: '+3' },
+            { result: '3 piloti nella Top 5', points: '+1' },
+          ]} />
+          <RegolamentoExamples />
+        </section>
+
+        <section className="regolamento-split">
+          <div className="regolamento-section" aria-labelledby="regolamento-out">
+            <div className="regolamento-section-heading"><span className="regolamento-index">05</span><div><p className="regolamento-kicker">Pilota OUT</p><h2 id="regolamento-out">Una scelta indipendente</h2></div></div>
+            <RegulationTable caption="Bonus OUT" rows={[
+              { result: 'Non completa la gara', points: '+2' },
+              { result: 'Completa/classificato', points: '0' },
+            ]} />
+            <p className="regolamento-note">Il pilota OUT deve essere diverso dai cinque della Top 5 pronosticata. Il bonus è indipendente dagli altri e può essere sommato al punteggio Gara.</p>
+          </div>
+          <div className="regolamento-section" aria-labelledby="regolamento-malus">
+            <div className="regolamento-section-heading"><span className="regolamento-index">06</span><div><p className="regolamento-kicker">Malus</p><h2 id="regolamento-malus">Quando la gara si complica</h2></div></div>
+            <RegulationTable caption="Malus Gara" rows={[
+              { result: '1 pilota non classificato', points: '−1' },
+              { result: '3 piloti non classificati', points: '−5' },
+              { result: '5 piloti non classificati', points: '−10' },
+            ]} />
+            <p className="regolamento-note">I malus vengono sottratti dal punteggio Gara. Bonus e malus possono essere applicati contemporaneamente.</p>
+          </div>
+        </section>
+
+        <section className="regolamento-section regolamento-total-section" aria-labelledby="regolamento-totale">
+          <div className="regolamento-section-heading"><span className="regolamento-index">07</span><div><p className="regolamento-kicker">Punteggio totale</p><h2 id="regolamento-totale">Il risultato del weekend</h2></div></div>
+          <div className="regolamento-formula"><span>Totale GP</span><strong>Qualifiche + Sprint + Gara</strong><small>Gara = punti posizione + bonus + bonus OUT − malus</small></div>
+          <RegulationExample label="Esempio completo" rows={[{ name: 'Qualifiche', value: '12' }, { name: 'Sprint', value: '7' }, { name: 'Gara', value: '26' }]} total="45" />
+        </section>
+      </div>
+    </MainPageLayout>
+  );
+}
+
+function RegolamentoExamples() {
+  return (
+    <div className="regolamento-examples">
+      <RegulationExample label="Top 5 nell’ordine corretto" rows={[{ name: 'Punti posizione', value: '25' }, { name: 'Bonus ordine', value: '+5' }, { name: 'Bonus Top 5', value: '+2' }]} total="32" />
+      <RegulationExample label="Bonus e malus insieme" rows={[{ name: 'Punti posizione', value: '18' }, { name: 'Bonus ordine', value: '+5' }, { name: 'Bonus Top 5', value: '+2' }, { name: 'Bonus OUT', value: '+2' }, { name: 'Malus', value: '−1' }]} total="26" />
+    </div>
   );
 }
 
@@ -2520,20 +2684,20 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
               <div className="predictions-state" role="status"><Flag size={20} aria-hidden="true" /><strong>Nessun pilota disponibile per questa stagione.</strong></div>
             ) : (
               <div className="predictions-form">
-                <PredictionSection icon="🏁" title="Qualifiche" prompt="Pronostico tempo e pilota della pole." deadline={deadlineState.qualifying} open={qualifyingOpen} status={qualifyingStatus}>
+                <PredictionSection icon={<Flag size={18} strokeWidth={2} />} title="Qualifiche" prompt="Pronostico tempo e pilota della pole." deadline={deadlineState.qualifying} open={qualifyingOpen} status={qualifyingStatus}>
                   <div className="prediction-podium-fields prediction-qualifying-fields">
                     <label><span>Tempo pole</span><input className="prediction-rider-select" value={poleTime} onChange={(event) => { setPoleTime(event.target.value); clearSaveFeedback(); }} placeholder="01:27.756" inputMode="numeric" pattern="\d{2}:\d{2}\.\d{3}" disabled={!qualifyingOpen || isSaving} /></label>
                     <label><span>Pilota pole</span><select className="prediction-rider-select" value={poleRiderId} onChange={(event) => { setPoleRiderId(event.target.value); clearSaveFeedback(); }} disabled={!qualifyingOpen || isSaving}>{riderOptions()}</select></label>
                   </div>
                   {poleTime && !poleTimeValid && <p className="prediction-field-error" role="alert">Formato richiesto: MM:SS.mmm</p>}
                 </PredictionSection>
-                <PredictionSection icon="🏆" title="Sprint" prompt="Scegli i primi tre classificati." deadline={deadlineState.sprint} open={sprintOpen} status={sprintStatus}>
+                <PredictionSection icon={<Trophy size={18} strokeWidth={2} />} title="Sprint" prompt="Scegli i primi tre classificati." deadline={deadlineState.sprint} open={sprintOpen} status={sprintStatus}>
                   <div className="prediction-podium-fields">
                     {sprintRiderIds.map((riderId, position) => <label key={position}><span>{position + 1}° posto</span><select className="prediction-rider-select" value={riderId} onChange={(event) => updateRiderList(setSprintRiderIds, position, event.target.value)} disabled={!sprintOpen || isSaving}>{riderOptions()}</select></label>)}
                   </div>
                   {hasDuplicateSprint && <p className="prediction-field-error" role="alert">Un pilota può comparire una sola volta nella Top 3 Sprint.</p>}
                 </PredictionSection>
-                <PredictionSection icon="🥇" title="Gara" prompt="Scegli la Top 5 e il pilota OUT." deadline={deadlineState.race} open={raceOpen} status={raceStatus}>
+                <PredictionSection icon={<Medal size={18} strokeWidth={2} />} title="Gara" prompt="Scegli la Top 5 e il pilota OUT." deadline={deadlineState.race} open={raceOpen} status={raceStatus}>
                   <div className="prediction-podium-fields">
                     {raceRiderIds.map((riderId, position) => <label key={position}><span>{position + 1}° posto</span><select className="prediction-rider-select" value={riderId} onChange={(event) => updateRiderList(setRaceRiderIds, position, event.target.value)} disabled={!raceOpen || isSaving}>{riderOptions()}</select></label>)}
                     <label><span>Pilota OUT</span><select className="prediction-rider-select" value={raceOutRiderId} onChange={(event) => { setRaceOutRiderId(event.target.value); clearSaveFeedback(); }} disabled={!raceOpen || isSaving}>{riderOptions('Seleziona pilota OUT')}</select></label>
@@ -2565,7 +2729,7 @@ function PredictionSection({
   status,
   children,
 }: {
-  icon: string;
+  icon: ReactNode;
   title: string;
   prompt: string;
   deadline: string | null;
@@ -2647,6 +2811,14 @@ function ProtectedPronosticiPage() {
   return (
     <ProtectedPage>
       <PronosticiPage />
+    </ProtectedPage>
+  );
+}
+
+function ProtectedRegolamentoPage() {
+  return (
+    <ProtectedPage>
+      <RegolamentoPage />
     </ProtectedPage>
   );
 }
@@ -2936,6 +3108,7 @@ function Router() {
         <Route path="/risultati" component={ProtectedResultsPage} />
         <Route path="/leghe/:leagueId" component={ProtectedLeagueDetailPage} />
         <Route path="/profilo" component={ProtectedProfilePage} />
+        <Route path="/regolamento" component={ProtectedRegolamentoPage} />
         <Route path="/impostazioni" component={ProtectedSettingsPage} />
         <Route component={NotFound} />
       </Switch>

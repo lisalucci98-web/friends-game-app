@@ -1,0 +1,347 @@
+## Task #14 — Implementazione pagina Regolamento
+
+Il report precedente ha evidenziato un problema relativo alla modifica dello scoring server-side:
+
+* il contratto dati remoto non conserva alcuni riferimenti necessari a Pole e OUT;
+* la definizione SQL completa di `score_prediction` non è recuperabile dal workspace;
+* non è quindi autorizzato modificare o ricostruire `score_prediction` sulla base di colonne o return type non verificati.
+
+### IMPORTANTE
+
+**Questo task NON richiede alcuna modifica allo scoring server-side.**
+
+Non tentare di:
+
+* modificare `score_prediction`;
+* creare una nuova RPC di scoring;
+* creare migrazioni SQL relative allo scoring;
+* modificare il database;
+* inventare colonne;
+* inventare il return type di `score_prediction`;
+* modificare `submit_prediction`;
+* modificare RLS;
+* modificare il contratto dati Supabase.
+
+Il Task #14 riguarda esclusivamente la **pagina informativa del regolamento**.
+
+---
+
+# 1. Obiettivo
+
+Creare una nuova pagina dell'app chiamata:
+
+**Regolamento FantaMotoGP**
+
+La pagina deve spiegare agli utenti come vengono assegnati i punti secondo il regolamento attualmente adottato dall'app.
+
+Il contenuto della pagina deve essere statico/informativo e **non deve dipendere dall'esecuzione delle RPC di scoring**.
+
+---
+
+# 2. Regolamento da visualizzare
+
+## Qualifiche
+
+### Pole Position
+
+| Risultato       | Punti |
+| --------------- | ----: |
+| P1              |    +5 |
+| P2              |    +2 |
+| Altra posizione |     0 |
+
+### Tempo Pole
+
+| Errore rispetto al tempo ufficiale | Punti |
+| ---------------------------------- | ----: |
+| ≤ 0,010 s                          |   +10 |
+| > 0,010 s e ≤ 0,1%                 |    +5 |
+| > 0,1% e ≤ 0,25%                   |    +3 |
+| > 0,25% e ≤ 0,5%                   |    +1 |
+| > 0,5%                             |     0 |
+
+Specificare:
+
+> I limiti sono inclusivi.
+
+Specificare inoltre che per la soglia assoluta viene considerato il valore assoluto della differenza tra tempo pronosticato e tempo ufficiale.
+
+---
+
+# 3. Sprint
+
+Il pronostico comprende le prime 3 posizioni.
+
+| Risultato                          | Punti |
+| ---------------------------------- | ----: |
+| Posizione esatta                   |    +3 |
+| Una posizione di differenza        |    +1 |
+| Più di una posizione di differenza |     0 |
+| Pilota non classificato/assente    |     0 |
+
+Non sono previsti bonus Sprint.
+
+---
+
+# 4. Gara
+
+Il pronostico comprende le prime 5 posizioni.
+
+| Risultato                                           | Punti |
+| --------------------------------------------------- | ----: |
+| Posizione esatta nella Top 5                        |    +5 |
+| Una posizione di differenza e risultato nella Top 5 |    +3 |
+| Altro pilota nella Top 5                            |    +1 |
+| Risultato oltre la Top 5                            |     0 |
+| Pilota non classificato/assente                     |     0 |
+
+Specificare chiaramente:
+
+> Per ricevere i punti relativi alla posizione, il pilota deve risultare nella Top 5 ufficiale.
+
+Esempio:
+
+**Pronostico P5 → risultato ufficiale P6 = 0 punti.**
+
+---
+
+# 5. Bonus Gara
+
+Questa è una parte fondamentale.
+
+Mostrare chiaramente e graficamente:
+
+> **I bonus Gara sono CUMULABILI.**
+
+| Condizione                     | Bonus |
+| ------------------------------ | ----: |
+| Ordine completo P1-P5 corretto |    +5 |
+| Tutti e 5 i piloti nella Top 5 |    +2 |
+| 4 piloti nella Top 5           |    +3 |
+| 3 piloti nella Top 5           |    +1 |
+
+Non modificare queste regole rendendo i bonus alternativi.
+
+### Esempio
+
+Se un giocatore indovina tutta la Top 5 nell'ordine corretto:
+
+```text
+Punti posizione: 25
+Bonus ordine:     +5
+Bonus Top 5:      +2
+--------------------
+Totale:           32
+```
+
+Quindi il bonus ordine **+5** e il bonus Top 5 **+2** vengono entrambi assegnati.
+
+---
+
+# 6. Pilota OUT
+
+Il pronostico comprende anche un pilota indicato come **OUT**.
+
+Se il pilota selezionato come OUT non completa la gara:
+
+**+2 punti**
+
+Se il pilota completa/classifica la gara:
+
+**0 punti**
+
+Il pilota OUT deve essere diverso dai cinque piloti della Top 5 pronosticata.
+
+Il bonus OUT è indipendente dagli altri bonus e può quindi essere sommato al punteggio Gara.
+
+---
+
+# 7. Malus
+
+Utilizzare il regolamento precedente, senza introdurre il nuovo malus lineare proposto nel Task #13.
+
+| Piloti non classificati | Malus |
+| ----------------------: | ----: |
+|                       1 |    −1 |
+|                       3 |    −5 |
+|                       5 |   −10 |
+
+Non inventare nuove soglie.
+
+Specificare:
+
+> I malus vengono sottratti dal punteggio Gara.
+
+E soprattutto:
+
+> **Bonus e malus possono essere applicati contemporaneamente.**
+
+Esempio:
+
+```text
+Punti posizione: 18
+Bonus ordine:    +5
+Bonus Top 5:     +2
+Bonus OUT:       +2
+Malus:           −1
+--------------------
+Totale Gara:     26
+```
+
+---
+
+# 8. Punteggio totale
+
+Mostrare chiaramente la formula:
+
+```text
+Totale GP =
+Qualifiche
++ Sprint
++ Gara
+```
+
+Dove il punteggio Gara è:
+
+```text
+Punti posizione
++ Bonus
++ Bonus OUT
+− Malus
+```
+
+Esempio completo:
+
+```text
+Qualifiche: 12
+Sprint:      7
+Gara:       26
+----------------
+Totale GP:  45
+```
+
+---
+
+# 9. Route e navigazione
+
+Creare una route dedicata:
+
+```text
+/regolamento
+```
+
+Aggiungere **Regolamento** alla navigazione già esistente dell'app.
+
+Non modificare la struttura del routing più del necessario.
+
+La pagina deve essere accessibile sia da desktop sia da mobile.
+
+---
+
+# 10. UI
+
+Utilizzare esclusivamente componenti e stile già presenti nell'app quando possibile.
+
+La pagina deve avere:
+
+* titolo principale;
+* breve introduzione;
+* sezioni separate;
+* tabelle responsive;
+* card per gli esempi;
+* evidenziazione chiara di bonus e malus;
+* particolare evidenza del fatto che **i bonus sono cumulabili**.
+
+Non creare una nuova identità grafica.
+
+Non introdurre dipendenze inutili.
+
+---
+
+# 11. Test
+
+Dopo l'implementazione eseguire:
+
+1. TypeScript;
+2. build;
+3. avvio/workflow dell'app;
+4. verifica della route `/regolamento`;
+5. verifica della navigazione;
+6. verifica desktop;
+7. verifica mobile;
+8. controllo console browser.
+
+---
+
+# 12. Vincoli assoluti
+
+Durante questo task:
+
+**NON modificare:**
+
+* `score_prediction`;
+* `calculate_qualifying_time_points`;
+* `submit_prediction`;
+* altre RPC;
+* schema Supabase;
+* RLS;
+* dati utenti;
+* prediction;
+* risultati ufficiali;
+* importer;
+* autenticazione.
+
+**NON creare migrazioni SQL.**
+
+**NON tentare di recuperare o ricostruire il contratto di `score_prediction`.**
+
+**NON modificare lo scoring per farlo coincidere con il regolamento.**
+
+La pagina deve semplicemente documentare il regolamento concordato.
+
+---
+
+# 13. Criteri di completamento
+
+Il Task #14 è completato quando:
+
+* `/regolamento` esiste;
+* la pagina è raggiungibile dalla navigazione;
+* il regolamento completo è visualizzato;
+* i bonus Gara sono esplicitamente indicati come **cumulabili**;
+* il bonus OUT è documentato;
+* i malus sono documentati;
+* sono presenti esempi matematici;
+* la pagina è responsive;
+* TypeScript passa;
+* build passa;
+* workflow passa;
+* console senza nuovi errori.
+
+### Report finale richiesto
+
+Restituire:
+
+```text
+Task #14 — Stato
+
+Pagina Regolamento: PASS/FAIL
+Route: PASS/FAIL
+Navigazione: PASS/FAIL
+Desktop: PASS/FAIL
+Mobile: PASS/FAIL
+TypeScript: PASS/FAIL
+Build: PASS/FAIL
+Workflow: PASS/FAIL
+Console: PASS/FAIL
+
+File modificati:
+...
+
+Database modificato: NO
+RPC modificate: NO
+Dati modificati: NO
+Migrazioni create: NO
+```
+
+Se il task viene completato correttamente, **non dichiararlo bloccato a causa di `score_prediction`**: la pagina regolamento è indipendente dalla disponibilità della definizione SQL della RPC.
