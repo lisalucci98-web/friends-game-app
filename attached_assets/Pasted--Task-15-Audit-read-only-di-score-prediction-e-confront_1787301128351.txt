@@ -1,0 +1,601 @@
+# Task #15 — Audit read-only di `score_prediction` e confronto con il Regolamento ufficiale
+
+## Obiettivo
+
+Eseguire un audit tecnico **esclusivamente in lettura** dell'attuale sistema di scoring FantaMotoGP.
+
+Lo scopo è comprendere con certezza:
+
+1. quale sia il contratto reale della RPC `public.score_prediction`;
+2. quali parametri riceva;
+3. quali dati utilizzi;
+4. quali dati restituisca;
+5. come siano rappresentati Pole, Sprint, Gara e Pilota OUT;
+6. come vengano gestiti gli status dei piloti;
+7. se il comportamento effettivo dello scoring sia coerente con il regolamento ufficiale pubblicato nella pagina `/regolamento`.
+
+Il regolamento presente nella pagina **Regolamento FantaMotoGP** deve essere considerato il riferimento funzionale per il confronto.
+
+---
+
+# VINCOLO ASSOLUTO: READ-ONLY
+
+Questo task è esclusivamente di analisi.
+
+## NON modificare
+
+* database Supabase;
+* schema;
+* tabelle;
+* colonne;
+* RPC;
+* funzioni SQL;
+* `score_prediction`;
+* `submit_prediction`;
+* `calculate_qualifying_time_points`;
+* RLS;
+* migration;
+* dati utenti;
+* prediction;
+* risultati ufficiali;
+* risultati storici;
+* autenticazione;
+* UI;
+* routing;
+* importer;
+* regolamento già implementato.
+
+## NON creare
+
+* migration;
+* fixture persistenti;
+* prediction di test;
+* risultati di test;
+* record temporanei tramite REST;
+* nuove RPC;
+* trigger;
+* tabelle;
+* colonne.
+
+## NON eseguire
+
+```sql
+INSERT
+UPDATE
+DELETE
+ALTER
+DROP
+CREATE
+TRUNCATE
+```
+
+su Supabase.
+
+Se il workspace non consente di recuperare una determinata informazione senza modificare dati, dichiarare esplicitamente il limite.
+
+**Non inventare il contratto SQL mancante.**
+
+---
+
+# 1. Mappatura delle fonti disponibili
+
+Individuare tutte le fonti disponibili nel workspace relative a:
+
+```text
+score_prediction
+submit_prediction
+calculate_qualifying_time_points
+```
+
+Cercare in particolare:
+
+* codice frontend;
+* client Supabase;
+* file SQL;
+* migration;
+* tipi TypeScript generati;
+* schema locale;
+* documentazione;
+* script di test;
+* file `.agents`;
+* configurazioni;
+* catalogo REST/Supabase disponibile.
+
+Per ogni fonte trovata indicare:
+
+```text
+Fonte:
+Percorso o endpoint:
+Informazioni disponibili:
+Attendibilità:
+```
+
+Distinguere chiaramente tra:
+
+* definizione SQL effettivamente disponibile;
+* firma RPC osservabile;
+* deduzione dal codice;
+* comportamento osservato;
+* ipotesi.
+
+Le ipotesi devono essere minimizzate.
+
+---
+
+# 2. Audit della firma di `score_prediction`
+
+Determinare, se possibile, la firma effettiva della RPC:
+
+```text
+public.score_prediction(...)
+```
+
+Verificare:
+
+* numero di parametri;
+* nome dei parametri;
+* tipo dei parametri;
+* quali parametri siano obbligatori;
+* eventuali valori di default;
+* tipo di ritorno;
+* struttura del risultato.
+
+Se il catalogo REST espone la funzione ma non il corpo SQL, riportare esattamente ciò che è possibile osservare.
+
+Esempio di formato:
+
+```text
+score_prediction
+
+Firma verificata:
+...
+
+Parametri:
+...
+
+Return type:
+...
+
+Corpo SQL disponibile: SI/NO
+
+Fonte:
+...
+```
+
+**Non dedurre il corpo SQL dalla sola firma.**
+
+---
+
+# 3. Audit del risultato restituito
+
+Determinare se `score_prediction` restituisce:
+
+* un numero totale;
+* un oggetto JSON;
+* un record;
+* un breakdown;
+* un identificativo;
+* una combinazione dei precedenti.
+
+Individuare eventuali campi relativi a:
+
+```text
+qualifying_points
+pole_points
+qualifying_time_points
+sprint_points
+race_points
+race_position_points
+bonus_points
+out_points
+penalty_points
+total_points
+```
+
+I nomi sopra sono solo categorie da cercare.
+
+**Non assumere che questi siano i nomi reali delle colonne o dei campi.**
+
+Riportare esclusivamente i nomi effettivamente osservati.
+
+---
+
+# 4. Audit dei dati necessari allo scoring
+
+Individuare come il sistema collega una prediction ai dati necessari per il calcolo.
+
+In particolare verificare la disponibilità reale di riferimenti a:
+
+## Qualifica
+
+* pilota pronosticato per la Pole;
+* tempo pronosticato;
+* risultato ufficiale Pole;
+* tempo ufficiale Pole.
+
+## Sprint
+
+* Top 3 pronosticata;
+* risultato ufficiale Sprint.
+
+## Gara
+
+* Top 5 pronosticata;
+* pilota OUT;
+* risultato ufficiale;
+* posizione ufficiale;
+* status ufficiale.
+
+Per ciascun elemento indicare:
+
+| Dato | Presente nel contratto | Dove | Verificato/Deducibile/Non disponibile |
+| ---- | ---------------------- | ---- | ------------------------------------- |
+
+Non dichiarare che un campo esiste se non è stato verificato.
+
+---
+
+# 5. Audit del Pilota OUT
+
+Questo è uno dei punti prioritari.
+
+Determinare, senza modificare dati:
+
+1. dove viene salvato il pilota OUT;
+2. con quale identificativo viene rappresentato;
+3. se è presente nel payload di `submit_prediction`;
+4. se è disponibile nelle prediction recuperabili;
+5. se `score_prediction` può accedere a questo dato.
+
+Classificare il risultato come:
+
+```text
+OUT completamente verificabile
+OUT parzialmente verificabile
+OUT non verificabile
+```
+
+Se il riferimento OUT non è realmente presente nel contratto dati disponibile, non proporre modifiche.
+
+Limitarsi a documentare il problema.
+
+---
+
+# 6. Audit della Pole
+
+Determinare dove e come vengono rappresentati:
+
+* pilota pronosticato per la Pole;
+* tempo pronosticato;
+* risultato ufficiale;
+* posizione ufficiale;
+* tempo ufficiale.
+
+Verificare se tutti questi elementi sono disponibili al sistema di scoring.
+
+Classificare:
+
+```text
+Pole completamente verificabile
+Pole parzialmente verificabile
+Pole non verificabile
+```
+
+---
+
+# 7. Audit degli status dei piloti
+
+Analizzare gli status effettivamente disponibili nei risultati ufficiali.
+
+Cercare e distinguere:
+
+```text
+CLASSIFIED
+NOT_CLASSIFIED
+DNF
+DNS
+DSQ
+OUT
+```
+
+e qualsiasi altro status realmente presente.
+
+Per ogni status trovato indicare:
+
+* nome esatto;
+* fonte;
+* GP o risultato in cui compare, se disponibile;
+* significato deducibile dal dataset.
+
+Non inventare una normalizzazione.
+
+Non assumere automaticamente:
+
+```text
+NOT_CLASSIFIED = DNF
+```
+
+a meno che non esista una fonte tecnica che lo dimostri.
+
+---
+
+# 8. Confronto con il Regolamento ufficiale
+
+Utilizzare la pagina:
+
+```text
+/regolamento
+```
+
+come riferimento funzionale.
+
+Confrontare ciò che è **tecnicamente verificabile** con le seguenti regole.
+
+## Qualifica
+
+Verificare:
+
+* Pole P1 → +5;
+* Pole P2 → +2;
+* altra posizione → 0;
+* errore assoluto ≤ 0,010 s → +10;
+* ≤ 0,1% → +5;
+* ≤ 0,25% → +3;
+* ≤ 0,5% → +1.
+
+La funzione:
+
+```text
+calculate_qualifying_time_points
+```
+
+è già stata testata.
+
+Non modificarla.
+
+---
+
+## Sprint
+
+Confrontare, se possibile:
+
+* posizione esatta → +3;
+* una posizione di differenza → +1;
+* oltre → 0;
+* non classificato/assente → 0.
+
+---
+
+## Gara
+
+Confrontare, se possibile:
+
+* posizione esatta nella Top 5 → +5;
+* una posizione di differenza nella Top 5 → +3;
+* altro pilota nella Top 5 → +1;
+* risultato oltre P5 → 0;
+* non classificato/assente → 0.
+
+Verificare in particolare:
+
+```text
+Pronostico P5
+Risultato ufficiale P6
+Punteggio atteso: 0
+```
+
+---
+
+## Bonus Gara
+
+Il regolamento ufficiale stabilisce che i bonus sono:
+
+### CUMULABILI
+
+| Condizione            | Bonus |
+| --------------------- | ----: |
+| Ordine Top 5 esatto   |    +5 |
+| Tutti e 5 nella Top 5 |    +2 |
+| 4 nella Top 5         |    +3 |
+| 3 nella Top 5         |    +1 |
+
+Verificare se il comportamento osservabile dello scoring permette di confermare:
+
+* bonus cumulabili;
+* eventuale precedenza;
+* eventuale cumulabilità effettiva;
+* eventuali discrepanze.
+
+Se non è possibile verificarlo, scrivere:
+
+```text
+NON VERIFICABILE CON LE FONTI DISPONIBILI
+```
+
+---
+
+## Pilota OUT
+
+Regolamento:
+
+```text
+Pilota OUT non classificato/non finisher → +2
+Pilota OUT classificato → 0
+```
+
+Verificare se il contratto dati disponibile consente realmente l'implementazione e la verifica di questa regola.
+
+---
+
+## Malus
+
+Regolamento attuale pubblicato:
+
+```text
+1 pilota non classificato → -1
+3 piloti non classificati → -5
+5 piloti non classificati → -10
+```
+
+Verificare se il comportamento effettivamente osservabile consente di confermare queste soglie.
+
+Non dedurre il malus dalla sola esistenza di risultati `NOT_CLASSIFIED`.
+
+---
+
+# 9. Matrice finale di conformità
+
+Produrre una tabella finale:
+
+| Area             | Regolamento    | Implementazione verificata | Stato                 |
+| ---------------- | -------------- | -------------------------- | --------------------- |
+| Pole             | +5 / +2 / 0    | ...                        | PASS / FAIL / UNKNOWN |
+| Tempo Pole       | fasce definite | ...                        | PASS / FAIL / UNKNOWN |
+| Sprint           | 3 / 1 / 0      | ...                        | PASS / FAIL / UNKNOWN |
+| Gara posizione   | 5 / 3 / 1 / 0  | ...                        | PASS / FAIL / UNKNOWN |
+| P5 → P6          | 0              | ...                        | PASS / FAIL / UNKNOWN |
+| Bonus ordine     | +5             | ...                        | PASS / FAIL / UNKNOWN |
+| Bonus Top 5      | +2             | ...                        | PASS / FAIL / UNKNOWN |
+| Bonus 4 piloti   | +3             | ...                        | PASS / FAIL / UNKNOWN |
+| Bonus 3 piloti   | +1             | ...                        | PASS / FAIL / UNKNOWN |
+| Bonus cumulabili | Sì             | ...                        | PASS / FAIL / UNKNOWN |
+| OUT              | +2             | ...                        | PASS / FAIL / UNKNOWN |
+| Malus            | -1 / -5 / -10  | ...                        | PASS / FAIL / UNKNOWN |
+| Idempotenza      | richiesta      | ...                        | PASS / FAIL / UNKNOWN |
+
+Usare:
+
+* **PASS** solo se verificato;
+* **FAIL** solo se esiste una discrepanza dimostrata;
+* **UNKNOWN** se le fonti disponibili non consentono una conclusione.
+
+Non trasformare `UNKNOWN` in `FAIL`.
+
+---
+
+# 10. Verifica read-only con prediction esistente
+
+Solo se tecnicamente possibile e senza modificare alcun dato:
+
+* individuare una prediction esistente;
+* verificare se può essere usata esclusivamente in lettura;
+* determinare se è possibile invocare `score_prediction` senza creare duplicazioni o modifiche persistenti.
+
+Prima di eseguire qualsiasi RPC, verificare se la funzione può avere effetti collaterali.
+
+Se non è possibile dimostrare che l'esecuzione sia read-only o idempotente:
+
+**NON ESEGUIRLA.**
+
+Limitarsi a riportare:
+
+```text
+Esecuzione bloccata per impossibilità di garantire assenza di effetti persistenti.
+```
+
+---
+
+# 11. File di documentazione
+
+È consentito creare o aggiornare esclusivamente file di documentazione o report dell'audit, ad esempio:
+
+```text
+.agents/memory/score-prediction-audit.md
+```
+
+oppure un file equivalente nel repository.
+
+Non modificare file applicativi a meno che sia strettamente necessario per un report/documentazione.
+
+Non modificare:
+
+```text
+src/App.tsx
+src/index.css
+```
+
+per questo task.
+
+---
+
+# 12. Verifiche tecniche
+
+Poiché il task è read-only, non è necessario modificare codice.
+
+Eseguire comunque, se l'ambiente lo consente:
+
+* TypeScript;
+* build;
+* verifica workflow;
+* controllo console browser.
+
+Non correggere warning preesistenti non correlati al task.
+
+---
+
+# 13. Report finale obbligatorio
+
+Restituire il risultato in questo formato.
+
+```text
+Task #15 — Audit scoring server-side
+
+1. score_prediction
+Firma:
+Return type:
+Corpo SQL disponibile: SI/NO
+Fonte:
+
+2. Dati disponibili
+
+Pole:
+Sprint:
+Gara:
+OUT:
+Status:
+
+3. Confronto Regolamento
+
+Qualifica: PASS/FAIL/UNKNOWN
+Sprint: PASS/FAIL/UNKNOWN
+Gara: PASS/FAIL/UNKNOWN
+Bonus: PASS/FAIL/UNKNOWN
+Cumulabilità: PASS/FAIL/UNKNOWN
+OUT: PASS/FAIL/UNKNOWN
+Malus: PASS/FAIL/UNKNOWN
+
+4. Bloccanti tecnici
+
+...
+
+5. Azioni NON eseguite
+
+Database: NO MODIFICHE
+RPC: NO MODIFICHE
+Migration: NO
+Prediction create: NO
+Dati ufficiali modificati: NO
+
+6. Conclusione
+
+Indicare chiaramente una delle seguenti:
+
+A — Scoring completamente auditabile con le fonti disponibili.
+
+B — Scoring parzialmente auditabile; sono necessari ulteriori accessi o fonti.
+
+C — Il contratto dati disponibile è insufficiente per verificare responsabilmente alcune parti dello scoring.
+```
+
+## Criterio fondamentale
+
+L'obiettivo di questo Task #15 **non è completare o correggere lo scoring**.
+
+L'obiettivo è ottenere una fotografia tecnica affidabile dello stato attuale e separare chiaramente:
+
+* ciò che è verificato;
+* ciò che è in conflitto con il regolamento;
+* ciò che non è verificabile;
+* ciò che richiede un accesso o una fonte tecnica aggiuntiva.
+
+**Non proporre modifiche SQL o migrazioni come soluzione automatica. Prima devono essere disponibili e verificati il contratto dati reale e la definizione effettiva della RPC.**
