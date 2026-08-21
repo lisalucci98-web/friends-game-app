@@ -1,0 +1,571 @@
+## Task #18 — Preparazione Beta Test e Restyling Grafico FantaMotoGP
+
+### Obiettivo
+
+Preparare l'applicazione per un primo beta test con un gruppo ristretto di amici che dovranno poter:
+
+1. registrarsi/accedere;
+2. visualizzare il prossimo GP;
+3. compilare il proprio pronostico;
+4. salvare il pronostico;
+5. visualizzare il pronostico salvato;
+6. modificare il pronostico fino alla scadenza;
+7. verificare che il sistema impedisca modifiche oltre la scadenza.
+
+Parallelamente, migliorare la UI rendendola più coerente con l'identità del gioco FantaMotoGP e più moderna, chiara e utilizzabile soprattutto da smartphone.
+
+### Riferimento grafico
+
+Il riferimento concettuale e contenutistico è il sito storico:
+
+https://sites.google.com/view/giocofantamotogp/
+
+e in particolare:
+
+https://sites.google.com/view/giocofantamotogp/regolamento
+
+Non copiare il sito in modo letterale.
+
+Utilizzarlo come riferimento per:
+
+* identità del gioco;
+* terminologia;
+* struttura delle sezioni;
+* tono comunicativo;
+* concetto di Qualifiche / Garetta / Gara / Pilota OUT;
+* semplicità del regolamento.
+
+La nuova applicazione deve però avere un'interfaccia moderna e responsive.
+
+### IMPORTANTE — Vincoli
+
+NON modificare:
+
+* database;
+* schema Supabase;
+* RPC di scoring;
+* `score_prediction`;
+* `calculate_qualifying_time_points`;
+* `submit_prediction`;
+
+a meno che sia strettamente necessario per correggere un bug dimostrabile relativo al salvataggio del pronostico.
+
+NON modificare il regolamento matematico.
+
+NON modificare il sistema di scoring server-side.
+
+NON creare migration senza necessità.
+
+NON modificare dati ufficiali MotoGP.
+
+NON creare fixture persistenti.
+
+Prima di modificare qualsiasi struttura dati esistente, verificare come viene attualmente salvato il pronostico.
+
+---
+
+# 1. Analisi preliminare
+
+Prima di modificare il codice:
+
+* analizzare l'attuale `App.tsx`;
+* analizzare routing;
+* analizzare componenti esistenti;
+* analizzare autenticazione;
+* analizzare `submit_prediction`;
+* analizzare struttura attuale delle prediction;
+* analizzare gestione delle sessioni/GP;
+* analizzare come vengono caricati piloti e risultati;
+* verificare quali campi del pronostico sono effettivamente persistiti.
+
+Non assumere l'esistenza di colonne o RPC non verificate.
+
+Se qualcosa non è verificabile, documentarlo invece di inventare una soluzione.
+
+---
+
+# 2. Beta test — autenticazione
+
+Verificare che un nuovo utente possa:
+
+* registrarsi;
+* effettuare login;
+* effettuare logout;
+* rientrare successivamente con lo stesso account.
+
+La registrazione deve essere semplice.
+
+Non mostrare informazioni tecniche Supabase all'utente.
+
+In caso di errore, mostrare messaggi comprensibili in italiano.
+
+---
+
+# 3. Dashboard
+
+Creare/rendere più evidente una dashboard principale.
+
+La dashboard deve mostrare:
+
+### Prossimo GP
+
+* nome GP;
+* circuito;
+* data;
+* stato del weekend;
+* deadline del prossimo pronostico.
+
+### Stato pronostico
+
+Se non esiste:
+
+> Pronostico non ancora inserito
+
+con pulsante:
+
+> INSERISCI PRONOSTICO
+
+Se esiste:
+
+> Pronostico salvato
+
+con pulsante:
+
+> VISUALIZZA / MODIFICA
+
+Se il termine è scaduto:
+
+> Pronostico chiuso
+
+e impedire modifiche.
+
+---
+
+# 4. Pagina inserimento pronostico
+
+Rendere la compilazione estremamente chiara.
+
+Organizzare il form in quattro sezioni:
+
+## QUALIFICHE
+
+### Pole Position
+
+Selezione del pilota.
+
+### Tempo Pole
+
+Input:
+
+`MM:SS.mmm`
+
+Mostrare sotto l'input un esempio:
+
+`Esempio: 01:27.756`
+
+---
+
+## SPRINT / GARETTA
+
+Tre selezioni:
+
+* 1° posto
+* 2° posto
+* 3° posto
+
+Evitare che lo stesso pilota possa essere selezionato più volte.
+
+---
+
+## GARA
+
+Cinque selezioni:
+
+* 1° posto
+* 2° posto
+* 3° posto
+* 4° posto
+* 5° posto
+
+Impedire duplicati.
+
+---
+
+## PILOTA OUT
+
+Selezione del pilota che si prevede non completerà la gara.
+
+Il pilota OUT deve essere diverso dai cinque piloti della Gara.
+
+Selezionare il pilota con un'interfaccia chiarissima.
+
+---
+
+# 5. UX durante la compilazione
+
+Aggiungere un indicatore di completamento.
+
+Esempio:
+
+`Pronostico 8/8 completato`
+
+Oppure:
+
+* ✓ Pole
+* ✓ Tempo
+* ✓ Sprint
+* ✓ Gara
+* ✓ OUT
+
+Il pulsante:
+
+> CONFERMA PRONOSTICO
+
+deve essere disabilitato finché il pronostico non è completo e valido.
+
+Prima del salvataggio mostrare un riepilogo:
+
+### Il tuo pronostico
+
+Pole:
+**[pilota]**
+
+Tempo:
+**01:xx.xxx**
+
+Sprint:
+**P1 / P2 / P3**
+
+Gara:
+**P1 / P2 / P3 / P4 / P5**
+
+OUT:
+**[pilota]**
+
+Conferma:
+
+> CONFERMA
+
+> MODIFICA
+
+---
+
+# 6. Stato dopo il salvataggio
+
+Dopo un salvataggio corretto mostrare una conferma evidente:
+
+> ✓ Pronostico salvato!
+
+Mostrare immediatamente il riepilogo.
+
+L'utente deve poter tornare alla dashboard e vedere che il pronostico è stato registrato.
+
+Non creare duplicati se l'utente salva nuovamente il proprio pronostico.
+
+Usare il meccanismo di persistenza già esistente.
+
+Non implementare una seconda logica parallela di salvataggio.
+
+---
+
+# 7. Deadline
+
+Verificare la logica esistente per la chiusura dei pronostici.
+
+Non inventare una nuova gestione temporale se quella esistente è già presente.
+
+Il frontend deve comunque:
+
+* mostrare la deadline;
+* mostrare lo stato aperto/chiuso;
+* impedire l'invio/modifica quando il pronostico è chiuso.
+
+La validazione definitiva della deadline deve rimanere server-side se già prevista dal sistema.
+
+---
+
+# 8. Restyling grafico
+
+Prendere ispirazione dal sito storico FantaMotoGP, ma creare un design moderno.
+
+Direzione visiva:
+
+* racing / MotoGP;
+* sportivo;
+* dinamico;
+* leggibile;
+* forte gerarchia visiva;
+* mobile-first.
+
+Evitare un design troppo aziendale o troppo generico.
+
+Utilizzare:
+
+* card;
+* badge;
+* sezioni ben separate;
+* icone Lucide;
+* pulsanti grandi;
+* feedback visivi;
+* stati selezionato/non selezionato molto evidenti.
+
+Mantenere una palette coerente in tutta l'app.
+
+Non introdurre immagini decorative pesanti se non necessarie.
+
+---
+
+# 9. Navigazione
+
+La navigazione principale deve essere immediatamente comprensibile.
+
+Proposta:
+
+* Home
+* Pronostico
+* Classifica
+* Regolamento
+* Profilo
+
+Su mobile utilizzare una navigazione compatta e facilmente utilizzabile con il pollice.
+
+Verificare che non ci siano overflow orizzontali.
+
+---
+
+# 10. Regolamento
+
+Mantenere la pagina `/regolamento` già implementata.
+
+Non modificare le regole matematiche.
+
+Migliorare eventualmente solo:
+
+* leggibilità;
+* gerarchia;
+* responsive;
+* card;
+* esempi;
+* icone.
+
+Il contenuto deve rimanere coerente con il regolamento già approvato.
+
+In particolare mantenere esplicitamente:
+
+* soglie tempo Qualifica;
+* P5 → P6 = 0;
+* bonus Gara cumulabili;
+* bonus ordine;
+* bonus Top 5;
+* bonus 4 piloti;
+* bonus 3 piloti;
+* Pilota OUT;
+* malus;
+* formula del punteggio totale.
+
+---
+
+# 11. Classifica
+
+Se la classifica esistente è già funzionante, non riscrivere la logica.
+
+Migliorare solamente la presentazione:
+
+* posizione;
+* nickname;
+* punteggio;
+* eventuale evidenza del primo classificato;
+* responsive mobile.
+
+Non modificare il calcolo dei punteggi.
+
+Se i punteggi server-side non sono disponibili, non inventare valori.
+
+---
+
+# 12. Profilo
+
+Verificare l'attuale pagina profilo.
+
+Mostrare almeno:
+
+* nickname/email secondo quanto già previsto;
+* stato account;
+* ultimo pronostico;
+* eventuale storico se già disponibile.
+
+Non aggiungere nuove colonne al database solo per il beta test.
+
+---
+
+# 13. Test obbligatori
+
+Dopo le modifiche eseguire:
+
+### TypeScript
+
+```text
+npm run check
+```
+
+o equivalente già utilizzato dal progetto.
+
+### Build
+
+Eseguire la build completa.
+
+### Workflow
+
+Verificare che:
+
+* API;
+* web;
+* preview
+
+siano operativi.
+
+### Browser
+
+Testare:
+
+1. login;
+2. dashboard;
+3. apertura pronostico;
+4. selezione piloti;
+5. inserimento tempo;
+6. validazione duplicati;
+7. selezione OUT;
+8. riepilogo;
+9. salvataggio;
+10. visualizzazione pronostico salvato;
+11. modifica;
+12. logout;
+13. nuovo login.
+
+### Responsive
+
+Testare almeno:
+
+* desktop;
+* tablet;
+* smartphone.
+
+Controllare esplicitamente:
+
+* nessun overflow orizzontale;
+* pulsanti accessibili;
+* tabelle leggibili;
+* form utilizzabile da smartphone.
+
+---
+
+# 14. Test con utenti reali
+
+Preparare l'app per un primo beta test con circa 5–10 amici.
+
+NON creare account artificiali se non necessario.
+
+Non creare prediction artificiali.
+
+L'obiettivo del beta test è utilizzare account reali e inserire pronostici reali.
+
+Durante il test monitorare:
+
+* errori di login;
+* errori di salvataggio;
+* prediction duplicate;
+* problemi di modifica;
+* problemi mobile;
+* errori console;
+* problemi di deadline;
+* eventuali dati mancanti.
+
+---
+
+# 15. Scoring
+
+IMPORTANTE:
+
+Questo task NON modifica lo scoring.
+
+`score_prediction` rimane invariata.
+
+`calculate_qualifying_time_points` rimane invariata.
+
+Il fatto che alcune parti dello scoring siano ancora UNKNOWN non deve bloccare il beta test dell'inserimento pronostici.
+
+Non chiamare `score_prediction` solo per verificare la UI.
+
+---
+
+# 16. Sicurezza
+
+Non esporre:
+
+* service role key;
+* credenziali Supabase;
+* variabili segrete;
+* token;
+* dati personali di altri utenti.
+
+Verificare che un utente possa vedere/modificare esclusivamente il proprio pronostico, secondo le policy già presenti.
+
+Non modificare RLS senza prima documentare il problema.
+
+---
+
+# 17. Output finale richiesto
+
+Al termine produrre un report:
+
+## Task #18 — Report
+
+### Implementato
+
+...
+
+### Test passati
+
+...
+
+### Test falliti
+
+...
+
+### Test saltati
+
+...
+
+### File modificati
+
+...
+
+### Database modificato
+
+YES/NO
+
+### RPC modificate
+
+YES/NO
+
+### Migration create
+
+YES/NO
+
+### Prediction create durante i test
+
+numero
+
+### Problemi residui
+
+...
+
+### Stato
+
+PASS / PARTIAL / BLOCKED
+
+IMPORTANTE:
+
+Se viene trovato un problema strutturale nel database o nelle RPC, NON aggirarlo modificando dati o creando colonne speculative.
+
+Fermarsi e documentare il problema.
