@@ -1,0 +1,372 @@
+# Task #16 — Recupero della definizione reale di `score_prediction`
+
+Ora che la connessione Supabase autorizzata è stata configurata nell'ambiente, riprendi il Task #16.
+
+## Obiettivo
+
+Recuperare e analizzare la **definizione PostgreSQL reale e attualmente pubblicata** di:
+
+```text
+public.score_prediction(uuid)
+```
+
+Questo task è **READ-ONLY**.
+
+## VINCOLO ASSOLUTO
+
+Non modificare nulla.
+
+NON eseguire:
+
+* INSERT
+* UPDATE
+* DELETE
+* ALTER
+* DROP
+* CREATE
+* TRUNCATE
+* migration
+* `submit_prediction`
+* `score_prediction` su prediction reali
+* creazione di fixture
+* modifica di prediction
+* modifica di risultati ufficiali
+* modifica di RPC
+* modifica dello schema
+* modifica di RLS
+
+Non modificare file applicativi.
+
+Non applicare nessuna correzione allo scoring.
+
+---
+
+## 1. Verifica connessione
+
+Verifica che la connessione utilizzata punti effettivamente al **database Supabase del progetto FantaMotoGP** e non al PostgreSQL/Replit interno.
+
+Non assumere che `DATABASE_URL` sia Supabase.
+
+Riporta:
+
+```text
+Database:
+Host/progetto identificato:
+Connessione Supabase verificata: SI/NO
+```
+
+Non mostrare né salvare credenziali, password, token o API key.
+
+---
+
+## 2. Recupera la definizione della funzione
+
+Se è disponibile una connessione SQL PostgreSQL read-only, recupera la definizione effettiva della funzione usando i cataloghi PostgreSQL.
+
+In particolare, verifica:
+
+```sql
+SELECT pg_get_functiondef(
+  'public.score_prediction(uuid)'::regprocedure
+);
+```
+
+Inoltre recupera, se possibile:
+
+```sql
+SELECT
+  oid,
+  proname,
+  pg_get_function_arguments(oid) AS arguments,
+  pg_get_function_result(oid) AS return_type,
+  prokind,
+  provolatile,
+  prosecdef
+FROM pg_proc
+WHERE oid = 'public.score_prediction(uuid)'::regprocedure;
+```
+
+Se una delle query non è autorizzata, NON cercare di aggirare il limite.
+
+Riporta semplicemente cosa è stato possibile recuperare.
+
+---
+
+## 3. Analizza la definizione SQL
+
+Se `pg_get_functiondef()` restituisce il corpo della funzione, analizzalo senza modificarlo.
+
+Identifica esattamente:
+
+### Prediction
+
+* tabella utilizzata;
+* colonne lette;
+* Pole rider;
+* tempo Pole;
+* Sprint Top 3;
+* Gara Top 5;
+* Pilota OUT.
+
+### Risultati ufficiali
+
+Identifica:
+
+* tabella/e utilizzata/e;
+* sessione Qualifica;
+* sessione Sprint;
+* sessione Gara;
+* posizione;
+* status;
+* tempo Pole.
+
+### Scoring
+
+Individua il codice effettivo relativo a:
+
+* punti Pole;
+* punti tempo Pole;
+* punti Sprint;
+* punti Gara;
+* bonus ordine;
+* bonus Top 5;
+* bonus 4 piloti;
+* bonus 3 piloti;
+* bonus OUT;
+* malus;
+* totale.
+
+Riporta le regole effettivamente implementate.
+
+NON reinterpretare il codice per farlo coincidere con il regolamento.
+
+---
+
+## 4. Verifica bonus cumulabili
+
+Questo è un punto fondamentale.
+
+Determinare dal codice SQL se i bonus Gara sono:
+
+```text
+cumulabili
+```
+
+oppure:
+
+```text
+alternativi
+```
+
+oppure:
+
+```text
+non determinabili
+```
+
+Il regolamento della nuova app stabilisce che i bonus devono essere **cumulabili**.
+
+Non modificare il comportamento se è diverso.
+
+---
+
+## 5. Verifica OUT
+
+Determinare esattamente:
+
+* da quale colonna viene recuperato il pilota OUT;
+* come viene confrontato con i risultati;
+* quali status generano il bonus;
+* quanto vale il bonus;
+* cosa succede se l'OUT è classificato;
+* cosa succede se l'OUT non compare nei risultati;
+* se l'OUT può coincidere con uno dei cinque piloti della Gara.
+
+Riportare il comportamento reale della funzione.
+
+---
+
+## 6. Verifica malus
+
+Identificare dal codice SQL la formula effettiva del malus.
+
+Non assumere che sia:
+
+```text
+-1 / -5 / -10
+```
+
+Verificare invece esattamente cosa fa la funzione.
+
+Individuare come vengono trattati:
+
+* `CLASSIFIED`;
+* `NOT_CLASSIFIED`;
+* `DNF`;
+* `DNS`;
+* `DSQ`;
+* `OUT`;
+* assenza del pilota dal risultato.
+
+---
+
+## 7. Verifica idempotenza
+
+NON eseguire `score_prediction` su prediction reali.
+
+Analizzare invece il codice SQL per capire se la funzione:
+
+* modifica prediction;
+* inserisce score;
+* aggiorna score;
+* utilizza `ON CONFLICT`;
+* può creare duplicati;
+* è intrinsecamente idempotente;
+* dipende da trigger.
+
+Se l'idempotenza non può essere determinata dal codice, riportare:
+
+```text
+UNKNOWN
+```
+
+Non creare fixture.
+
+---
+
+## 8. Confronto con il Regolamento
+
+Confrontare l'implementazione SQL reale con la pagina `/regolamento`.
+
+Creare questa matrice:
+
+| Regola             | Implementazione reale | Regolamento     | Stato             |
+| ------------------ | --------------------- | --------------- | ----------------- |
+| Pole P1            | ...                   | 5               | PASS/FAIL/UNKNOWN |
+| Pole P2            | ...                   | 2               | PASS/FAIL/UNKNOWN |
+| Tempo Pole         | ...                   | soglie definite | PASS/FAIL/UNKNOWN |
+| Sprint esatto      | ...                   | 3               | PASS/FAIL/UNKNOWN |
+| Sprint ±1          | ...                   | 1               | PASS/FAIL/UNKNOWN |
+| Gara esatta        | ...                   | 5               | PASS/FAIL/UNKNOWN |
+| Gara ±1 in Top 5   | ...                   | 3               | PASS/FAIL/UNKNOWN |
+| Altro pilota Top 5 | ...                   | 1               | PASS/FAIL/UNKNOWN |
+| Gara oltre P5      | ...                   | 0               | PASS/FAIL/UNKNOWN |
+| P5 → P6            | ...                   | 0               | PASS/FAIL/UNKNOWN |
+| Bonus ordine       | ...                   | +5              | PASS/FAIL/UNKNOWN |
+| Bonus Top 5        | ...                   | +2              | PASS/FAIL/UNKNOWN |
+| Bonus 4            | ...                   | +3              | PASS/FAIL/UNKNOWN |
+| Bonus 3            | ...                   | +1              | PASS/FAIL/UNKNOWN |
+| Bonus cumulabili   | ...                   | Sì              | PASS/FAIL/UNKNOWN |
+| OUT                | ...                   | +2              | PASS/FAIL/UNKNOWN |
+| Malus              | ...                   | regolamento     | PASS/FAIL/UNKNOWN |
+
+Usare `FAIL` solo in presenza di una differenza dimostrata dal codice.
+
+---
+
+## 9. Verifica delle colonne reali
+
+Poiché in precedenza non era stato possibile verificare dove fossero persistiti Pole e OUT, utilizzare ora l'accesso Supabase per verificare in sola lettura lo schema delle tabelle coinvolte.
+
+In particolare verificare le colonne effettivamente presenti nelle tabelle utilizzate da `score_prediction`.
+
+Non modificare lo schema.
+
+L'obiettivo è rispondere definitivamente a:
+
+```text
+Dove vengono salvati:
+- Pole rider?
+- Pole time?
+- Sprint riders?
+- Race riders?
+- OUT rider?
+```
+
+---
+
+## 10. Output obbligatorio
+
+Salvare un report:
+
+```text
+.agents/memory/task-16-score-prediction-definition.md
+```
+
+Il report deve contenere:
+
+### A. Connessione
+
+* database verificato;
+* metodo utilizzato;
+* nessuna credenziale.
+
+### B. Firma RPC
+
+```text
+public.score_prediction(uuid)
+```
+
+* parametri;
+* return type;
+* volatility;
+* security mode.
+
+### C. Definizione SQL
+
+Indicare se il corpo SQL è stato recuperato.
+
+Se sì, analizzarlo e sintetizzarlo.
+
+Non è necessario copiare integralmente il corpo SQL nel report se è molto lungo.
+
+### D. Tabelle e colonne
+
+Elencare tutte le tabelle e colonne realmente utilizzate.
+
+### E. Scoring reale
+
+Descrivere esattamente le formule individuate.
+
+### F. Confronto con Regolamento
+
+Inserire la matrice PASS/FAIL/UNKNOWN.
+
+### G. Idempotenza
+
+Descrivere cosa è dimostrabile dal codice.
+
+### H. Modifiche
+
+Dichiarare esplicitamente:
+
+```text
+Database modificato: NO
+RPC modificata: NO
+Dati modificati: NO
+Prediction create: NO
+Fixture create: NO
+Migration create: NO
+```
+
+---
+
+# 11. Criterio di completamento
+
+Il Task #16 è COMPLETATO solo se:
+
+1. la connessione Supabase è realmente verificata;
+2. la definizione di `public.score_prediction(uuid)` è stata recuperata oppure è stato documentato con precisione perché non è recuperabile;
+3. il return type è stato verificato oppure dichiarato non disponibile;
+4. sono state identificate le tabelle/colonne utilizzate;
+5. è stato determinato come vengono gestiti Pole, Sprint, Gara, OUT, bonus e malus;
+6. è stato effettuato il confronto con il regolamento;
+7. nessun dato è stato modificato.
+
+## Importante
+
+**NON modificare `score_prediction` in questo task.**
+
+Se emergono discrepanze con il regolamento, riportarle soltanto.
+
+La modifica dello scoring sarà un task separato, dopo la revisione del report.
