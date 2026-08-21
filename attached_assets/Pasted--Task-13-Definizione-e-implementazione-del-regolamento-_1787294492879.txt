@@ -1,0 +1,177 @@
+## Task #13 — Definizione e implementazione del regolamento scoring ufficiale
+
+Abbiamo completato l'analisi dei dati storici dei primi 3 GP e abbiamo verificato che lo scoring storico non è completamente ricostruibile né perfettamente coerente con il regolamento attualmente implementato.
+
+### Stato attuale
+
+Non modificare ancora le RPC Supabase di scoring.
+
+L'analisi storica ha evidenziato:
+
+* la soglia Qualifica è verificata e corretta;
+* per la Gara, un pilota pronosticato nella Top 5 ma classificato oltre la Top 5 non deve necessariamente ricevere i punti della posizione vicina;
+* il bonus OUT storico sembra essere compatibile con `+1`, ma non è dimostrabile per tutti gli status;
+* `NOT_CLASSIFIED`, DNF, DNS, DSQ e `NOT_IN_RESULT` non sono sufficientemente distinguibili nei dati storici;
+* il malus storico non è ricostruibile con una regola unica;
+* i bonus ordine e Top 5 non sono sufficientemente coperti dai dati storici per determinarne la cumulabilità;
+* forzare lo scoring per ottenere la corrispondenza 29/29 con i dati storici sarebbe scorretto.
+
+### Obiettivo
+
+Prima di modificare qualsiasi RPC o dato Supabase, analizza il codice e proponi una specifica definitiva dello scoring della NUOVA app.
+
+La nuova app deve avere un regolamento:
+
+1. deterministico;
+2. semplice da spiegare agli utenti;
+3. implementabile integralmente server-side;
+4. indipendente dalle anomalie del vecchio sistema;
+5. verificabile tramite test automatici;
+6. coerente tra frontend, RPC e risultati visualizzati.
+
+### Importante
+
+Non cercare di ricostruire artificialmente il vecchio scoring.
+
+Non modificare:
+
+* `calculate_qualifying_time_points`;
+* `score_prediction`;
+* `submit_prediction`;
+* dati Supabase;
+* risultati ufficiali;
+* prediction esistenti.
+
+Prima di qualsiasi modifica, restituisci un report contenente:
+
+### 1. Scoring attualmente implementato
+
+Indica esattamente come vengono calcolati:
+
+* Qualifica;
+* Sprint;
+* Gara;
+* bonus posizione;
+* bonus Top 5;
+* bonus OUT;
+* malus;
+* DNF;
+* DNS;
+* DSQ;
+* NOT_CLASSIFIED;
+* NOT_IN_RESULT.
+
+Per ogni regola indica il file/RPC/funzione responsabile.
+
+### 2. Regole storiche certe
+
+Riporta esclusivamente le regole dimostrabili dai dati storici:
+
+* non fare inferenze non necessarie;
+* distingui chiaramente tra "dimostrato", "probabile" e "non determinabile".
+
+### 3. Proposta di regolamento NUOVO
+
+Proponi un regolamento completo e non ambiguo per:
+
+#### Qualifica
+
+Definire:
+
+* punti Pole Position;
+* fasce di errore sul tempo;
+* inclusività dei limiti;
+* gestione del tempo non valido.
+
+#### Sprint
+
+Definire:
+
+* punti per posizione;
+* eventuale tolleranza di posizione;
+* bonus;
+* gestione piloti non classificati.
+
+#### Gara
+
+Definire:
+
+* punti per P1-P5;
+* eventuale tolleranza di posizione;
+* comportamento quando il pilota arriva oltre P5;
+* bonus ordine;
+* bonus Top 5;
+* cumulabilità dei bonus.
+
+#### OUT
+
+Definire chiaramente:
+
+* quando viene assegnato il bonus;
+* valore del bonus;
+* cosa succede se il pilota OUT è CLASSIFIED;
+* NOT_CLASSIFIED;
+* DNF;
+* DNS;
+* DSQ;
+* assente dal risultato.
+
+#### Malus
+
+Definire una regola esplicita e deterministica.
+
+Non usare una regola dedotta artificialmente dai soli dati storici se non è dimostrabile.
+
+### 4. Casi limite
+
+Creare una tabella con almeno questi casi:
+
+* pilota pronosticato P1 → P1;
+* P1 → P2;
+* P1 → P5;
+* P1 → P6;
+* pilota non classificato;
+* DNF;
+* DNS;
+* DSQ;
+* pilota non presente nel risultato;
+* OUT classificato;
+* OUT non classificato;
+* più piloti pronosticati non classificati;
+* Top 5 completamente corretta;
+* ordine completamente corretto;
+* combinazione ordine + Top 5.
+
+### 5. Raccomandazione
+
+Scegli una proposta concreta per il nuovo regolamento.
+
+La proposta deve privilegiare:
+
+1. semplicità;
+2. trasparenza per gli utenti;
+3. facilità di test;
+4. assenza di casi ambigui;
+5. coerenza server-side.
+
+NON implementare ancora la proposta.
+
+### 6. Output richiesto
+
+Restituisci:
+
+* regolamento proposto completo;
+* tabella punti;
+* tabella bonus/malus;
+* tabella casi limite;
+* confronto con il vecchio scoring;
+* elenco delle RPC/funzioni che dovranno essere modificate;
+* piano dei test automatici necessari.
+
+Al termine chiedimi conferma esplicita prima di modificare qualsiasi funzione Supabase.
+
+### Vincolo fondamentale
+
+Fino alla mia conferma:
+
+**nessuna modifica a Supabase, RPC, dati, prediction o risultati ufficiali.**
