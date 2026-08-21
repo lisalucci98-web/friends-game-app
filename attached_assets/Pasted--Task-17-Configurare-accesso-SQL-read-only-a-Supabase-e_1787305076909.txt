@@ -1,0 +1,365 @@
+# Task #17 — Configurare accesso SQL read-only a Supabase e analizzare `score_prediction`
+
+## Obiettivo
+
+Configurare, se possibile, un canale **SQL read-only** verso il database PostgreSQL di Supabase attualmente utilizzato dall'applicazione.
+
+L'obiettivo è esclusivamente analizzare il database e recuperare la definizione reale della RPC:
+
+```sql
+public.score_prediction(p_prediction_id uuid)
+```
+
+**Non modificare dati, RPC, schema, RLS, migration o codice applicativo.**
+
+---
+
+## 1. Verifica della connessione
+
+Verificare se nell'ambiente Replit è disponibile una connessione PostgreSQL che punti realmente al database Supabase.
+
+Non utilizzare:
+
+```text
+DATABASE_URL
+```
+
+se punta a `heliumdb`/PostgreSQL Replit interno.
+
+Individuare invece eventuali variabili o connection string specificamente associate a Supabase.
+
+**Non stampare, salvare o riportare credenziali, password, token o connection string complete nei log o nei file.**
+
+È sufficiente verificare:
+
+* host/database di destinazione;
+* raggiungibilità;
+* autenticazione;
+* permessi read-only.
+
+---
+
+## 2. Accesso esclusivamente read-only
+
+Se è disponibile una connessione Supabase PostgreSQL autorizzata, utilizzarla esclusivamente per query `SELECT`.
+
+Sono consentite query di introspezione PostgreSQL come:
+
+```sql
+SELECT current_database();
+SELECT current_user;
+SELECT version();
+```
+
+e query sui cataloghi PostgreSQL/information schema.
+
+NON eseguire:
+
+```text
+CREATE
+ALTER
+DROP
+INSERT
+UPDATE
+DELETE
+TRUNCATE
+GRANT
+REVOKE
+```
+
+Non creare fixture.
+
+Non chiamare `score_prediction`.
+
+Non modificare prediction esistenti.
+
+---
+
+## 3. Recuperare la definizione reale della RPC
+
+Utilizzare i cataloghi PostgreSQL per verificare:
+
+* schema;
+* nome funzione;
+* argomenti;
+* return type;
+* linguaggio;
+* corpo SQL/PLpgSQL, se disponibile.
+
+In particolare cercare la definizione di:
+
+```text
+public.score_prediction(uuid)
+```
+
+e recuperare, se i permessi lo consentono, il risultato equivalente a:
+
+```sql
+pg_get_functiondef(...)
+```
+
+Verificare anche:
+
+```text
+proargnames
+proargtypes
+prorettype
+prokind
+provolatile
+prosecdef
+```
+
+Non modificare la funzione.
+
+---
+
+## 4. Analizzare lo scoring effettivamente implementato
+
+Una volta recuperato il corpo SQL, analizzarlo senza modificarlo.
+
+Documentare separatamente:
+
+### Qualifica
+
+* Pole;
+* tempo Pole;
+* soglie;
+* gestione errori/null;
+* funzione `calculate_qualifying_time_points`.
+
+### Sprint
+
+* punti posizione;
+* gestione piloti non classificati;
+* gestione piloti assenti;
+* eventuali bonus/malus.
+
+### Gara
+
+* punti P1-P5;
+* comportamento P5 → P6;
+* pilota oltre P5;
+* piloti non classificati;
+* bonus ordine;
+* bonus Top 5;
+* bonus 4 piloti;
+* bonus 3 piloti;
+* cumulabilità dei bonus.
+
+### OUT
+
+Determinare esattamente:
+
+* da dove viene letto il pilota OUT;
+* come viene confrontato con i risultati ufficiali;
+* quali status generano il bonus;
+* valore del bonus;
+* cosa accade se OUT è anche nella Top 5;
+* cosa accade se OUT è assente dal risultato.
+
+### Malus
+
+Determinare esattamente:
+
+* quali status generano malus;
+* come vengono conteggiati;
+* eventuali soglie;
+* eventuale limite massimo;
+* se il pilota OUT entra o meno nel conteggio.
+
+### Totale
+
+Documentare la formula finale e l'ordine con cui vengono applicati:
+
+```text
+Qualifica
++ Sprint
++ Gara
++ Bonus
++ Bonus OUT
+- Malus
+= Totale
+```
+
+Se l'implementazione differisce, riportare la formula effettiva.
+
+---
+
+## 5. Verificare le dipendenze
+
+Analizzare anche quali tabelle/colonne vengono utilizzate da `score_prediction`.
+
+In particolare verificare la provenienza di:
+
+```text
+prediction_id
+pole rider
+pole time
+sprint rider IDs
+race rider IDs
+OUT rider ID
+official session results
+rider status
+positions
+```
+
+Determinare se i dati Pole e OUT vengono effettivamente persistiti e dove.
+
+---
+
+## 6. Verificare il return type
+
+Determinare con precisione cosa restituisce:
+
+```sql
+public.score_prediction(uuid)
+```
+
+Se restituisce:
+
+* `json`;
+* `jsonb`;
+* record;
+* tabella;
+* `void`;
+* altro;
+
+documentare la struttura.
+
+Se restituisce JSON/JSONB, documentare le chiavi effettivamente presenti nel risultato.
+
+Non eseguire la RPC per ottenere questa informazione se ciò comporta qualsiasi modifica persistente.
+
+Utilizzare esclusivamente i metadati PostgreSQL.
+
+---
+
+## 7. Confronto con il regolamento della nuova app
+
+Confrontare l'implementazione reale con il regolamento già definito nella pagina `/regolamento`.
+
+IMPORTANTE:
+
+Il regolamento scelto dall'utente mantiene **i bonus Gara cumulabili**.
+
+Non introdurre il modello alternativo del Task #13.
+
+Il confronto deve quindi verificare in particolare:
+
+1. P5 pronosticato → P6 ufficiale;
+2. bonus ordine +5;
+3. bonus Top 5 +2;
+4. bonus 4 piloti;
+5. bonus 3 piloti;
+6. cumulabilità dei bonus;
+7. OUT;
+8. malus;
+9. interazione bonus/malus.
+
+Non modificare automaticamente il codice sulla base delle differenze.
+
+---
+
+## 8. Test
+
+Non eseguire `score_prediction` su prediction reali.
+
+Non creare prediction.
+
+Non creare fixture persistenti.
+
+In questa fase sono richiesti esclusivamente:
+
+* introspezione SQL;
+* analisi statica della funzione;
+* confronto con il regolamento;
+* eventuali query SELECT read-only sulle tabelle necessarie.
+
+---
+
+## 9. Report finale
+
+Creare:
+
+```text
+.agents/memory/task-17-score-prediction-sql-analysis.md
+```
+
+Il report deve contenere:
+
+### Connessione
+
+* connessione Supabase disponibile: YES/NO;
+* database verificato;
+* utente verificato;
+* accesso read-only verificato.
+
+Non inserire password, token o secret.
+
+### RPC
+
+```text
+public.score_prediction(uuid)
+```
+
+* firma;
+* return type;
+* linguaggio;
+* security mode;
+* definizione recuperata: YES/NO.
+
+### Scoring
+
+Una tabella:
+
+| Area             | Implementazione reale | Regolamento app | Esito                   |
+| ---------------- | --------------------- | --------------- | ----------------------- |
+| Pole             | ...                   | ...             | PASS/DIFFERENZA/UNKNOWN |
+| Tempo Pole       | ...                   | ...             | ...                     |
+| Sprint           | ...                   | ...             | ...                     |
+| Gara             | ...                   | ...             | ...                     |
+| Bonus ordine     | ...                   | ...             | ...                     |
+| Bonus Top 5      | ...                   | ...             | ...                     |
+| Bonus 4          | ...                   | ...             | ...                     |
+| Bonus 3          | ...                   | ...             | ...                     |
+| Bonus cumulabili | ...                   | ...             | ...                     |
+| OUT              | ...                   | ...             | ...                     |
+| Malus            | ...                   | ...             | ...                     |
+| Totale           | ...                   | ...             | ...                     |
+
+### Dipendenze dati
+
+Documentare le tabelle e colonne effettivamente utilizzate.
+
+### Bloccanti residui
+
+Indicare esclusivamente ciò che non è stato possibile verificare.
+
+---
+
+## Vincoli assoluti
+
+* **Database dati: nessuna modifica**
+* **RPC: nessuna modifica**
+* **Migration: nessuna**
+* **UI: nessuna**
+* **Prediction: nessuna**
+* **Fixture: nessuna**
+* **INSERT/UPDATE/DELETE: nessuno**
+* **`score_prediction`: NON invocare**
+* **Credenziali: non esporle nei log o nei file**
+
+Se l'accesso SQL read-only a Supabase non è tecnicamente disponibile, NON tentare workaround mutativi.
+
+In quel caso documentare esattamente quale accesso manca e fermarsi.
+
+## Risultato richiesto
+
+Al termine fornire:
+
+1. conferma se la connessione SQL Supabase read-only è disponibile;
+2. definizione/metadata di `public.score_prediction(uuid)`, se recuperabili;
+3. analisi dello scoring effettivamente implementato;
+4. confronto con il regolamento;
+5. elenco delle eventuali discrepanze;
+6. conferma che nessun dato è stato modificato.
