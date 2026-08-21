@@ -750,6 +750,219 @@
   line-height: 1.65;
 }
 
+/* Race dashboard — the first screen a beta tester sees */
+.dashboard-app-page {
+  overflow: visible;
+  background:
+    radial-gradient(circle at 88% 10%, hsl(15 72% 56% / 0.16), transparent 27rem),
+    radial-gradient(circle at 8% 76%, hsl(172 29% 49% / 0.12), transparent 24rem),
+    hsl(var(--background));
+}
+
+.dashboard-app-page .app-content {
+  display: block;
+  min-height: auto;
+  padding: 72px 24px 150px;
+}
+
+.dashboard-app-page .app-copy {
+  width: min(100%, 980px);
+  margin-inline: auto;
+  text-align: left;
+}
+
+.dashboard-app-page .app-copy > .eyebrow {
+  justify-content: flex-start;
+}
+
+.dashboard-app-page .welcome-title {
+  max-width: 780px;
+  font-size: clamp(3.2rem, 7vw, 6.5rem);
+}
+
+.dashboard-app-page .welcome-description {
+  max-width: 580px;
+  margin: 26px 0 36px;
+}
+
+.dashboard-shell {
+  display: grid;
+  gap: 14px;
+  animation: rise-in 0.7s 0.12s ease-out both;
+}
+
+.dashboard-hero {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 26px 25px;
+  border: 1px solid hsl(var(--foreground) / 0.1);
+  border-radius: 22px;
+  background:
+    linear-gradient(110deg, hsl(var(--accent) / 0.11), hsl(var(--card) / 0.78)),
+    hsl(var(--card));
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-round {
+  display: grid;
+  gap: 7px;
+}
+
+.dashboard-round span,
+.dashboard-status-kicker,
+.dashboard-session > span {
+  color: hsl(var(--primary));
+  font-family: var(--app-font-mono);
+  font-size: 0.61rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.dashboard-round strong {
+  color: hsl(var(--foreground));
+  font-family: var(--app-font-serif);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 500;
+  letter-spacing: -0.06em;
+  line-height: 0.95;
+}
+
+.dashboard-venue {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 220px;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.8rem;
+}
+
+.dashboard-venue svg {
+  grid-row: span 2;
+  color: hsl(var(--primary));
+}
+
+.dashboard-venue strong {
+  color: hsl(var(--foreground));
+  font-size: 0.9rem;
+}
+
+.dashboard-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 15px;
+  padding: 19px 21px;
+  border: 1px solid hsl(var(--primary) / 0.25);
+  border-radius: 18px;
+  background: hsl(var(--primary) / 0.08);
+}
+
+.dashboard-status--saved {
+  border-color: hsl(152 45% 38% / 0.28);
+  background: hsl(152 45% 38% / 0.08);
+}
+
+.dashboard-status--closed {
+  border-color: hsl(var(--foreground) / 0.12);
+  background: hsl(var(--foreground) / 0.04);
+}
+
+.dashboard-status-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 14px;
+  color: hsl(var(--primary));
+  background: hsl(var(--card));
+}
+
+.dashboard-status--saved .dashboard-status-icon { color: hsl(152 45% 32%); }
+.dashboard-status--closed .dashboard-status-icon { color: hsl(var(--muted-foreground)); }
+
+.dashboard-status > div:nth-child(2) {
+  display: grid;
+  gap: 4px;
+}
+
+.dashboard-status strong {
+  color: hsl(var(--foreground));
+  font-size: 1rem;
+}
+
+.dashboard-status p {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.dashboard-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 14px;
+  border: 1px solid hsl(var(--primary) / 0.45);
+  border-radius: 999px;
+  color: hsl(var(--primary));
+  background: hsl(var(--card) / 0.7);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: transform 180ms ease, background-color 180ms ease;
+}
+
+.dashboard-action:hover {
+  background: hsl(var(--card));
+  transform: translateY(-1px);
+}
+
+.dashboard-session-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-session {
+  display: grid;
+  gap: 6px;
+  min-height: 91px;
+  padding: 15px;
+  border: 1px solid hsl(var(--foreground) / 0.1);
+  border-radius: 16px;
+  background: hsl(var(--card) / 0.62);
+}
+
+.dashboard-session > span { color: hsl(var(--muted-foreground)); }
+.dashboard-session strong { color: hsl(var(--foreground)); font-size: 0.9rem; }
+.dashboard-session small { color: hsl(var(--muted-foreground)); font-size: 0.72rem; }
+.dashboard-session.is-open { border-color: hsl(152 45% 38% / 0.28); background: hsl(152 45% 38% / 0.06); }
+.dashboard-session.is-open strong { color: hsl(152 45% 32%); }
+
+.dashboard-state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 50px 24px;
+  border: 1px dashed hsl(var(--foreground) / 0.16);
+  border-radius: 20px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--card) / 0.48);
+  text-align: center;
+}
+
+.dashboard-state svg { color: hsl(var(--primary)); }
+.dashboard-state strong { color: hsl(var(--foreground)); font-family: var(--app-font-serif); font-size: 1.35rem; }
+.dashboard-state p { margin: 0; font-size: 0.85rem; }
+.dashboard-state--error { border-color: hsl(var(--destructive) / 0.3); }
+.dashboard-state--error svg { color: hsl(var(--destructive)); }
+
 .start-button {
   display: inline-flex;
   align-items: center;
@@ -1361,6 +1574,78 @@
   font-size: 0.8rem;
 }
 
+.predictions-progress {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 14px 16px;
+  border: 1px solid hsl(var(--foreground) / 0.09);
+  border-radius: 14px;
+  background: hsl(var(--muted) / 0.32);
+}
+
+.predictions-progress > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--app-font-mono);
+  font-size: 0.61rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.predictions-progress strong { color: hsl(var(--primary)); }
+
+.predictions-progress-track {
+  overflow: hidden;
+  height: 6px;
+  border-radius: 999px;
+  background: hsl(var(--foreground) / 0.1);
+}
+
+.predictions-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
+  transition: width 240ms ease;
+}
+
+.prediction-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 14px 0 2px;
+}
+
+.prediction-summary > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 11px 12px;
+  border-left: 2px solid hsl(var(--primary) / 0.38);
+  background: hsl(var(--card) / 0.52);
+}
+
+.prediction-summary span {
+  color: hsl(var(--muted-foreground));
+  font-family: var(--app-font-mono);
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.prediction-summary strong {
+  overflow: hidden;
+  color: hsl(var(--foreground));
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .predictions-actions {
   display: grid;
   justify-items: center;
@@ -1398,9 +1683,25 @@
 }
 
 .prediction-saved-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   color: hsl(var(--muted-foreground));
   font-size: 0.75rem;
 }
+
+.prediction-closed-note,
+.prediction-action-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.prediction-action-hint { color: hsl(var(--destructive)); }
 
 .prediction-success,
 .prediction-error {
@@ -1453,6 +1754,40 @@
 }
 
 @media (max-width: 760px) {
+  .dashboard-app-page .app-content {
+    padding: 62px 18px 142px;
+  }
+
+  .dashboard-app-page .welcome-title {
+    font-size: clamp(3.1rem, 15vw, 4.8rem);
+  }
+
+  .dashboard-hero {
+    display: grid;
+    gap: 18px;
+    padding: 22px 19px;
+  }
+
+  .dashboard-venue {
+    min-width: 0;
+  }
+
+  .dashboard-status {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    padding: 17px;
+  }
+
+  .dashboard-action {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .dashboard-session-grid,
+  .prediction-summary {
+    grid-template-columns: 1fr;
+  }
+
   .profile-predictions-section {
     margin-top: 54px;
     padding-top: 36px;
@@ -1501,6 +1836,10 @@
 
   .prediction-podium-fields {
     grid-template-columns: 1fr;
+  }
+
+  .prediction-summary > div {
+    padding: 10px 12px;
   }
 
   .bottom-nav {

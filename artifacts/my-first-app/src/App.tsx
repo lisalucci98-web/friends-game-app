@@ -297,12 +297,160 @@ function MainPageLayout({
 }
 
 function HomePage() {
+  const { user, isAuthLoading } = useAuth();
+  const [, navigate] = useLocation();
+  const [season, setSeason] = useState<ResultsSeason | null>(null);
+  const [grandPrix, setGrandPrix] = useState<GrandPrix | null>(null);
+  const [sessions, setSessions] = useState<RaceSession[]>([]);
+  const [hasPrediction, setHasPrediction] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadHome() {
+      if (isAuthLoading || !user) return;
+      setIsLoading(true);
+      setErrorMessage(null);
+
+      const seasonResponse = await supabase
+        .from('seasons')
+        .select('id, year')
+        .eq('year', 2026)
+        .maybeSingle();
+
+      if (seasonResponse.error || !seasonResponse.data) {
+        if (isMounted) {
+          setErrorMessage('La stagione 2026 non è disponibile.');
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      const seasonRow = seasonResponse.data as ResultsSeason;
+      const grandPrixResponse = await supabase
+        .from('grand_prix')
+        .select('id, name, short_name, country, circuit, date_start, date_end')
+        .eq('season_id', seasonRow.id)
+        .eq('is_test', false)
+        .order('date_start', { ascending: true });
+
+      if (grandPrixResponse.error) {
+        if (isMounted) {
+          setErrorMessage('Non è stato possibile caricare il calendario MotoGP.');
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      const grandPrixRows = (grandPrixResponse.data ?? []) as GrandPrix[];
+      const currentGrandPrix =
+        grandPrixRows.find((item) => item.date_start && new Date(item.date_start).getTime() > Date.now()) ??
+        grandPrixRows[grandPrixRows.length - 1] ??
+        null;
+      const grandPrixIds = currentGrandPrix ? [currentGrandPrix.id] : [];
+      const sessionsResponse = grandPrixIds.length
+        ? await supabase
+            .from('sessions')
+            .select('id, grand_prix_id, type, status, session_date, number')
+            .in('grand_prix_id', grandPrixIds)
+            .in('type', ['Q', 'SPR', 'RAC'])
+            .order('session_date', { ascending: true })
+        : { data: [], error: null };
+
+      if (sessionsResponse.error) {
+        if (isMounted) {
+          setErrorMessage('Non è stato possibile caricare le deadline del weekend.');
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      let predictionExists = false;
+      const membershipsResponse = await supabase
+        .from('league_members')
+        .select('league_id')
+        .eq('user_id', user.id);
+      const leagueIds = (membershipsResponse.data ?? []).map((item) => item.league_id);
+
+      if (currentGrandPrix && leagueIds.length) {
+        const predictionResponse = await supabase
+          .from('predictions')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('grand_prix_id', currentGrandPrix.id)
+          .in('league_id', leagueIds)
+          .limit(1);
+        predictionExists = Boolean(predictionResponse.data?.length);
+      }
+
+      if (isMounted) {
+        setSeason(seasonRow);
+        setGrandPrix(currentGrandPrix);
+        setSessions((sessionsResponse.data ?? []) as RaceSession[]);
+        setHasPrediction(predictionExists);
+        setIsLoading(false);
+      }
+    }
+
+    void loadHome();
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthLoading, user]);
+
+  const sessionForType = (type: string) =>
+    sessions.find((item) => item.type === type && (type !== 'RAC' || String(item.number) === '1')) ??
+    sessions.find((item) => item.type === type) ??
+    null;
+  const nextDeadline = sessions
+    .map((session) => session.session_date)
+    .filter((date): date is string => Boolean(date) && predictionDeadlineWallClock(date) !== null)
+    .sort((a, b) => (predictionDeadlineWallClock(a) ?? 0) - (predictionDeadlineWallClock(b) ?? 0))
+    .find((date) => (predictionDeadlineWallClock(date) ?? 0) > italianWallClockNow()) ?? null;
+  const dashboardState = hasPrediction ? 'saved' : nextDeadline ? 'empty' : 'closed';
+
   return (
     <MainPageLayout
-      eyebrow="Il tuo spazio"
-      title="Benvenuta!"
-      text="Questa è la home della mia prima app."
-    />
+      className="dashboard-app-page"
+      eyebrow={`FantaMotoGP · ${season?.year ?? 2026}`}
+      title="La griglia è pronta."
+      text={isLoading ? 'Sto preparando il tuo prossimo weekend di gara.' : errorMessage ?? 'Tutto quello che ti serve, prima del semaforo verde.'}
+    >
+      {isLoading ? (
+        <div className="dashboard-state" role="status">Caricamento del prossimo Gran Premio...</div>
+      ) : errorMessage ? (
+        <div className="dashboard-state dashboard-state--error" role="alert"><AlertCircle size={20} aria-hidden="true" /><strong>Dashboard non disponibile</strong><p>{errorMessage}</p></div>
+      ) : !grandPrix ? (
+        <div className="dashboard-state" role="status"><CalendarDays size={20} aria-hidden="true" /><strong>Nessun Gran Premio in calendario</strong></div>
+      ) : (
+        <div className="dashboard-shell" data-testid="home-dashboard">
+          <section className="dashboard-hero">
+            <div className="dashboard-round"><span>Prossimo GP</span><strong>{grandPrix.short_name ?? grandPrix.name ?? 'MotoGP'}</strong></div>
+            <div className="dashboard-venue"><MapPin size={16} aria-hidden="true" /><span>{grandPrix.circuit ?? grandPrix.country ?? 'Circuito da confermare'}</span><strong>{resultDate(grandPrix.date_start)}</strong></div>
+          </section>
+          <section className={`dashboard-status dashboard-status--${dashboardState}`} aria-live="polite">
+            <div className="dashboard-status-icon" aria-hidden="true">{dashboardState === 'saved' ? <CheckCircle2 size={22} /> : dashboardState === 'closed' ? <LockKeyhole size={22} /> : <Timer size={22} />}</div>
+            <div>
+              <span className="dashboard-status-kicker">Stato pronostico</span>
+              <strong>{dashboardState === 'saved' ? 'Pronostico salvato' : dashboardState === 'closed' ? 'Pronostico chiuso' : 'Pronostico non ancora inserito'}</strong>
+              <p>{dashboardState === 'saved' ? 'Puoi rivedere le tue scelte nella pagina Profilo.' : dashboardState === 'closed' ? 'Le deadline del weekend sono terminate.' : nextDeadline ? `La prossima scadenza è ${formatItalianDateTime(nextDeadline)}.` : 'Le deadline saranno disponibili a breve.'}</p>
+            </div>
+            <button className="dashboard-action" type="button" onClick={() => navigate('/profilo')}>
+              {dashboardState === 'saved' ? 'Rivedi pronostico' : 'Compila pronostico'} <ArrowRight size={16} aria-hidden="true" />
+            </button>
+          </section>
+          <div className="dashboard-session-grid" aria-label="Stato delle sessioni">
+            {(['Q', 'SPR', 'RAC'] as const).map((type) => {
+              const session = sessionForType(type);
+              const open = Boolean(session?.session_date && (predictionDeadlineWallClock(session.session_date) ?? 0) > italianWallClockNow());
+              return <div className={`dashboard-session${open ? ' is-open' : ''}`} key={type}><span>{resultSessionLabel(type)}</span><strong>{session?.session_date ? (open ? 'Aperta' : 'Chiusa') : 'Da definire'}</strong><small>{session?.session_date ? formatItalianDateTime(session.session_date) : 'Sessione non disponibile'}</small></div>;
+            })}
+          </div>
+        </div>
+      )}
+    </MainPageLayout>
   );
 }
 
@@ -842,6 +990,17 @@ function predictionErrorMessage(error: { message?: string | null } | null) {
   };
 
   return code ? messages[code] : 'Non è stato possibile salvare il pronostico. Riprova.';
+}
+
+function authErrorMessage(error: { message?: string | null } | null, mode: 'login' | 'register') {
+  const message = error?.message?.toLowerCase() ?? '';
+  if (message.includes('invalid login credentials')) return 'Email o password non corrette.';
+  if (message.includes('user already registered')) return 'Questa email è già registrata. Prova ad accedere.';
+  if (message.includes('password')) return 'La password deve contenere almeno 6 caratteri.';
+  if (message.includes('email')) return 'Inserisci un indirizzo email valido.';
+  return mode === 'register'
+    ? 'Non è stato possibile completare la registrazione. Riprova.'
+    : 'Non è stato possibile accedere. Riprova.';
 }
 
 function poleTimeToSeconds(value: string) {
@@ -2201,7 +2360,7 @@ function AuthPage() {
       : await supabase.auth.signUp({ email, password });
 
     if (result.error) {
-      setAuthError(result.error.message);
+      setAuthError(authErrorMessage(result.error, mode));
       setIsSubmitting(false);
       return;
     }
@@ -2365,6 +2524,7 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [now, setNow] = useState(() => italianWallClockNow());
+  const [predictionReloadToken, setPredictionReloadToken] = useState(0);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(italianWallClockNow()), 30_000);
@@ -2537,7 +2697,7 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
     return () => {
       isMounted = false;
     };
-  }, [selectedGrandPrixId, selectedLeagueId, user]);
+  }, [predictionReloadToken, selectedGrandPrixId, selectedLeagueId, user]);
 
   const selectedGrandPrix = grandPrix.find((item) => item.id === selectedGrandPrixId) ?? null;
   const selectedSessions = sessions.filter((item) => item.grand_prix_id === selectedGrandPrixId);
@@ -2614,6 +2774,7 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
       return;
     }
     setSaveMessage('Pronostico salvato!');
+    setPredictionReloadToken((value) => value + 1);
     setIsSaving(false);
   }
 
@@ -2634,6 +2795,14 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
   const qualifyingStatus = predictionSectionStatus(deadlineState.qualifying, qualifyingOpen);
   const sprintStatus = predictionSectionStatus(deadlineState.sprint, sprintOpen);
   const raceStatus = predictionSectionStatus(deadlineState.race, raceOpen);
+  const completedFields =
+    Number(Boolean(poleRiderId && poleTimeValid)) +
+    sprintRiderIds.filter(Boolean).length +
+    raceRiderIds.filter(Boolean).length +
+    Number(Boolean(raceOutRiderId));
+  const totalFields = 1 + 3 + 5 + 1;
+  const hasOpenDeadline = qualifyingOpen || sprintOpen || raceOpen;
+  const formHasIssues = !poleTimeValid || hasDuplicateSprint || hasDuplicateRace || outInRace;
 
   return (
     <MainPageLayout className="predictions-app-page" embedded={embedded} eyebrow="FantaMotoGP · 2026" title="Pronostici" text="Scegli i tuoi protagonisti del prossimo Gran Premio.">
@@ -2675,9 +2844,9 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
               <div><span className="predictions-round">GP {String(grandPrix.findIndex((item) => item.id === selectedGrandPrix.id) + 1).padStart(2, '0')}</span><h2>{selectedGrandPrix.name ?? selectedGrandPrix.short_name}</h2><p>{selectedGrandPrix.circuit ?? selectedGrandPrix.country ?? 'Circuito non disponibile'}</p></div>
               <div className="predictions-event-date"><CalendarDays size={16} aria-hidden="true" /><span>Data gara</span><strong>{resultDate(selectedGrandPrix.date_start)}</strong></div>
             </div>
-            <div className="predictions-deadlines" aria-label="Deadline pronostici">
+             <div className="predictions-deadlines" aria-label="Deadline pronostici">
               {[{ label: 'Qualifiche', value: deadlineState.qualifying, status: qualifyingStatus }, { label: 'Sprint', value: deadlineState.sprint, status: sprintStatus }, { label: 'Gara', value: deadlineState.race, status: raceStatus }].map((item) => (
-                <div className={`prediction-deadline ${item.status.className}`} key={item.label}><span>{item.label}</span><strong>{item.status.label}</strong><small>{item.value ? `🇮🇹 Ora italiana · ${formatItalianDateTime(item.value)}` : 'Sessione non disponibile'}</small></div>
+                 <div className={`prediction-deadline ${item.status.className}`} key={item.label}><span>{item.label}</span><strong>{item.status.label}</strong><small>{item.value ? `Ora italiana · ${formatItalianDateTime(item.value)}` : 'Sessione non disponibile'}</small></div>
               ))}
             </div>
             {isLoadingPrediction ? <div className="predictions-state" role="status">Caricamento pronostico...</div> : !roster.length ? (
@@ -2705,11 +2874,23 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
                   {hasDuplicateRace && <p className="prediction-field-error" role="alert">Un pilota può comparire una sola volta nella Top 5 Gara.</p>}
                   {outInRace && <p className="prediction-field-error" role="alert">Il pilota OUT deve essere diverso dalla Top 5.</p>}
                 </PredictionSection>
-                <div className="predictions-actions">
-                  {prediction && <span className="prediction-saved-note">Pronostico esistente caricato</span>}
+                 <div className="predictions-progress" aria-label={`Completamento pronostico: ${completedFields} di ${totalFields}`}>
+                   <div><span>Completamento</span><strong>{completedFields}/{totalFields}</strong></div>
+                   <div className="predictions-progress-track"><span style={{ width: `${(completedFields / totalFields) * 100}%` }} /></div>
+                 </div>
+                 <div className="prediction-summary" aria-label="Riepilogo pronostico">
+                   <div><span>Pole</span><strong>{poleRiderId ? predictionRiderName(roster.find((rider) => rider.id === poleRiderId) ?? null) : 'Da scegliere'}</strong></div>
+                   <div><span>Sprint</span><strong>{sprintRiderIds.filter(Boolean).length}/3 selezionati</strong></div>
+                   <div><span>Gara</span><strong>{raceRiderIds.filter(Boolean).length}/5 selezionati</strong></div>
+                   <div><span>OUT</span><strong>{raceOutRiderId ? predictionRiderName(roster.find((rider) => rider.id === raceOutRiderId) ?? null) : 'Da scegliere'}</strong></div>
+                 </div>
+                 <div className="predictions-actions">
+                   {prediction && <span className="prediction-saved-note"><CheckCircle2 size={14} aria-hidden="true" /> Ultimo salvataggio verificato</span>}
                   {saveMessage && <p className="prediction-success" role="status"><CheckCircle2 size={16} aria-hidden="true" />{saveMessage}</p>}
                   {saveError && <p className="prediction-error" role="alert"><AlertCircle size={16} aria-hidden="true" />{saveError}</p>}
-                  <button className="prediction-save-button" type="button" onClick={() => void handleSave()} disabled={!canSave}>{isSaving ? <><Clock3 size={17} aria-hidden="true" /> Salvataggio...</> : <><Save size={17} aria-hidden="true" /> Salva pronostico</>}</button>
+                   {!hasOpenDeadline && prediction && <p className="prediction-closed-note"><LockKeyhole size={15} aria-hidden="true" /> Tutte le deadline sono chiuse: il pronostico è in sola lettura.</p>}
+                   <button className="prediction-save-button" type="button" onClick={() => void handleSave()} disabled={!canSave || (!hasOpenDeadline && Boolean(prediction))}>{isSaving ? <><Clock3 size={17} aria-hidden="true" /> Salvataggio...</> : <><Save size={17} aria-hidden="true" /> {prediction ? 'Aggiorna pronostico' : 'Salva pronostico'}</>}</button>
+                   {formHasIssues && completedFields > 0 && <span className="prediction-action-hint">Controlla i campi evidenziati prima di salvare.</span>}
                 </div>
               </div>
             )}
