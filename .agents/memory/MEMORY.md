@@ -8,3 +8,4 @@
 - [MotoGP scoring RPC](motogp-scoring-rpc.md) — server scoring RPC exists; qualifying tolerance test exposes an asymmetric -0.010s boundary discrepancy.
 - [Score prediction definition audit](task-16-score-prediction-definition.md) — Supabase REST exposes the signature, but no authorized SQL channel is available to retrieve the function body.
 - [Supabase SQL access limitation](task-17-score-prediction-sql-analysis.md) — the connected integration is REST-only and its current role cannot read `public.predictions`.
+- [UI data audit](task-18-ui-data-audit.md) — the UI loads prediction inputs and official results, but no fantasy scoring breakdown, history, or server-side score.

@@ -1,0 +1,255 @@
+# Task #18 — Audit delle visualizzazioni e recupero dati per lo scoring
+
+## Obiettivo
+
+Prima di modificare qualsiasi RPC o concedere nuovi privilegi PostgreSQL, analizzare il codice dell'applicazione e tutte le visualizzazioni esistenti per determinare quali dati relativi a pronostici, risultati e punteggi sono già recuperabili tramite le query Supabase utilizzate dalla UI.
+
+Questo task è esclusivamente di AUDIT.
+
+## Vincoli
+
+NON modificare:
+
+* Supabase;
+* RPC;
+* migration;
+* schema;
+* RLS;
+* policy;
+* database;
+* dati utenti;
+* prediction;
+* risultati ufficiali;
+* UI.
+
+NON creare fixture.
+
+NON eseguire `score_prediction`.
+
+NON eseguire query mutative.
+
+## 1. Mappatura delle pagine
+
+Individuare tutte le pagine/componenti che visualizzano dati relativi a:
+
+* pronostici;
+* Qualifica;
+* Pole;
+* tempo Pole;
+* Sprint;
+* Gara;
+* Top 5;
+* pilota OUT;
+* punteggi;
+* breakdown;
+* classifiche;
+* storico GP;
+* risultati ufficiali.
+
+Per ogni pagina indicare:
+
+```text
+file
+route
+componente
+dati visualizzati
+origine dei dati
+```
+
+## 2. Analisi delle query Supabase
+
+Per ogni visualizzazione individuata cercare:
+
+```text
+supabase.from(...)
+supabase.rpc(...)
+supabase.select(...)
+supabase.functions.invoke(...)
+```
+
+e qualsiasi altro accesso ai dati Supabase.
+
+Per ogni query documentare:
+
+* tabella;
+* colonne richieste;
+* relazioni;
+* RPC chiamata;
+* parametri;
+* eventuali filtri;
+* eventuali trasformazioni effettuate nel frontend.
+
+## 3. Predizione
+
+Determinare quali dati del pronostico sono effettivamente recuperabili dalla UI.
+
+Verificare specificamente:
+
+* pilota Pole;
+* tempo Pole;
+* Sprint Top 3;
+* Gara Top 5;
+* pilota OUT;
+* prediction ID;
+* session/GP associato;
+* timestamp;
+* punteggi.
+
+Se un dato viene visualizzato ma non è direttamente presente in `predictions`, documentare da quale tabella o relazione viene recuperato.
+
+## 4. Risultati ufficiali
+
+Determinare quali dati ufficiali sono recuperabili dalla UI.
+
+Verificare:
+
+* posizione;
+* pilota;
+* rider ID;
+* status;
+* sessione;
+* GP;
+* Qualifica;
+* Sprint;
+* Gara;
+* tempo Pole.
+
+Documentare in particolare tutti gli status effettivamente disponibili.
+
+## 5. Scoring
+
+Cercare nel frontend eventuali riferimenti a:
+
+```text
+score_prediction
+calculate_qualifying_time_points
+score
+points
+bonus
+malus
+OUT
+pole
+Sprint
+Race
+Top 5
+```
+
+Verificare se il frontend:
+
+* riceve un breakdown dal server;
+* calcola localmente dei punteggi;
+* visualizza direttamente valori già calcolati;
+* ricostruisce il totale;
+* utilizza una RPC diversa da `score_prediction`.
+
+## 6. Breakdown
+
+Se esiste una visualizzazione del breakdown, determinare esattamente quali dati vengono utilizzati per mostrare:
+
+* Qualifica;
+* Sprint;
+* Gara;
+* bonus;
+* malus;
+* OUT;
+* totale.
+
+Documentare la query che recupera tali dati.
+
+## 7. Storico
+
+Se esiste una pagina storico/classifica, verificare se è possibile recuperare per ogni partecipante:
+
+```text
+prediction
+Qualifica
+Sprint
+Gara
+bonus
+malus
+OUT
+totale
+```
+
+senza creare nuovi dati.
+
+## 8. Ricostruzione del contratto dati
+
+Creare una tabella:
+
+| Informazione        | Tabella/Fonte | Colonna/API | Recuperabile dalla UI | Note |
+| ------------------- | ------------- | ----------- | --------------------- | ---- |
+| Prediction ID       |               |             |                       |      |
+| Pole rider          |               |             |                       |      |
+| Tempo Pole          |               |             |                       |      |
+| Sprint Top 3        |               |             |                       |      |
+| Gara Top 5          |               |             |                       |      |
+| OUT rider           |               |             |                       |      |
+| Risultato ufficiale |               |             |                       |      |
+| Status              |               |             |                       |      |
+| Qualifica score     |               |             |                       |      |
+| Sprint score        |               |             |                       |      |
+| Gara score          |               |             |                       |      |
+| Bonus               |               |             |                       |      |
+| Malus               |               |             |                       |      |
+| Totale              |               |             |                       |      |
+
+## 9. Confronto con Task #15–17
+
+Confrontare quanto scoperto con i precedenti audit.
+
+In particolare verificare se la UI permette di recuperare informazioni che non erano osservabili direttamente tramite REST/OpenAPI, soprattutto:
+
+* Pole rider;
+* OUT rider;
+* prediction entries;
+* breakdown;
+* score;
+* dati necessari a `score_prediction`.
+
+## 10. Valutazione finale
+
+Classificare ogni informazione come:
+
+* `VERIFIED` — direttamente verificabile dal codice/query;
+* `INFERRED` — deducibile ma non direttamente verificabile;
+* `UNKNOWN` — non disponibile.
+
+Non trasformare `INFERRED` in `VERIFIED`.
+
+## 11. Output
+
+Creare:
+
+```text
+.agents/memory/task-18-ui-data-audit.md
+```
+
+contenente:
+
+1. elenco delle pagine analizzate;
+2. query Supabase individuate;
+3. tabelle e colonne utilizzate;
+4. dati prediction recuperabili;
+5. dati risultati recuperabili;
+6. dati scoring recuperabili;
+7. breakdown disponibile;
+8. informazioni Pole/OUT;
+9. confronto con gli audit precedenti;
+10. tabella finale VERIFIED/INFERRED/UNKNOWN;
+11. raccomandazione sul prossimo passo.
+
+## Risultato obbligatorio
+
+Alla fine riportare:
+
+```text
+Database modificato: NO
+RPC modificata: NO
+Migration creata: NO
+UI modificata: NO
+Prediction create: NO
+Fixture create: NO
+score_prediction eseguita: NO
+Query mutative: NO
+```
