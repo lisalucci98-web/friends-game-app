@@ -1,0 +1,748 @@
+# Task #14 — Implementazione e validazione dello scoring FantaMotoGP
+
+## Obiettivo
+
+Implementare, correggere e validare lo scoring server-side di FantaMotoGP **mantenendo il regolamento originale già definito per l'app**.
+
+**NON introdurre il nuovo regolamento alternativo del Task #13.**
+
+La priorità è avere uno scoring deterministico, server-side, testabile e coerente con il regolamento originale, anche se alcuni punteggi storici non coincidono perfettamente.
+
+---
+
+# 1. Vincoli fondamentali
+
+Prima di modificare qualsiasi cosa:
+
+1. Ispeziona la definizione attuale di:
+
+   * `public.score_prediction`
+   * `public.calculate_qualifying_time_points`
+   * `public.submit_prediction`
+2. Ispeziona le tabelle coinvolte nello scoring e i relativi campi.
+3. Non modificare dati ufficiali MotoGP.
+4. Non modificare prediction reali degli utenti.
+5. Non modificare risultati ufficiali.
+6. Non modificare RLS o autenticazione salvo necessità strettamente documentata.
+7. Non modificare `calculate_qualifying_time_points`: è già stata corretta e verificata.
+8. Non modificare `submit_prediction` se non è strettamente necessario.
+9. Non inventare nuove regole sulla base dei dati storici.
+10. I dati storici servono come riferimento diagnostico, **non come fonte per cambiare il regolamento**.
+
+Se una modifica richiede accesso Supabase non disponibile nel workspace, non simulare l'avvenuta modifica: prepara la migrazione SQL e documenta chiaramente il blocco.
+
+---
+
+# 2. Regolamento AUTOREVOLE
+
+Usare il regolamento originale già adottato per la nuova app.
+
+## 2.1 Qualifica
+
+### Pole Position
+
+| Posizione ufficiale | Punti |
+| ------------------- | ----: |
+| P1                  |    +5 |
+| P2                  |    +2 |
+| Altra posizione     |     0 |
+
+### Tempo Pole
+
+La funzione autorevole è:
+
+```text
+public.calculate_qualifying_time_points(p_predicted, p_actual)
+```
+
+Regole:
+
+| Errore                   | Punti |
+| ------------------------ | ----: |
+| `abs(errore) <= 0.010 s` |    10 |
+| `> 0.010 s` e `<= 0.1%`  |     5 |
+| `> 0.1%` e `<= 0.25%`    |     3 |
+| `> 0.25%` e `<= 0.5%`    |     1 |
+| oltre                    |     0 |
+
+I limiti sono inclusivi.
+
+Il controllo:
+
+```text
+abs(predicted - actual) <= 0.010
+```
+
+deve avere precedenza rispetto alle fasce percentuali.
+
+Tempo nullo, non valido o tempo ufficiale non positivo:
+
+```text
+0 punti
+```
+
+Non duplicare questa logica dentro `score_prediction` se la RPC esistente può essere utilizzata correttamente.
+
+---
+
+# 3. Sprint
+
+Per ciascuna delle tre posizioni pronosticate:
+
+| Risultato                    | Punti |
+| ---------------------------- | ----: |
+| posizione esatta             |    +3 |
+| una posizione di differenza  |    +1 |
+| oltre una posizione          |     0 |
+| pilota non classificato      |     0 |
+| pilota assente dal risultato |     0 |
+
+Non esistono bonus Sprint.
+
+Il punteggio Sprint deve essere calcolato server-side.
+
+---
+
+# 4. Gara
+
+Per ciascuna delle cinque posizioni pronosticate:
+
+| Condizione                        | Punti |
+| --------------------------------- | ----: |
+| posizione esatta                  |    +5 |
+| una posizione di differenza       |    +3 |
+| altro pilota comunque nella Top 5 |    +1 |
+| risultato oltre la Top 5          |     0 |
+| pilota non classificato/assente   |     0 |
+
+**IMPORTANTE: mantenere il comportamento del regolamento originale.**
+
+Non sostituire questa logica con la proposta alternativa del Task #13.
+
+In particolare, non introdurre arbitrariamente la regola:
+
+```text
+P5 pronosticato → P6 ufficiale = 0
+```
+
+a meno che sia già esplicitamente prevista dal regolamento originale implementato.
+
+Prima di cambiare questa parte, verificare la logica effettivamente presente nel database e documentare la differenza.
+
+---
+
+# 5. Bonus Gara — CUMULABILI
+
+Questo è un requisito fondamentale.
+
+I bonus Gara devono essere **cumulabili**.
+
+## Bonus ordine esatto
+
+Se i cinque piloti sono corretti **e nell'ordine esatto**:
+
+```text
++5 punti
+```
+
+## Bonus Top 5
+
+Se tutti i cinque piloti pronosticati terminano nella Top 5:
+
+```text
++2 punti
+```
+
+### Cumulabilità
+
+Se l'ordine è completamente corretto:
+
+```text
++5 ordine
++2 Top 5
+= +7 punti bonus
+```
+
+NON utilizzare la logica alternativa:
+
+```text
+if ordine_esatto
+    +5
+else if Top5
+    +2
+```
+
+perché renderebbe i bonus non cumulabili.
+
+Devono invece essere calcolati separatamente:
+
+```text
+bonus_order = 5 se ordine esatto
+bonus_top5 = 2 se tutti e cinque nella Top 5
+total_bonus = bonus_order + bonus_top5
+```
+
+---
+
+# 6. Bonus OUT
+
+Mantenere il regolamento originale:
+
+```text
++2 punti
+```
+
+Il bonus viene assegnato quando il pilota indicato come OUT non completa la Gara secondo la semantica prevista dal regolamento originale.
+
+Verificare la gestione degli status effettivamente disponibili nel database.
+
+Devono essere analizzati almeno:
+
+* `CLASSIFIED`
+* `NOT_CLASSIFIED`
+* `NOT_IN_RESULT`
+* `DNF`
+* `DNS`
+* `DSQ`
+* eventuale `OUT`
+
+Non assumere automaticamente che tutti gli status siano equivalenti senza verificare come vengono rappresentati nei risultati ufficiali.
+
+Il pilota OUT deve essere distinto dai cinque piloti pronosticati per la Gara.
+
+Se la struttura del database impedisce questa distinzione, documentare il problema anziché inventare una soluzione.
+
+---
+
+# 7. Malus
+
+Mantenere il **malus previsto dal regolamento originale già adottato**, senza sostituirlo con il nuovo malus lineare del Task #13.
+
+Prima di modificare questa parte:
+
+1. individuare la logica attuale;
+2. verificare la definizione SQL disponibile;
+3. confrontarla con il regolamento originale;
+4. correggere soltanto eventuali bug evidenti rispetto al regolamento.
+
+Non dedurre una nuova regola dai 29 record storici.
+
+In particolare, non modificare automaticamente:
+
+```text
+1 non classificato → -1
+3 non classificati → -5
+5 non classificati → -10
+```
+
+solo perché i dati storici hanno evidenziato discrepanze.
+
+Se questa è la logica prevista dal regolamento originale, mantenerla.
+
+---
+
+# 8. Struttura del breakdown
+
+`score_prediction` dovrebbe produrre, direttamente o indirettamente, un breakdown verificabile almeno con queste categorie:
+
+```text
+qualifying_pole_points
+qualifying_time_points
+qualifying_total
+
+sprint_points
+sprint_total
+
+race_position_points
+race_bonus_order
+race_bonus_top5
+race_bonus_out
+race_malus
+race_total
+
+total_points
+```
+
+Se la struttura attuale della RPC usa nomi differenti, non modificare inutilmente il contratto pubblico.
+
+L'importante è poter verificare separatamente:
+
+```text
+Qualifica
+Sprint
+Gara
+Bonus
+Malus
+Totale
+```
+
+---
+
+# 9. Idempotenza
+
+Verificare attentamente il comportamento di:
+
+```text
+public.score_prediction
+```
+
+La stessa prediction non deve produrre duplicazioni o punteggi duplicati se la funzione viene eseguita più volte.
+
+Test richiesto:
+
+```text
+score_prediction(prediction_id)
+score_prediction(prediction_id)
+```
+
+Verificare che:
+
+* il secondo calcolo non duplichi record;
+* il totale rimanga invariato;
+* il breakdown rimanga invariato;
+* eventuali record di scoring siano aggiornati/upsertati correttamente;
+* non vengano creati duplicati.
+
+---
+
+# 10. Test automatici
+
+Creare o aggiornare una suite dedicata, preferibilmente:
+
+```text
+scripts/test-motogp-scoring-2026.mjs
+```
+
+e registrare il comando:
+
+```bash
+pnpm --filter @workspace/my-first-app run test:scoring
+```
+
+I test devono verificare la logica reale server-side quando possibile.
+
+---
+
+## 10.1 Test Qualifica
+
+Verificare:
+
+1. tempo esatto;
+2. errore `+0.010`;
+3. errore `-0.010`;
+4. errore appena superiore a `+0.010`;
+5. errore appena superiore a `-0.010`;
+6. limite `0.1%`;
+7. limite `0.25%`;
+8. limite `0.5%`;
+9. oltre `0.5%`;
+10. tempo nullo;
+11. tempo non valido;
+12. tempo ufficiale nullo;
+13. tempo ufficiale non positivo;
+14. Pole P1;
+15. Pole P2;
+16. Pole fuori P2.
+
+Usare valori numerici decimali esatti nei test.
+
+NON costruire casi come:
+
+```javascript
+116.160 - 0.010
+```
+
+se questo può introdurre errori floating-point.
+
+Preferire:
+
+```text
+116.150
+```
+
+---
+
+# 11. Test Sprint
+
+Creare casi per:
+
+* tutte e tre le posizioni esatte;
+* una posizione di differenza;
+* differenza superiore a una posizione;
+* pilota non classificato;
+* pilota assente;
+* combinazioni miste;
+* eventuali duplicati non validi.
+
+Verificare sia il breakdown sia il totale.
+
+---
+
+# 12. Test Gara
+
+Creare fixture isolate per verificare almeno:
+
+### Posizioni
+
+* P1 → P1 = 5
+* P1 → P2 = 3
+* P1 → P3 = 0 o comportamento previsto dal regolamento originale
+* P1 → P5 = comportamento previsto
+* risultato oltre Top 5
+* pilota non classificato
+* pilota assente
+
+### Bonus ordine
+
+Cinque piloti nell'ordine esatto:
+
+```text
+bonus_order = +5
+```
+
+### Bonus Top 5
+
+Cinque piloti tutti nella Top 5 ma ordine diverso:
+
+```text
+bonus_top5 = +2
+```
+
+### Bonus cumulabili
+
+Cinque piloti nell'ordine esatto:
+
+```text
+bonus_order = +5
+bonus_top5 = +2
+totale bonus = +7
+```
+
+Questo test è OBBLIGATORIO.
+
+### OUT
+
+Verificare:
+
+* OUT classificato;
+* OUT non classificato;
+* OUT DNF;
+* OUT DNS;
+* OUT DSQ;
+* OUT assente;
+* OUT duplicato nella Top 5.
+
+Applicare esclusivamente la semantica prevista dal regolamento originale.
+
+### Malus
+
+Verificare i casi previsti dal regolamento originale per:
+
+* un non-finisher;
+* tre non-finisher;
+* cinque non-finisher;
+* combinazioni con OUT;
+* combinazioni con bonus.
+
+---
+
+# 13. Test combinati
+
+Creare almeno una fixture complessa con:
+
+```text
+Qualifica
++
+Sprint
++
+Gara
++
+bonus ordine
++
+bonus Top 5
++
+OUT
++
+malus
+```
+
+Verificare:
+
+```text
+totale = qualifying_total
+       + sprint_total
+       + race_position_points
+       + race_bonus_order
+       + race_bonus_top5
+       + race_bonus_out
+       + race_malus
+```
+
+Il test deve dimostrare esplicitamente che:
+
+```text
+bonus_order + bonus_top5
+```
+
+vengono sommati.
+
+---
+
+# 14. Test end-to-end Supabase
+
+Se esiste un canale autorizzato e transazionale per Supabase:
+
+1. creare una fixture temporanea;
+2. inserire una prediction di test;
+3. creare/associare risultati ufficiali di test se necessario;
+4. eseguire `score_prediction`;
+5. verificare il breakdown;
+6. verificare il totale;
+7. rieseguire `score_prediction`;
+8. verificare idempotenza;
+9. eseguire rollback completo.
+
+Schema desiderato:
+
+```sql
+BEGIN;
+
+-- fixture
+-- prediction
+-- eventuali risultati
+
+-- score_prediction
+
+-- assertions
+
+-- score_prediction nuovamente
+
+-- assertions idempotenza
+
+ROLLBACK;
+```
+
+**NON utilizzare prediction reali.**
+
+**NON modificare dati persistenti se non è possibile garantire rollback.**
+
+Se il workspace non dispone di una connessione SQL Supabase autorizzata:
+
+* non creare fixture tramite REST;
+* non creare e cancellare manualmente record;
+* non dichiarare il test end-to-end completato;
+* documentare esattamente il blocco.
+
+---
+
+# 15. Se Supabase non è modificabile dal workspace
+
+Se la RPC `score_prediction` deve essere modificata ma il database Supabase non è accessibile:
+
+creare una migrazione SQL nel progetto:
+
+```text
+supabase/migrations/YYYYMMDDHHMMSS_update_score_prediction.sql
+```
+
+La migrazione deve:
+
+* modificare solo `public.score_prediction`;
+* non modificare `calculate_qualifying_time_points`;
+* non modificare dati;
+* mantenere la compatibilità con `submit_prediction`;
+* implementare esclusivamente il regolamento originale;
+* mantenere bonus ordine e bonus Top 5 cumulabili.
+
+Non dichiarare la migrazione applicata al database se è stata solo creata localmente.
+
+---
+
+# 16. Protezione da regressioni
+
+Prima di concludere:
+
+### Qualifica
+
+Assicurarsi che continuino a passare tutti gli 11 test già validati.
+
+Risultato atteso:
+
+```text
+11/11 PASS
+```
+
+### Build
+
+Eseguire:
+
+```bash
+PORT=5173 BASE_PATH=/my-first-app/ pnpm --filter @workspace/my-first-app run build
+```
+
+La build deve passare.
+
+### TypeScript
+
+Eseguire il controllo TypeScript disponibile nel progetto.
+
+### Console
+
+Verificare che non vengano introdotti nuovi errori browser.
+
+### UI
+
+Non modificare la UI salvo necessità strettamente legata alla visualizzazione del breakdown.
+
+### Database
+
+Verificare che non siano stati modificati:
+
+* risultati ufficiali;
+* prediction reali;
+* utenti;
+* RLS;
+* dati storici.
+
+---
+
+# 17. Dati storici
+
+Utilizzare i tre GP storici già analizzati soltanto come **regression dataset diagnostico**.
+
+Non modificare lo scoring per forzare:
+
+```text
+29/29
+```
+
+se il regolamento originale produce valori differenti.
+
+Per ogni differenza storica:
+
+```text
+expected storico
+vs
+nuovo scoring
+```
+
+riportare la differenza.
+
+Non alterare le regole per adattarle ai dati storici.
+
+Il criterio di correttezza primario è:
+
+```text
+REGOLAMENTO ORIGINALE
+```
+
+non:
+
+```text
+PUNTEGGI STORICI
+```
+
+---
+
+# 18. Criteri di completamento
+
+Il Task #14 può essere dichiarato **COMPLETATO** solo se:
+
+* `score_prediction` implementa il regolamento originale;
+* bonus ordine e bonus Top 5 sono **cumulabili**;
+* il bonus OUT è implementato secondo il regolamento originale;
+* il malus è implementato secondo il regolamento originale;
+* i test Qualifica continuano a passare;
+* i test Sprint passano;
+* i test Gara passano;
+* i test bonus passano;
+* il test di cumulabilità `+5 +2 = +7` passa;
+* i test OUT passano;
+* i test malus passano;
+* l'idempotenza è verificata, quando tecnicamente possibile;
+* TypeScript passa;
+* build passa;
+* non sono stati modificati dati reali.
+
+Se l'accesso Supabase impedisce i test end-to-end, il task deve essere dichiarato:
+
+```text
+PARZIALMENTE COMPLETATO — BLOCCATO SU TEST END-TO-END SUPABASE
+```
+
+e non come completato.
+
+---
+
+# 19. Report finale obbligatorio
+
+Al termine restituisci un report con questa struttura:
+
+```text
+## Task #14 — Risultato
+
+### Stato
+COMPLETATO / PARZIALMENTE COMPLETATO / BLOCCATO
+
+### Implementazione
+- score_prediction:
+- calculate_qualifying_time_points:
+- submit_prediction:
+
+### Test
+- Qualifica: X/Y
+- Sprint: X/Y
+- Gara: X/Y
+- Bonus: X/Y
+- OUT: X/Y
+- Malus: X/Y
+- Idempotenza: PASS/FAIL/SKIPPED
+- End-to-end: PASS/FAIL/SKIPPED
+
+### Test cumulabilità bonus
+- ordine esatto: +5
+- Top 5: +2
+- totale bonus: +7
+- risultato: PASS/FAIL
+
+### TypeScript
+PASS/FAIL
+
+### Build
+PASS/FAIL
+
+### Database
+- prediction reali modificate: NO
+- risultati ufficiali modificati: NO
+- fixture persistenti: NO
+- RLS modificata: NO
+
+### File modificati
+
+...
+
+### File creati
+
+...
+
+### Problemi residui
+
+...
+
+### Migrazioni
+- create:
+- applicate realmente su Supabase:
+- da applicare manualmente:
+```
+
+## Regola finale
+
+**NON cambiare il regolamento.**
+
+Il requisito più importante del Task #14 è:
+
+> Implementare e testare il regolamento originale di FantaMotoGP, mantenendo i bonus Gara cumulabili, senza adattarlo artificialmente ai punteggi storici.
+
+In particolare, **NON trasformare i bonus in alternativi** e **NON introdurre il nuovo malus lineare del Task #13**.
+
+Prima di qualsiasi modifica al database Supabase, verificare che il cambiamento sia autorizzato e reversibile.
