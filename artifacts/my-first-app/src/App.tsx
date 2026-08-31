@@ -29,8 +29,10 @@ import {
   RefreshCw,
   Save,
   Settings,
+  Target,
   Timer,
   Trophy,
+  Users,
   UserRound,
 } from 'lucide-react';
 import {
@@ -88,7 +90,7 @@ function AuthStatus() {
 
   if (!user) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className="auth-status" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <span className="nav-note">non autenticata</span>
         <button
           type="button"
@@ -117,7 +119,7 @@ function AuthStatus() {
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+    <div className="auth-status" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
       <span
         className="nav-note"
         title={user.email ?? 'Utente autenticato'}
@@ -159,33 +161,42 @@ function WelcomePage() {
     <main className="welcome-page" data-testid="page-welcome">
       <header className="welcome-nav">
         <div className="brand-lockup" data-testid="text-brand">
-          <span className="brand-mark" aria-hidden="true">M</span>
-          <span>MyFirstApp</span>
+          <span className="brand-mark" aria-hidden="true">FM</span>
+          <span>FANTA <b>MOTOGP</b></span>
         </div>
-        <span className="nav-note">il tuo primo passo · 01</span>
+        <span className="nav-note">gioca il weekend · 2026</span>
       </header>
 
       <section className="welcome-content" aria-labelledby="home-title">
         <div className="welcome-copy">
-          <p className="eyebrow">Benvenuto qui</p>
+          <p className="eyebrow">Il fantagioco del paddock</p>
           <h1 className="welcome-title" id="home-title">
-            My First <em>App</em>
+            Fanta<br /><em>MotoGP</em>
           </h1>
           <p className="welcome-description">
-            Ciao, questo è il tuo primo spazio per imparare a programmare.
-            Inizia con calma: ogni riga è un passo.
+            Il tuo pronostico. La tua strategia. La tua gara.
           </p>
-          <button
-            className="start-button"
-            data-testid="button-start"
-            type="button"
-            onClick={() => navigate('/home')}
-          >
-            <span>Inizia</span>
-            <span className="button-icon" aria-hidden="true">
-              <ArrowRight size={16} strokeWidth={2.5} />
-            </span>
-          </button>
+          <div className="welcome-actions">
+            <button
+              className="start-button"
+              data-testid="button-start"
+              type="button"
+              onClick={() => navigate('/home')}
+            >
+              <span>Fai il tuo pronostico</span>
+              <span className="button-icon" aria-hidden="true">
+                <ArrowRight size={16} strokeWidth={2.5} />
+              </span>
+            </button>
+            <button
+              className="welcome-secondary-button"
+              type="button"
+              onClick={() => navigate('/regolamento')}
+            >
+              <BookOpen size={16} aria-hidden="true" />
+              <span>Scopri il regolamento</span>
+            </button>
+          </div>
         </div>
 
         <div className="lesson-card" aria-label="Anteprima del tuo primo esercizio" data-testid="card-first-lesson">
@@ -195,15 +206,15 @@ function WelcomePage() {
               <div className="window-dots" aria-hidden="true">
                 <span /><span /><span />
               </div>
-              <span className="window-label">primo-esercizio.js</span>
+              <span className="window-label">race-weekend / 01</span>
             </div>
             <div className="window-body">
-              <p className="lesson-kicker">Esercizio 01 / 01</p>
-              <h2 className="lesson-title">Le idee iniziano da una riga.</h2>
-              <pre className="code-snippet" aria-label="Esempio di codice"><code><span className="soft">const</span> saluto <span className="soft">=</span> <span className="hot">'ciao, mondo'</span>;<br /><span className="soft">console</span>.log(saluto);</code></pre>
+              <p className="lesson-kicker">NEXT GP / ROUND 01</p>
+              <h2 className="lesson-title">Il semaforo si accende.</h2>
+              <pre className="code-snippet" aria-label="Anteprima del pronostico"><code><span className="soft">P1</span>  ·  <span className="hot">scegli il tuo pilota</span><br /><span className="soft">PODIO</span>  ·  segui la tua intuizione</code></pre>
               <p className="window-caption">
                 <span className="caption-line" aria-hidden="true" />
-                Non serve sapere tutto. Serve solo cominciare.
+                Il prossimo sorpasso inizia dalla tua griglia.
               </p>
             </div>
           </div>
@@ -211,8 +222,8 @@ function WelcomePage() {
       </section>
 
       <footer className="welcome-footer">
-        <span>imparare facendo</span>
-        <span>una riga alla volta</span>
+        <span>Fanta MotoGP</span>
+        <span>il gioco di pronostici tra amici</span>
       </footer>
     </main>
   );
@@ -251,9 +262,26 @@ function MainPageLayout({
       {!embedded && (
         <header className="welcome-nav">
           <div className="brand-lockup" data-testid="text-brand">
-            <span className="brand-mark" aria-hidden="true">M</span>
-            <span>MyFirstApp</span>
+            <span className="brand-mark" aria-hidden="true">FM</span>
+            <span>FANTA <b>MOTOGP</b></span>
           </div>
+          <nav className="desktop-nav" aria-label="Navigazione principale">
+            {sections.map(({ path, label, icon: Icon }) => {
+              const isActive = location === path;
+              return (
+                <button
+                  className={`desktop-nav-item${isActive ? ' is-active' : ''}`}
+                  key={path}
+                  type="button"
+                  onClick={() => navigate(path)}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <Icon size={15} strokeWidth={isActive ? 2.5 : 2} aria-hidden="true" />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </nav>
           <AuthStatus />
         </header>
       )}
@@ -272,25 +300,34 @@ function MainPageLayout({
       </section>
 
       {!embedded && (
-        <nav className="bottom-nav" aria-label="Navigazione principale">
-          {sections.map(({ path, label, icon: Icon }) => {
-            const isActive = location === path;
-
-            return (
-              <button
-                className={`bottom-nav-item${isActive ? ' is-active' : ''}`}
-                key={path}
-                type="button"
-                data-testid={`nav-${label.toLowerCase()}`}
-                onClick={() => navigate(path)}
-                aria-current={isActive ? 'page' : undefined}
-              >
-                <Icon size={19} strokeWidth={isActive ? 2.4 : 1.9} aria-hidden="true" />
-                <span>{label}</span>
-              </button>
-            );
-          })}
-        </nav>
+        <>
+          <details className="mobile-nav">
+            <summary><span className="mobile-nav-lines" aria-hidden="true"><i /><i /><i /></span> Menu</summary>
+            <nav aria-label="Navigazione mobile">
+              {sections.map(({ path, label, icon: Icon }) => {
+                const isActive = location === path;
+                return (
+                  <button
+                    className={`mobile-nav-item${isActive ? ' is-active' : ''}`}
+                    key={path}
+                    type="button"
+                    data-testid={`nav-${label.toLowerCase()}`}
+                    onClick={(event) => {
+                      navigate(path);
+                      event.currentTarget.closest('details')?.removeAttribute('open');
+                    }}
+                    aria-current={isActive ? 'page' : undefined}
+                  >
+                    <Icon size={18} aria-hidden="true" /><span>{label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </details>
+          <div className="bottom-nav" aria-hidden="true">
+            <span>FANTA MOTOGP</span><span>RACE WEEKEND / 2026</span>
+          </div>
+        </>
       )}
     </main>
   );
@@ -414,9 +451,9 @@ function HomePage() {
   return (
     <MainPageLayout
       className="dashboard-app-page"
-      eyebrow={`FantaMotoGP · ${season?.year ?? 2026}`}
-      title="La griglia è pronta."
-      text={isLoading ? 'Sto preparando il tuo prossimo weekend di gara.' : errorMessage ?? 'Tutto quello che ti serve, prima del semaforo verde.'}
+      eyebrow={`Fanta MotoGP · ${season?.year ?? 2026}`}
+      title="Fanta MotoGP"
+      text={isLoading ? 'Sto preparando il tuo prossimo weekend di gara.' : errorMessage ?? 'Il tuo pronostico. La tua strategia. La tua gara.'}
     >
       {isLoading ? (
         <div className="dashboard-state" role="status">Caricamento del prossimo Gran Premio...</div>
@@ -449,6 +486,30 @@ function HomePage() {
             })}
           </div>
         </div>
+      )}
+      {!isLoading && !errorMessage && (
+        <section className="how-it-works" aria-labelledby="how-it-works-title">
+          <div className="how-it-works-heading">
+            <p className="eyebrow">Come funziona</p>
+            <h2 id="how-it-works-title">Quattro mosse. Poi si corre.</h2>
+            <p>Niente classifiche inventate: solo le tue scelte, i risultati ufficiali e gli amici della tua lega.</p>
+          </div>
+          <div className="how-it-works-grid">
+            {[
+              { number: '01', title: 'Entra in una lega', description: 'Crea il tuo gruppo o usa un codice invito.', icon: Users },
+              { number: '02', title: 'Scegli la griglia', description: 'Indica pole, podio Sprint e Top 5 Gara.', icon: Target },
+              { number: '03', title: 'Segui il weekend', description: 'Le deadline seguono il programma del Gran Premio.', icon: Timer },
+              { number: '04', title: 'Conta i punti', description: 'Il punteggio arriva dai risultati ufficiali.', icon: Trophy },
+            ].map(({ number, title, description, icon: Icon }) => (
+              <article className="how-step" key={number}>
+                <span className="how-step-number">{number}</span>
+                <span className="how-step-icon" aria-hidden="true"><Icon size={18} strokeWidth={2.2} /></span>
+                <h3>{title}</h3>
+                <p>{description}</p>
+              </article>
+            ))}
+          </div>
+        </section>
       )}
     </MainPageLayout>
   );
@@ -1321,7 +1382,7 @@ function ResultsPage() {
   return (
     <MainPageLayout
       className="results-app-page"
-      eyebrow="FantamotoGP · ufficiale"
+      eyebrow="Fanta MotoGP · ufficiale"
       title="Risultati MotoGP"
       text={pageText}
     >
@@ -1731,7 +1792,7 @@ function LeaguesPage() {
 
   return (
     <MainPageLayout
-      eyebrow="FantamotoGP"
+      eyebrow="Fanta MotoGP"
       title="Le mie leghe"
       text={pageText}
     >
@@ -1950,7 +2011,7 @@ function LeaguesPage() {
                 setRpcErrorDetails(null);
               }}
               disabled={isCreating}
-              placeholder="Es. FantamotoGP 2026"
+              placeholder="Es. Fanta MotoGP 2026"
               style={{
                 boxSizing: 'border-box',
                 width: '100%',
@@ -2140,7 +2201,7 @@ function LeagueDetailPage() {
       : `${members.length} ${members.length === 1 ? 'partecipante' : 'partecipanti'}`;
 
   return (
-    <MainPageLayout eyebrow="FantamotoGP" title={pageTitle} text={pageText}>
+    <MainPageLayout eyebrow="Fanta MotoGP" title={pageTitle} text={pageText}>
       {!isLoading && errorMessage ? (
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <button
@@ -2805,7 +2866,7 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
   const formHasIssues = !poleTimeValid || hasDuplicateSprint || hasDuplicateRace || outInRace;
 
   return (
-    <MainPageLayout className="predictions-app-page" embedded={embedded} eyebrow="FantaMotoGP · 2026" title="Pronostici" text="Scegli i tuoi protagonisti del prossimo Gran Premio.">
+    <MainPageLayout className="predictions-app-page" embedded={embedded} eyebrow="Fanta MotoGP · 2026" title="Pronostici" text="Scegli i tuoi protagonisti del prossimo Gran Premio.">
       <div className="predictions-shell">
         <div className="predictions-toolbar">
           <label className="predictions-select-control" htmlFor="predictions-gp">
@@ -3255,7 +3316,7 @@ function ProfilePage() {
       </form>
       <section className="profile-predictions-section" aria-labelledby="profile-predictions-title">
         <div className="profile-predictions-heading">
-          <p className="eyebrow">Il tuo FantaMotoGP</p>
+          <p className="eyebrow">Il tuo Fanta MotoGP</p>
           <h2 id="profile-predictions-title">Pronostici</h2>
           <p>Scegli i tuoi protagonisti del prossimo Gran Premio.</p>
         </div>

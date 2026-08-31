@@ -1,0 +1,510 @@
+# Task #20 — Implementazione Rebranding Fanta MotoGP
+
+Il precedente Task #19 aveva definito il brief di rebranding, ma **non è stato effettivamente implementato**.
+
+In questo task devi procedere con l'implementazione concreta del rebranding e del restyling grafico dell'app esistente.
+
+## OBIETTIVO
+
+Trasformare visivamente l'attuale applicazione nel gioco:
+
+# Fanta MotoGP
+
+L'app deve avere un'identità grafica chiaramente ispirata al mondo delle corse motociclistiche, con prevalenza di:
+
+* rosso racing;
+* nero;
+* bianco;
+* grigio scuro.
+
+Il risultato deve essere moderno, sportivo e coinvolgente, adatto a un gruppo di amici che utilizza l'app per fare pronostici sulle gare MotoGP.
+
+---
+
+# IMPORTANTE — NON TOCCARE LA LOGICA
+
+Questo task è esclusivamente di UI/UX e branding.
+
+NON modificare:
+
+* database Supabase;
+* tabelle;
+* colonne;
+* RLS;
+* RPC;
+* `score_prediction`;
+* `calculate_qualifying_time_points`;
+* `submit_prediction`;
+* scoring;
+* bonus;
+* malus;
+* struttura dei pronostici;
+* risultati ufficiali;
+* autenticazione.
+
+NON creare migration.
+
+NON modificare il comportamento delle chiamate Supabase esistenti.
+
+Se per applicare il design è necessario modificare codice funzionale, limitarsi alla struttura visuale senza alterarne la logica.
+
+---
+
+# 1. BRANDING
+
+Sostituire tutti i riferimenti al precedente nome dell'app con:
+
+**Fanta MotoGP**
+
+Controllare:
+
+* navbar;
+* Home;
+* titoli;
+* login;
+* eventuale footer;
+* document title;
+* metadata;
+* eventuale manifest;
+* eventuali testi placeholder.
+
+Creare un wordmark semplice e moderno:
+
+**FANTA MotoGP**
+
+Il wordmark deve essere originale.
+
+NON copiare il logo ufficiale MotoGP.
+
+---
+
+# 2. PALETTE
+
+Utilizzare una palette racing coerente.
+
+Colori di riferimento:
+
+```text
+Rosso racing: #E10600
+Rosso scuro: #A50000
+Nero: #0B0B0B
+Nero secondario: #151515
+Bianco: #FFFFFF
+Grigio chiaro: #F3F3F3
+Grigio: #777777
+```
+
+Il rosso deve essere utilizzato per:
+
+* CTA;
+* elementi active;
+* badge;
+* indicatori importanti;
+* accenti grafici.
+
+Il nero deve essere utilizzato per:
+
+* navbar;
+* hero;
+* sezioni racing;
+* elementi di contrasto.
+
+NON rendere l'interfaccia completamente rossa.
+
+---
+
+# 3. NAVBAR
+
+Ridisegnare la navbar.
+
+Deve mostrare chiaramente:
+
+**Fanta MotoGP**
+
+e le sezioni disponibili dell'app.
+
+Le voci principali devono essere:
+
+* Home
+* Pronostici
+* Risultati
+* Regolamento
+
+Mantenere eventuali altre voci già funzionali.
+
+Utilizzare icone Lucide.
+
+La voce attiva deve essere chiaramente riconoscibile.
+
+Desktop:
+
+* navbar elegante;
+* wordmark a sinistra;
+* navigazione a destra.
+
+Mobile:
+
+* mantenere tutte le voci accessibili;
+* evitare sovrapposizioni;
+* se necessario utilizzare scroll orizzontale;
+* mantenere il layout leggibile a 360 px.
+
+---
+
+# 4. HOME
+
+La Home deve diventare una vera landing page del gioco.
+
+Creare un hero forte.
+
+Titolo:
+
+**Fanta MotoGP**
+
+Sottotitolo:
+
+**Il tuo pronostico. La tua strategia. La tua gara.**
+
+CTA principale:
+
+**Fai il tuo pronostico**
+
+CTA secondaria:
+
+**Scopri il regolamento**
+
+Il design deve comunicare immediatamente:
+
+* MotoGP;
+* velocità;
+* competizione;
+* pronostici;
+* sfida tra amici.
+
+---
+
+# 5. IMMAGINI E GRAFICA RACING
+
+Aggiungere elementi visuali riferiti al mondo delle corse.
+
+Preferire:
+
+* moto da corsa;
+* casco;
+* circuito;
+* bandiera a scacchi;
+* cronometro;
+* griglia di partenza;
+* speed lines;
+* elementi racing astratti.
+
+IMPORTANTE:
+
+Non utilizzare immagini ufficiali MotoGP prive di licenza.
+
+Non copiare il logo ufficiale MotoGP.
+
+Se non sono disponibili immagini con licenza compatibile, creare elementi grafici originali tramite:
+
+* SVG;
+* CSS;
+* illustrazioni generiche;
+* forme geometriche;
+* icone Lucide.
+
+L'obiettivo è evocare il mondo MotoGP senza utilizzare materiale protetto impropriamente.
+
+---
+
+# 6. SEZIONE "COME FUNZIONA"
+
+Nella Home aggiungere una sezione moderna con 4 card:
+
+### 01 — PRONOSTICA
+
+Scegli i piloti e prova ad anticipare il risultato della gara.
+
+### 02 — ACCUMULA PUNTI
+
+Ogni pronostico corretto contribuisce al tuo punteggio.
+
+### 03 — SFRUTTA I BONUS
+
+Bonus, OUT e malus possono cambiare la classifica.
+
+### 04 — SFIDA GLI AMICI
+
+Confronta i tuoi risultati con gli altri partecipanti.
+
+Utilizzare icone Lucide.
+
+---
+
+# 7. PAGINA PRONOSTICI
+
+Mantenere completamente invariata la logica.
+
+Ridisegnare però l'interfaccia.
+
+Organizzare visivamente il pronostico come una vera griglia di partenza.
+
+Sezioni:
+
+## QUALIFICHE
+
+* Pole Position
+* Tempo Pole
+
+## SPRINT
+
+* P1
+* P2
+* P3
+
+## GARA
+
+* P1
+* P2
+* P3
+* P4
+* P5
+
+## OUT
+
+* Pilota OUT
+
+Utilizzare:
+
+* numeri grandi per le posizioni;
+* card;
+* bordi/indicatori rossi;
+* gerarchia visiva;
+* stato selezionato ben evidente.
+
+La CTA deve essere molto visibile:
+
+**SALVA PRONOSTICO**
+
+NON modificare il payload inviato a Supabase.
+
+---
+
+# 8. PAGINA RISULTATI
+
+Restyling completo mantenendo invariati dati e funzionalità.
+
+La pagina deve avere un aspetto da dashboard racing.
+
+Utilizzare:
+
+* card;
+* ranking;
+* badge;
+* posizioni;
+* indicatori rossi;
+* icone.
+
+Mantenere gli attuali selettori di:
+
+* GP;
+* sessione;
+* Qualifiche;
+* Sprint;
+* Gara.
+
+NON modificare il calcolo dei risultati esistenti.
+
+NON introdurre nuovi punteggi fantasy.
+
+---
+
+# 9. PAGINA REGOLAMENTO
+
+Il regolamento creato nel Task #14 è già corretto e NON deve essere modificato nei contenuti.
+
+Ridisegnare solamente la presentazione.
+
+Migliorare:
+
+* titoli;
+* tabelle;
+* card;
+* callout;
+* esempi;
+* icone;
+* gerarchia visiva.
+
+Mettere particolarmente in evidenza:
+
+**P5 → P6 = 0 punti**
+
+e:
+
+**I bonus Gara sono cumulabili.**
+
+Non cambiare nessuna formula o valore già presente.
+
+---
+
+# 10. DESIGN SYSTEM
+
+Uniformare:
+
+* border radius;
+* shadow;
+* typography;
+* spacing;
+* button;
+* card;
+* badge;
+* input;
+* select.
+
+Utilizzare un linguaggio visivo coerente.
+
+Possibile stile:
+
+* card nere su sfondo chiaro;
+* card bianche con bordo;
+* dettagli rossi;
+* titoli bold;
+* numeri grandi;
+* piccoli elementi racing decorativi.
+
+Evitare:
+
+* effetto gaming eccessivo;
+* neon;
+* gradienti troppo invasivi;
+* eccessive animazioni.
+
+---
+
+# 11. ICONOGRAFIA
+
+Utilizzare Lucide.
+
+Esempi:
+
+* Trophy
+* Flag
+* Timer
+* Bike
+* Gauge
+* Target
+* Medal
+* Users
+* Calendar
+* BookOpen
+* CircleHelp
+* CheckCircle
+* ChevronRight
+
+Eliminare eventuali emoji utilizzate come icone principali.
+
+---
+
+# 12. RESPONSIVE
+
+Verificare obbligatoriamente:
+
+```text
+360 px
+375 px
+390 px
+768 px
+1024 px
+1440 px
+```
+
+In particolare verificare:
+
+* navbar;
+* Home;
+* hero;
+* card;
+* form Pronostici;
+* tabelle;
+* Regolamento;
+* CTA.
+
+Nessun overflow orizzontale indesiderato.
+
+---
+
+# 13. TEST FUNZIONALI
+
+Dopo il restyling verificare che continuino a funzionare:
+
+* login;
+* navigazione;
+* apertura Pronostici;
+* selezione piloti;
+* inserimento tempo Pole;
+* selezione OUT;
+* salvataggio pronostico;
+* Risultati;
+* Regolamento;
+* logout, se presente.
+
+NON creare prediction di test reali.
+
+NON modificare dati Supabase.
+
+---
+
+# 14. VERIFICHE TECNICHE
+
+Eseguire:
+
+1. TypeScript
+2. Build
+3. Workflow
+4. Browser preview
+5. Console browser
+6. Responsive preview
+
+Se qualcosa fallisce, correggerlo prima di dichiarare il task completato.
+
+---
+
+# 15. REPORT FINALE
+
+Al termine restituisci un report sintetico con:
+
+```text
+Task #20 — Rebranding Fanta MotoGP
+
+Branding: PASS/FAIL
+Navbar: PASS/FAIL
+Home: PASS/FAIL
+Pronostici: PASS/FAIL
+Risultati: PASS/FAIL
+Regolamento: PASS/FAIL
+Responsive: PASS/FAIL
+TypeScript: PASS/FAIL
+Build: PASS/FAIL
+Workflow: PASS/FAIL
+Console: PASS/FAIL
+
+Database modificato: NO
+RPC modificate: NO
+Scoring modificato: NO
+Prediction logic modificata: NO
+Migration create: NO
+Dati ufficiali modificati: NO
+```
+
+Indicare inoltre i file modificati.
+
+## CONDIZIONE DI COMPLETAMENTO
+
+Il task NON deve essere dichiarato completato semplicemente perché il brief è stato ricevuto.
+
+Deve essere dichiarato completato solo dopo aver **effettivamente modificato la UI** e verificato il risultato nella preview.
+
+L'obiettivo finale è che aprendo l'app si percepisca immediatamente:
+
+# Fanta MotoGP
+
+**Il gioco di pronostici MotoGP tra amici.**
