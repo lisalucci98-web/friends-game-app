@@ -28,16 +28,21 @@ const APPROVED_GP_CODES = new Map([
   ['Argentina', 'ARG'],
   ['Australia', 'AUS'],
   ['Austria', 'AUT'],
+  ['Brasile', 'BRA'],
   ['Catalogna', 'CAT'],
   ['FRANCIA', 'FRA'],
   ['Germany', 'GER'],
   ['Giappone', 'JPN'],
+  ['Indonesia', 'INA'],
   ['Italia', 'ITA'],
   ['Malesia', 'MAL'],
   ['Netherlands', 'NED'],
   ['Portogallo', 'POR'],
+  ['QATAR', 'QAT'],
   ['Repubblica Ceca', 'CZE'],
+  ['San Marino', 'RSM'],
   ['SPAGNA', 'SPA'],
+  ['Thailandia', 'THA'],
   ['UK', 'GBR'],
   ['Ungheria', 'HUN'],
   ['USA', 'USA'],
@@ -397,6 +402,17 @@ function mapGrandPrix(sourceRecords, grandPrix) {
         ? `nessun GP ${source.sourceYear} con date corrispondenti nell’app`
         : 'match GP non univoco';
     }
+    const reportStatus = source.sourceStatus === 'AGGREGATE_CONFLICT'
+      ? 'CONFLICT'
+      : source.sourceStatus === 'PARTIAL'
+        ? 'PARTIAL'
+        : source.sourceStatus !== 'OK'
+          ? 'REVIEW'
+          : matches.length === 1
+            ? 'PENDING'
+            : matches.length === 0
+              ? 'EXCLUDED'
+              : 'REVIEW';
     return {
       ...source,
       code,
@@ -404,6 +420,7 @@ function mapGrandPrix(sourceRecords, grandPrix) {
       matchCount: matches.length,
       status,
       reason,
+      reportStatus,
     };
   });
 }
@@ -438,6 +455,7 @@ function buildRows(mapped, userId, leagueId, existingPredictions, riders) {
   const riderByName = buildRiderMap(riders);
   const predictions = [];
   const entries = [];
+  const decisions = [];
 
   for (const item of mapped.filter((row) => row.status === 'MATCHED')) {
     const naturalKey = `${userId}|${item.appGp.id}|${leagueId}`;
@@ -451,6 +469,19 @@ function buildRows(mapped, userId, leagueId, existingPredictions, riders) {
         `${item.googleGp}: pronostico preesistente non creato da questo import; operazione interrotta`,
       );
     }
+    if (existing.length === 1) {
+      decisions.push({
+        ...item,
+        importStatus: 'ALREADY_EXISTS',
+        predictionId,
+      });
+      continue;
+    }
+    decisions.push({
+      ...item,
+      importStatus: 'NEW',
+      predictionId,
+    });
     const qualifyingTime = poleTimeToSeconds(item.sessions.qualifying.poleTime);
     predictions.push({
       id: predictionId,
@@ -511,7 +542,7 @@ function buildRows(mapped, userId, leagueId, existingPredictions, riders) {
       });
     }
   }
-  return { predictions, entries };
+  return { predictions, entries, decisions };
 }
 
 async function countsFor(client, userId, predictionIds = []) {
@@ -550,8 +581,26 @@ async function upsertRows(client, table, rows) {
   });
 }
 
+function sourceSummaryFromReport(markdown) {
+  const labels = [
+    ['spreadsheets', 'Spreadsheet analizzati'],
+    ['tabs', 'Tab analizzati'],
+    ['targetTabs', 'Tab con record TARGET'],
+    ['grandPrix', 'GP identificati'],
+    ['predictions', 'Pronostici TARGET trovati'],
+    ['complete', 'GP completi'],
+    ['partial', 'GP parziali'],
+    ['conflicts', 'Conflitti tra riepiloghi aggregate'],
+  ];
+  return Object.fromEntries(labels.map(([key, label]) => [
+    key,
+    Number(markdown.match(new RegExp(`^- ${label}: \\*\\*(\\d+)\\*\\*`))?.[1] ?? 0),
+  ]));
+}
+
 function buildReport({
   importMode,
+  sourceSummary,
   mapped,
   target,
   league,
@@ -559,19 +608,38 @@ function buildReport({
   after,
   rows,
 }) {
-  const imported = mapped.filter((row) => row.status === 'MATCHED');
+  const imported = rows.decisions.filter((row) => row.importStatus === 'NEW');
+  const alreadyExists = rows.decisions.filter((row) => row.importStatus === 'ALREADY_EXISTS');
   const excluded = mapped.filter((row) => row.status !== 'MATCHED');
-  const total = imported.reduce((sum, row) => sum + row.sessions.total, 0);
+  const finalStatus = (row) => {
+    const decision = rows.decisions.find((candidate) => candidate.googleGp === row.googleGp);
+    if (decision?.importStatus === 'NEW') return 'IMPORTED';
+    if (decision?.importStatus === 'ALREADY_EXISTS') return 'ALREADY_EXISTS';
+    return row.reportStatus;
+  };
   const lines = [
-    '# Import storico Google approvato',
+    '# Task 23 — Import storico Google Sheets',
     '',
     `- Modalità: **${importMode ? 'IMPORT COMPLETATO' : 'DRY-RUN — NESSUNA SCRITTURA'}**`,
     '- Account target verificato: **SÌ, match univoco**',
     `- Profilo target verificato: **SÌ** (profilo ${target.profile.id})`,
     `- Lega: **${league.name}**`,
-    `- GP importabili con match univoco: **${imported.length}**`,
-    `- Sessioni importabili: **${imported.length * SESSION_NAMES.length}**`,
-    `- Punteggio storico complessivo: **${total}**`,
+    '',
+    '## Riepilogo',
+    '',
+    `- Spreadsheet analizzati: **${sourceSummary.spreadsheets}**`,
+    `- Tab analizzati: **${sourceSummary.tabs}**`,
+    `- Tab con record TARGET: **${sourceSummary.targetTabs}**`,
+    `- GP identificati: **${sourceSummary.grandPrix}**`,
+    `- Prediction trovate: **${sourceSummary.predictions}**`,
+    `- GP completi: **${sourceSummary.complete}**`,
+    `- GP parziali: **${sourceSummary.partial}**`,
+    `- Conflitti: **${sourceSummary.conflicts}**`,
+    `- GP importabili: **${rows.decisions.length}**`,
+    `- Prediction già esistenti: **${alreadyExists.length}**`,
+    `- Prediction nuove importate: **${imported.length}**`,
+    `- Entry nuove importate: **${rows.entries.length}**`,
+    `- Punti storici caricati: **${imported.reduce((sum, row) => sum + row.sessions.total, 0)}**`,
     '',
     '## Mapping verificato prima della scrittura',
     '',
@@ -579,26 +647,49 @@ function buildReport({
     '|---|---|---|---|---|---|---:|---|',
   ];
   for (const row of mapped) {
+    const result = row.status !== 'MATCHED'
+      ? `ESCLUSO — ${row.reason}`
+      : finalStatus(row) === 'ALREADY_EXISTS'
+        ? 'ALREADY_EXISTS — nessuna scrittura'
+        : 'IMPORTA';
     lines.push(
       `| ${row.googleGp} | ${row.sourceDates?.join(', ') ?? '—'}`
       + ` | ${row.code} | ${row.appGp?.name ?? '—'}`
       + ` | ${row.appGp?.date_start?.slice(0, 10) ?? '—'}`
-      + ` | ${row.appGp?.circuit ?? '—'} | ${row.matchCount}`
-      + ` | ${row.status === 'MATCHED' ? 'IMPORTA' : `ESCLUSO — ${row.reason}`} |`,
+       + ` | ${row.appGp?.circuit ?? '—'} | ${row.matchCount}`
+       + ` | ${result} |`,
     );
   }
   lines.push(
     '',
     '## GP importati',
     '',
-    '| GP | Qualifica | Sprint | Gara | Totale | Sessioni |',
-    '|---|---:|---:|---:|---:|---|',
+    '| GP | Qualifica | Sprint | Gara | Totale | Sessioni | Stato |',
+    '|---|---:|---:|---:|---:|---|---|',
   );
-  for (const row of imported) {
+  for (const row of rows.decisions) {
     lines.push(
       `| ${row.googleGp} | ${row.sessions.qualifying.score}`
       + ` | ${row.sessions.sprint.score} | ${row.sessions.race.score}`
-      + ` | ${row.sessions.total} | Qualifica, Sprint, Gara |`,
+       + ` | ${row.sessions.total} | Qualifica, Sprint, Gara | ${row.importStatus} |`,
+    );
+  }
+  lines.push(
+    '',
+    '## Tabella finale per GP',
+    '',
+    '| GP | GP app ID | Qualifica | Sprint | Gara | OUT | Totale | Stato |',
+    '|---|---|---:|---:|---:|---|---:|---|',
+  );
+  for (const row of mapped) {
+    const qualifying = row.sessions?.qualifying?.score ?? '—';
+    const sprint = row.sessions?.sprint?.score ?? '—';
+    const race = row.sessions?.race?.score ?? '—';
+    const total = row.sessions?.total ?? '—';
+    const out = row.sessions?.race?.out ?? '—';
+    lines.push(
+      `| ${row.googleGp} | ${row.appGp?.id ?? '—'} | ${qualifying} | ${sprint}`
+      + ` | ${race} | ${out} | ${total} | ${finalStatus(row)} |`,
     );
   }
   lines.push('', '## Conteggi', '');
@@ -609,25 +700,29 @@ function buildReport({
   lines.push(`| Entry di questo import | ${before.importedEntries} | ${after.importedEntries} |`);
   lines.push(
     '',
-    `- Record prediction preparati: **${rows.predictions.length}**`,
-    `- Record prediction_entries preparati: **${rows.entries.length}**`,
+    `- Record prediction nuovi preparati: **${rows.predictions.length}**`,
+    `- Record prediction_entries nuovi preparati: **${rows.entries.length}**`,
+    `- Prediction già presenti riconosciute: **${alreadyExists.length}**`,
     '- Punti delle entry individuali: **0**; i punteggi storici approvati sono conservati nei campi aggregati Qualifica/Sprint/Gara/Totale senza inventare una distribuzione.',
     '- Scoring/RPC invocati o modificati: **NO**',
     '- Dati ufficiali MotoGP modificati: **NO**',
     '- Pronostici di altri utenti modificati: **NO**',
+    `- Database modificato: **${importMode ? 'SI' : 'NO'}**`,
+    `- Prediction create: **${importMode ? rows.predictions.length : 0}**`,
+    '- Prediction modificate: **0**',
+    `- Entry create: **${importMode ? rows.entries.length : 0}**`,
+    '- Prediction esistenti sovrascritte: **0**',
+    '- RPC modificate: **NO**',
+    '- RLS modificate: **NO**',
+    '- Scoring modificato: **NO**',
+    '- Google Sheets modificato: **NO**',
+    '- Token/credenziali salvati o stampati: **NO**',
     '',
     '## Esclusi',
     '',
   );
   for (const row of excluded) lines.push(`- **${row.googleGp}** — ${row.reason}.`);
-  lines.push(
-    '- **Brasile** — Qualifica mancante.',
-    '- **Indonesia** — Sprint mancante.',
-    '- **San Marino** — Qualifica mancante.',
-    '- **QATAR** — conflitto nei riepiloghi.',
-    '- **Thailandia** — conflitto nei riepiloghi.',
-    '',
-  );
+  lines.push('');
   return `${lines.join('\n')}\n`;
 }
 
@@ -638,7 +733,9 @@ async function main() {
     throw new Error('Impostare TARGET_EMAIL con un indirizzo valido.');
   }
 
-  const sourceRecords = parseSourceReport(await readFile(args.source, 'utf8'));
+  const sourceMarkdown = await readFile(args.source, 'utf8');
+  const sourceRecords = parseSourceReport(sourceMarkdown);
+  const sourceSummary = sourceSummaryFromReport(sourceMarkdown);
   sourceRecords.forEach(validateSourceRecord);
   const client = createSupabaseClient();
   const target = await resolveTargetUser(client, targetEmail);
@@ -676,6 +773,7 @@ async function main() {
 
   const report = buildReport({
     importMode: args.importMode,
+    sourceSummary,
     mapped,
     target,
     league,

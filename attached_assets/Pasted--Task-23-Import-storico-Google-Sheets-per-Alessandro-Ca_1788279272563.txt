@@ -1,0 +1,235 @@
+# Task #23 — Import storico Google Sheets per Alessandro Cavasso
+
+Voglio importare nello storico dell'app FantaMotoGP i pronostici passati del partecipante:
+
+**Email target:** `alessandro.cavasso.1995@gmail.com`
+
+## Obiettivo
+
+Ripeti esattamente il workflow già utilizzato e validato nei Task #16 e #17 per il partecipante Nikyturets, utilizzando però questa volta l'email target sopra indicata.
+
+**NON creare un nuovo sistema di importazione se è già disponibile uno script riutilizzabile.** Individua e riutilizza lo stesso importer/workflow già utilizzato per lo storico Google Sheets.
+
+---
+
+## Fase 1 — Analisi READ-ONLY
+
+Prima di effettuare qualsiasi scrittura:
+
+1. Leggi tutti i Google Sheets già collegati tramite OAuth Google Sheets.
+2. Analizza tutti i tab disponibili.
+3. Cerca l'email target `alessandro.cavasso.1995@gmail.com`.
+4. Ricostruisci i pronostici per:
+
+   * Qualifica
+   * Sprint
+   * Gara
+   * OUT
+5. Associa ogni record al relativo GP.
+6. Recupera i punteggi storici già presenti nei fogli.
+7. NON ricalcolare i punteggi se è già presente uno `HISTORICAL_SCORE`.
+8. Mantieni separati:
+
+   * testo originale dei piloti;
+   * nome pilota normalizzato.
+9. Non salvare, stampare nei log o inserire nei report l'indirizzo email completo del partecipante.
+
+---
+
+## Fase 2 — Matching con i GP dell'app
+
+Utilizza la stessa logica del Task #16.
+
+Per ogni GP storico individua il corrispondente `grand_prix.id` dell'app 2026 utilizzando, quando disponibili:
+
+* `season_id`
+* `name`
+* `short_name`
+* `country`
+* `circuit`
+* `date_start`
+* `date_end`
+* ordine cronologico / round
+
+Usa la tolleranza sulle date già prevista dallo script esistente.
+
+### Regola importante
+
+Non associare automaticamente un GP 2025 a un GP 2026 solo perché il nome coincide.
+
+Se il candidato è ambiguo, marca il record come `REVIEW`.
+
+---
+
+## Fase 3 — Regole di importazione
+
+Importa solamente prediction che rispettano TUTTE queste condizioni:
+
+* GP 2026 identificato con certezza;
+* sessioni complete:
+
+  * Qualifica
+  * Sprint
+  * Gara;
+* nessun conflitto nei dati;
+* nessuna anomalia bloccante;
+* prediction non già presente per lo stesso partecipante + GP.
+
+### NON importare
+
+Escludi:
+
+* GP 2025;
+* GP non presenti nel calendario 2026;
+* GP con matching ambiguo;
+* GP parziali;
+* GP con sessioni mancanti;
+* GP con conflitti `AGGREGATE_CONFLICT`;
+* record con dati non validi che impediscono l'importazione;
+* prediction già esistenti.
+
+Per i casi esclusi, produci un report chiaro con il motivo dell'esclusione.
+
+---
+
+## Fase 4 — Protezione dei dati già presenti
+
+Prima di creare qualsiasi prediction:
+
+1. verifica tutte le prediction già presenti per il partecipante target;
+2. non modificare mai prediction esistenti;
+3. non sovrascrivere entry esistenti;
+4. non correggere automaticamente dati già presenti;
+5. se una prediction esiste già, marcarla come `ALREADY_EXISTS` e saltarla.
+
+Questo è fondamentale per mantenere l'importazione idempotente.
+
+---
+
+## Fase 5 — Import
+
+Dopo aver completato l'analisi e il matching, importa esclusivamente i record deterministici.
+
+Per ogni prediction importata devono essere mantenuti correttamente:
+
+* partecipante;
+* `grand_prix_id`;
+* Qualifica;
+* Sprint;
+* Gara;
+* OUT;
+* punteggio Qualifica;
+* punteggio Sprint;
+* punteggio Gara;
+* totale storico.
+
+Usa esclusivamente i punteggi storici già presenti nei Google Sheets quando disponibili.
+
+**NON modificare:**
+
+* scoring;
+* RPC;
+* RLS;
+* dati ufficiali MotoGP;
+* calendario GP;
+* risultati ufficiali;
+* Google Sheets.
+
+---
+
+## Fase 6 — Idempotenza
+
+Dopo l'import:
+
+1. riesegui lo stesso processo;
+2. verifica che nessuna prediction venga duplicata;
+3. verifica che nessuna entry venga duplicata;
+4. verifica che le prediction già importate vengano riconosciute come `ALREADY_EXISTS`.
+
+Il secondo passaggio deve produrre **0 nuove importazioni**.
+
+---
+
+## Fase 7 — Report
+
+Crea:
+
+`.agents/outputs/task-23-historical-import-report.md`
+
+Il report deve contenere:
+
+### Riepilogo
+
+* Spreadsheet analizzati
+* Tab analizzati
+* Tab con record TARGET
+* GP identificati
+* prediction trovate
+* GP completi
+* GP parziali
+* conflitti
+* prediction già esistenti
+* prediction nuove importate
+* entry importate
+* GP esclusi
+* motivazione delle esclusioni
+
+### Tabella finale
+
+Per ogni GP:
+
+| GP | GP app ID | Qualifica | Sprint | Gara | OUT | Totale | Stato |
+| -- | --------- | --------- | ------ | ---- | --- | ------ | ----- |
+
+Gli stati possono essere:
+
+* `IMPORTED`
+* `ALREADY_EXISTS`
+* `EXCLUDED`
+* `REVIEW`
+* `PARTIAL`
+* `CONFLICT`
+
+### Sicurezza
+
+Nel report conferma esplicitamente:
+
+* Database modificato: SI/NO
+* Prediction create: numero
+* Prediction modificate: 0
+* Entry create: numero
+* Prediction esistenti sovrascritte: 0
+* RPC modificate: NO
+* RLS modificate: NO
+* Scoring modificato: NO
+* Google Sheets modificato: NO
+* Dati ufficiali MotoGP modificati: NO
+* Token/credenziali salvati o stampati: NO
+
+Non inserire l'indirizzo email completo nel report.
+
+---
+
+## Fase 8 — Validazione
+
+Al termine esegui:
+
+* TypeScript check
+* build completa
+* `git diff --check`
+* verifica idempotenza
+* verifica che l'app continui a funzionare
+* verifica che `/miei-risultati` mostri correttamente lo storico importato
+* verifica che la classifica della lega continui a funzionare.
+
+### Vincolo fondamentale
+
+Questo task riguarda esclusivamente l'importazione dello storico di **Alessandro Cavasso**.
+
+Non modificare funzionalità esistenti dell'app e non introdurre modifiche non necessarie.
+
+Se trovi casi ambigui, **NON scegliere automaticamente**: riportali nel report come `REVIEW` e non importarli.
+
+Alla fine mostrami un riepilogo molto chiaro di:
+
+**quanti GP sono stati trovati → quanti importabili → quanti già presenti → quanti esclusi → quante prediction nuove sono state create → quanti punti storici sono stati caricati.**
