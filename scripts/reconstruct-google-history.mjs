@@ -21,8 +21,7 @@ const DEFAULT_SPREADSHEET_ID = '12LPMVYnqA6gb6uyFYTesw4XVG3XVZbPidVWEHOy7UhY';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SESSIONS = ['Qualifica', 'Sprint', 'Gara'];
 
-const RIDER_ALIASES = new Map(
-  [
+const RIDER_ALIASES = new Map([
     ['r. fernandez', 'Raul Fernandez'],
     ['raul fernandez', 'Raul Fernandez'],
     ['m. bezzecchi', 'Marco Bezzecchi'],
@@ -43,32 +42,11 @@ const RIDER_ALIASES = new Map(
     ['alex marquez', 'Alex Marquez'],
     ['j. mir', 'Joan Mir'],
     ['joan mir', 'Joan Mir'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
+    ['f. aldeguer', 'Fermin Aldeguer'],
     ['f. aldegeur', 'Fermin Aldeguer'],
-    ['f. ald eguer', 'Fermin Aldeguer'],
+    ['f. aldegu er', 'Fermin Aldeguer'],
     ['f. ald eguer', 'Fermin Aldeguer'],
     ['f. ald e g u e r', 'Fermin Aldeguer'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
-    ['f. ald eguer', 'Fermin Aldeguer'],
-    ['f. ald eguer', 'Fermin Aldeguer'],
-    ['f. ald eguer', 'Fermin Aldeguer'],
-    ['f. ald eguer', 'Fermin Aldeguer'],
-    ['f. ald eguer', 'Fermin Aldeguer'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
-    ['f. aldegu er', 'Fermin Aldeguer'],
     ['f. aldegu er', 'Fermin Aldeguer'],
     ['l. marini', 'Luca Marini'],
     ['luca marini', 'Luca Marini'],
@@ -88,7 +66,7 @@ const RIDER_ALIASES = new Map(
     ['johann zarco', 'Johann Zarco'],
     ['f. quartararo', 'Fabio Quartararo'],
     ['fabio quartararo', 'Fabio Quartararo'],
-  ].map(([key, value]) => [key, value]),
+  ],
 );
 
 const GP_ALIASES = new Map([
@@ -523,26 +501,50 @@ function sessionStatus(records, session) {
   return { status: ok ? 'OK' : 'MISSING', records: [record] };
 }
 
+function soleRecord(result) {
+  return result.records.length === 1 ? result.records[0] : null;
+}
+
+function aggregateSignature(aggregate) {
+  return [
+    aggregate.qualifying,
+    aggregate.sprint,
+    aggregate.race,
+    aggregate.total,
+  ].join('|');
+}
+
 function summaryForGp(grandPrixKey, entries, aggregates) {
   const gpEntries = entries.filter((entry) => entry.grandPrixKey === grandPrixKey);
   const gpAggregates = aggregates.filter((aggregate) => aggregate.grandPrixKey === grandPrixKey);
   const sessionResults = Object.fromEntries(SESSIONS.map((session) => [session, sessionStatus(gpEntries, session)]));
   const aggregateValues = gpAggregates.filter((item) => [item.qualifying, item.sprint, item.race, item.total].some((value) => typeof value === 'number'));
-  const aggregate = aggregateValues[0] ?? null;
+  const distinctAggregates = [...new Map(aggregateValues.map((item) => [aggregateSignature(item), item])).values()];
+  const aggregate = distinctAggregates.length === 1 ? distinctAggregates[0] : null;
+  const aggregateConflict = distinctAggregates.length > 1;
   const scores = {
-    qualifying: sessionResults.Qualifica.records[0]?.prediction.historicalScore ?? null,
-    sprint: sessionResults.Sprint.records[0]?.prediction.historicalScore ?? null,
-    race: sessionResults.Gara.records[0]?.prediction.historicalScore ?? null,
+    qualifying: soleRecord(sessionResults.Qualifica)?.prediction.historicalScore ?? null,
+    sprint: soleRecord(sessionResults.Sprint)?.prediction.historicalScore ?? null,
+    race: soleRecord(sessionResults.Gara)?.prediction.historicalScore ?? null,
   };
   const computedSum = Object.values(scores).every((value) => typeof value === 'number')
     ? Object.values(scores).reduce((sum, value) => sum + value, 0)
     : null;
-  const totalMismatch = aggregate?.total !== null
+  const totalMismatch = aggregate
+    && aggregate.total !== null
     && computedSum !== null
     && aggregate.total !== computedSum;
   const duplicate = Object.values(sessionResults).some((result) => result.status === 'MULTIPLE SUBMISSIONS');
   const partial = Object.values(sessionResults).some((result) => result.status !== 'OK') || !aggregate || aggregate.total === null;
-  const status = duplicate ? 'MULTIPLE SUBMISSIONS' : totalMismatch ? 'TOTAL_MISMATCH' : partial ? 'PARTIAL' : 'OK';
+  const status = duplicate
+    ? 'MULTIPLE SUBMISSIONS'
+    : aggregateConflict
+      ? 'AGGREGATE_CONFLICT'
+      : totalMismatch
+        ? 'TOTAL_MISMATCH'
+        : partial
+          ? 'PARTIAL'
+          : 'OK';
   return {
     grandPrix: gpEntries[0]?.grandPrix ?? aggregate?.grandPrix ?? 'UNKNOWN',
     grandPrixKey,
@@ -550,6 +552,7 @@ function summaryForGp(grandPrixKey, entries, aggregates) {
     aggregates: gpAggregates,
     sessionResults,
     aggregate,
+    aggregateConflict,
     scores,
     computedSum,
     totalMismatch,
@@ -655,8 +658,10 @@ function buildReport({ files, entries, aggregates, summaries, errors, localRecor
     `- GP completi: **${summaries.filter((summary) => summary.status === 'OK').length}**`,
     `- GP parziali: **${summaries.filter((summary) => summary.status === 'PARTIAL').length}**`,
     `- Duplicati/multiple submissions: **${summaries.filter((summary) => summary.status === 'MULTIPLE SUBMISSIONS').length}**`,
+    `- Conflitti tra riepiloghi aggregate: **${summaries.filter((summary) => summary.status === 'AGGREGATE_CONFLICT').length}**`,
     `- GP con matching certo: **${summaries.filter((summary) => appMatchStatus(summary.grandPrix, appGps).status === 'YES').length}**`,
     `- GP da verificare: **${summaries.filter((summary) => appMatchStatus(summary.grandPrix, appGps).status !== 'YES').length}**`,
+    '- GP dell’app/database disponibili per il matching: **0**; tutti i match sono `REVIEW` perché la lettura read-only non ha restituito identificativi GP.',
     '',
   ];
 
@@ -671,9 +676,9 @@ function buildReport({ files, entries, aggregates, summaries, errors, localRecor
     '|---|---|---|---:|---:|---|---:|---|',
   );
   for (const summary of summaries) {
-    const q = summary.sessionResults.Qualifica.records[0]?.prediction;
-    const sprint = summary.sessionResults.Sprint.records[0]?.prediction;
-    const race = summary.sessionResults.Gara.records[0]?.prediction;
+    const q = soleRecord(summary.sessionResults.Qualifica)?.prediction;
+    const sprint = soleRecord(summary.sessionResults.Sprint)?.prediction;
+    const race = soleRecord(summary.sessionResults.Gara)?.prediction;
     lines.push(`| ${markdownCell(summary.grandPrix)} | ${markdownCell(formatRider(q?.pole))} | ${markdownCell(q?.poleTime)} | ${summary.scores.sprint ?? '—'} | ${summary.scores.race ?? '—'} | ${markdownCell(formatRider(race?.out))} | ${summary.aggregate?.total ?? '—'} | ${summary.status} |`);
   }
   if (!summaries.length) lines.push('| — | — | — | — | — | — | — | UNKNOWN |');
@@ -697,6 +702,9 @@ function buildReport({ files, entries, aggregates, summaries, errors, localRecor
     lines.push(`- GP app: **${match.app}**`);
     lines.push(`- MATCH_STATUS: **${match.status === 'YES' ? 'YES' : 'REVIEW'}**`);
     lines.push(`- Stato ricostruzione: **${summary.status}**`);
+    if (summary.aggregateConflict) {
+      lines.push('- AGGREGATE_CONFLICT: i riepiloghi disponibili riportano valori diversi; nessun riepilogo è stato scelto automaticamente.');
+    }
     if (summary.totalMismatch) {
       lines.push(`- TOTAL_MISMATCH: totale dichiarato ${summary.aggregate?.total}; somma dei tre punteggi dichiarati ${summary.computedSum}.`);
     }
@@ -746,15 +754,43 @@ function buildReport({ files, entries, aggregates, summaries, errors, localRecor
   lines.push('- Il testo originale del foglio non viene modificato.', '');
 
   lines.push('## Confronto con lo storico locale', '', '| GP | Sessione | Stato | Dettaglio |', '|---|---|---|---|');
-  const localKeys = new Set(localRecords.map((record) => `${record.grandPrixKey}|${record.session}`));
-  const googleKeys = new Set(entries.map((record) => `${record.grandPrixKey}|${record.session}`));
+  const localGroups = new Map();
+  const googleGroups = new Map();
   for (const record of localRecords) {
     const key = `${record.grandPrixKey}|${record.session}`;
-    lines.push(`| ${markdownCell(record.grandPrix)} | ${record.session} | ${googleKeys.has(key) ? 'MATCH/REVIEW' : 'MISSING'} | ${googleKeys.has(key) ? 'coppia GP/sessione presente; verificare i valori' : 'non trovata nei Google Sheets'} |`);
+    if (!localGroups.has(key)) localGroups.set(key, []);
+    localGroups.get(key).push(record);
   }
   for (const record of entries) {
     const key = `${record.grandPrixKey}|${record.session}`;
-    if (!localKeys.has(key)) lines.push(`| ${markdownCell(record.grandPrix)} | ${record.session} | NEW RECORD | presente in Google Sheets ma non nel dataset locale |`);
+    if (!googleGroups.has(key)) googleGroups.set(key, []);
+    googleGroups.get(key).push(record);
+  }
+  for (const record of localRecords) {
+    const key = `${record.grandPrixKey}|${record.session}`;
+    const matches = googleGroups.get(key) ?? [];
+    const status = matches.length === 0
+      ? 'MISSING'
+      : matches.length > 1
+        ? 'UNKNOWN'
+        : formatPrediction(matches[0]) === formatPrediction(record)
+          ? 'MATCH'
+          : 'DIFFERENCE';
+    const detail = matches.length === 0
+      ? 'non trovata nei Google Sheets'
+      : matches.length > 1
+        ? `${matches.length} record Google; confronto non risolto automaticamente`
+        : status === 'MATCH'
+          ? 'valori presenti e coincidenti'
+          : 'valori diversi; verificare il record';
+    lines.push(`| ${markdownCell(record.grandPrix)} | ${record.session} | ${status} | ${detail} |`);
+  }
+  for (const [key, records] of googleGroups) {
+    if (!localGroups.has(key)) {
+      for (const record of records) {
+        lines.push(`| ${markdownCell(record.grandPrix)} | ${record.session} | NEW RECORD | presente in Google Sheets ma non nel dataset locale |`);
+      }
+    }
   }
   if (!localRecords.length && !entries.length) lines.push('| — | — | UNKNOWN | nessun record disponibile |');
   lines.push('');

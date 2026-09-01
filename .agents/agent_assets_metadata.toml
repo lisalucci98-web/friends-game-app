@@ -14,3 +14,17 @@ mtime_ms = 1788261620599
 storage_uri = "gcs://replit-rams-assets-archer/rams/assets/repl:92af7a65-61ba-4849-85b4-634f42e78888/f8a562b2-3b96-422d-ae91-f8e20a3a72f1/b625c298-1849-48e9-b56d-38f3fa35c793"
 storage_version_token = "1788261658094462"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "2IwPsE9hoG_KlLqE-u8RP"
+uri = "file://.agents/outputs/google-history-nikyturets.md"
+type = "text"
+title = "Report Task #22 — storico Google Sheets"
+description = "Ricostruzione completa in sola lettura dei pronostici storici, con GP, sessioni, punteggi storici, controlli di coerenza, confronto locale e stato di matching app/database."
+logical_id = "7663f5e0-f43a-4820-871d-7eb7e257f632"
+content_hash = "sha256:0f73093fdcd6a8a65bead0f6a625b7dad8f0d4b83385a88f37e6c806ae342446"
+size = 36600
+mtime_ms = 1788265956102
+storage_uri = "gcs://replit-rams-assets-archer/rams/assets/repl:92af7a65-61ba-4849-85b4-634f42e78888/7663f5e0-f43a-4820-871d-7eb7e257f632/9e0d254c-9412-41aa-8762-c4cf4eb8d0e1"
+storage_version_token = "1788266053958897"
+content_type = "text/markdown"

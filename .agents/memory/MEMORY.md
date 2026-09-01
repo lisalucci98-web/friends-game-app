@@ -9,3 +9,4 @@
 - [Score prediction definition audit](task-16-score-prediction-definition.md) — Supabase REST exposes the signature, but no authorized SQL channel is available to retrieve the function body.
 - [Supabase SQL access limitation](task-17-score-prediction-sql-analysis.md) — the connected integration is REST-only and its current role cannot read `public.predictions`.
 - [UI data audit](task-18-ui-data-audit.md) — the UI loads prediction inputs and official results, but no fantasy scoring breakdown, history, or server-side score.
+- [Google history reconstruction](google-history-reconstruction.md) — coalesce identical summary copies; reserve multiple-submission flags for repeated participant rows.
