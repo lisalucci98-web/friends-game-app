@@ -1,0 +1,453 @@
+# Task #21 — Punteggi, riepilogo e classifica delle leghe
+
+Implementare nell’app Fanta MotoGP una sezione completa per visualizzare i punteggi ottenuti dai partecipanti, il riepilogo personale e la classifica di ogni lega.
+
+## Obiettivo
+
+L’utente deve poter:
+
+1. vedere il punteggio ottenuto alla fine di ogni proprio pronostico;
+2. vedere un riepilogo complessivo dei propri risultati;
+3. vedere, per ogni lega a cui partecipa, la classifica generale dei partecipanti;
+4. a fine GP, poter visualizzare anche il pronostico effettuato da ciascun partecipante della lega;
+5. utilizzare tutto comodamente anche da smartphone.
+
+---
+
+# 1. Punteggio nel singolo pronostico
+
+Al termine di ogni GP, nella pagina dei propri pronostici deve essere mostrato chiaramente il punteggio ottenuto.
+
+Per ogni GP visualizzare almeno:
+
+* nome GP;
+* sessione Qualifica;
+* punteggio Qualifica;
+* punteggio Sprint;
+* punteggio Gara;
+* eventuali bonus;
+* eventuali malus;
+* totale GP.
+
+Esempio:
+
+```text
+🇮🇹 GP d'Italia
+
+QUALIFICA        5 pt
+SPRINT           3 pt
+GARA            18 pt
+BONUS            7 pt
+MALUS           -1 pt
+--------------------
+TOTALE          32 pt
+```
+
+Se il GP non è ancora concluso:
+
+```text
+Pronostico inserito
+Punteggio in attesa dei risultati
+```
+
+Non mostrare punteggi definitivi prima che siano disponibili i risultati necessari.
+
+---
+
+# 2. Pagina "I miei risultati"
+
+Creare una nuova sezione/pagina:
+
+```text
+I miei risultati
+```
+
+La pagina deve mostrare tutti i GP della stagione in ordine cronologico.
+
+Per ogni GP:
+
+```text
+GP
+Qualifica
+Sprint
+Gara
+Bonus
+Malus
+Totale GP
+```
+
+In fondo deve essere presente:
+
+```text
+TOTALE STAGIONE
+XXX punti
+```
+
+Aggiungere anche un riepilogo sintetico:
+
+* GP disputati;
+* punti totali;
+* media punti per GP;
+* miglior GP;
+* posizione media, se disponibile.
+
+La grafica deve essere coerente con il branding Fanta MotoGP già implementato.
+
+---
+
+# 3. Classifica della lega
+
+Per ogni lega deve essere presente una sezione:
+
+```text
+Classifica
+```
+
+La classifica deve contenere **tutti i partecipanti della lega**.
+
+Ordinamento:
+
+1. punti totali decrescenti;
+2. in caso di parità, utilizzare un criterio deterministico già presente nel database; se non esiste, non inventare un criterio arbitrario e documentare il problema.
+
+Visualizzare almeno:
+
+| Pos. | Giocatore | Punti |
+| ---- | --------- | ----: |
+| 🥇   | Mario     |   145 |
+| 🥈   | Luca      |   138 |
+| 🥉   | Anna      |   131 |
+
+Evidenziare visivamente l'utente autenticato.
+
+La classifica deve aggiornarsi automaticamente quando vengono registrati nuovi punteggi.
+
+---
+
+# 4. Dettaglio di ogni partecipante
+
+Dalla classifica della lega deve essere possibile aprire il dettaglio di un partecipante.
+
+Il dettaglio deve mostrare:
+
+```text
+Nome giocatore
+Punti totali
+
+GP1   XX pt
+GP2   XX pt
+GP3   XX pt
+...
+```
+
+---
+
+# 5. Visualizzazione dei pronostici degli altri partecipanti
+
+IMPORTANTE.
+
+Per ogni lega, **a GP concluso**, deve essere possibile vedere il pronostico effettuato da ciascun partecipante.
+
+Il pronostico deve diventare visibile soltanto quando il regolamento temporale del gioco lo consente.
+
+Prima della chiusura della relativa sessione/GP:
+
+```text
+Pronostico nascosto
+```
+
+Dopo la chiusura:
+
+```text
+Pronostico visibile
+```
+
+Non consentire in alcun modo di vedere anticipatamente i pronostici degli altri giocatori.
+
+---
+
+# 6. Dettaglio pronostico di un partecipante
+
+Quando l'utente apre il dettaglio di un partecipante, mostrare:
+
+## Qualifica
+
+```text
+Pole:
+Pilota
+
+Tempo Pole:
+MM:SS.mmm
+
+Punteggio:
+X pt
+```
+
+## Sprint
+
+```text
+P1 — Pilota
+P2 — Pilota
+P3 — Pilota
+
+Punteggio:
+X pt
+```
+
+## Gara
+
+```text
+P1 — Pilota
+P2 — Pilota
+P3 — Pilota
+P4 — Pilota
+P5 — Pilota
+
+OUT — Pilota
+
+Punteggio:
+X pt
+```
+
+Se disponibili, mostrare anche:
+
+```text
+Bonus
+Malus
+Totale Gara
+```
+
+---
+
+# 7. Stato del pronostico
+
+Ogni GP deve avere uno stato chiaramente identificabile:
+
+* `Non compilato`
+* `Pronostico salvato`
+* `In attesa dei risultati`
+* `Punteggio disponibile`
+
+Utilizzare badge visivi coerenti con la grafica Fanta MotoGP.
+
+---
+
+# 8. Sicurezza e privacy
+
+Prestare particolare attenzione a questo punto.
+
+Gli utenti possono vedere i pronostici degli altri partecipanti **solo quando il GP/sessione è chiuso secondo le regole del gioco**.
+
+Non modificare le policy RLS in modo da esporre indiscriminatamente tutti i pronostici.
+
+Prima di modificare RLS o database:
+
+1. analizzare lo schema esistente;
+2. verificare quali dati sono già accessibili;
+3. verificare se esiste già una funzione/view adatta;
+4. utilizzare il minimo accesso necessario.
+
+Non utilizzare dati personali non necessari.
+
+Mostrare preferibilmente il nome/nickname del partecipante anziché l'indirizzo email.
+
+---
+
+# 9. Mobile first
+
+La pagina deve essere progettata soprattutto per smartphone.
+
+Verificare almeno:
+
+```text
+360 px
+375 px
+390 px
+768 px
+1024 px
+1440 px
+```
+
+Su smartphone la classifica deve essere leggibile senza dover utilizzare una tabella troppo larga.
+
+Preferire card responsive come:
+
+```text
+🥇
+Mario
+145 pt
+```
+
+oppure una tabella compatta se risulta più leggibile.
+
+Il dettaglio del pronostico deve essere facilmente navigabile da telefono.
+
+---
+
+# 10. Navigazione
+
+Aggiornare la navbar esistente aggiungendo, dove opportuno:
+
+```text
+Home
+Pronostici
+Risultati
+Leghe
+I miei risultati
+Regolamento
+Profilo
+```
+
+Non duplicare inutilmente le pagine se una funzionalità può essere integrata nella sezione Leghe.
+
+La struttura finale deve essere intuitiva.
+
+---
+
+# 11. Scoring
+
+ATTENZIONE:
+
+**NON modificare in questo task il regolamento matematico dello scoring.**
+
+Non modificare:
+
+```text
+score_prediction
+calculate_qualifying_time_points
+submit_prediction
+```
+
+salvo che sia tecnicamente indispensabile per leggere correttamente i dati già esistenti.
+
+Non reinterpretare i punteggi storici.
+
+Utilizzare i punteggi effettivamente disponibili nel sistema.
+
+Se i dati necessari al calcolo non sono accessibili, NON inventare valori.
+
+Documentare esattamente cosa manca.
+
+---
+
+# 12. Database
+
+Prima di apportare modifiche:
+
+* analizzare le tabelle esistenti;
+* analizzare eventuali view/RPC già disponibili;
+* verificare come sono rappresentate:
+
+  * leghe;
+  * partecipanti;
+  * prediction;
+  * sessioni;
+  * risultati;
+  * punteggi.
+
+Non creare duplicati di dati già presenti.
+
+Se è necessario modificare lo schema, creare una migration esplicita e documentarla.
+
+Non modificare dati storici esistenti.
+
+---
+
+# 13. Test
+
+Eseguire almeno:
+
+### UI
+
+* classifica lega;
+* dettaglio partecipante;
+* dettaglio pronostico;
+* miei risultati;
+* totale stagione;
+* responsive mobile.
+
+### Sicurezza
+
+Verificare che:
+
+* un utente possa vedere i propri pronostici;
+* un utente possa vedere i pronostici altrui solo dopo la chiusura prevista;
+* un utente non autenticato non possa accedere ai dati privati;
+* un utente di una lega non possa vedere dati di leghe a cui non appartiene.
+
+### Dati
+
+Verificare:
+
+* corretto ordinamento classifica;
+* corretta somma dei GP;
+* corretta visualizzazione dei punteggi;
+* corretta gestione di GP senza punteggio;
+* gestione dei pareggi.
+
+### Qualità
+
+Eseguire:
+
+```text
+TypeScript
+Build
+Workflow
+Console
+```
+
+e verificare che non vengano introdotti nuovi errori.
+
+---
+
+# 14. Vincoli
+
+NON modificare arbitrariamente:
+
+* scoring;
+* regolamento matematico;
+* risultati ufficiali MotoGP;
+* prediction esistenti;
+* dati storici;
+* autenticazione esistente.
+
+Ogni modifica al database deve essere documentata.
+
+---
+
+# 15. Report finale
+
+Al termine creare:
+
+```text
+.agents/memory/task-21-results-and-leaderboard.md
+```
+
+Il report deve indicare:
+
+* funzionalità implementate;
+* pagine/route create o modificate;
+* tabelle/RPC/view utilizzate;
+* eventuali migration;
+* test effettuati;
+* test passati/falliti;
+* eventuali limitazioni;
+* eventuali dati non disponibili.
+
+Indicare esplicitamente:
+
+```text
+Database modificato: SI/NO
+RPC modificata: SI/NO
+Scoring modificato: SI/NO
+Prediction modificate: SI/NO
+Dati storici modificati: SI/NO
+RLS modificato: SI/NO
+TypeScript: PASS/FAIL
+Build: PASS/FAIL
+Workflow: PASS/FAIL
+Responsive: PASS/FAIL
+Console: PASS/FAIL
+```
+
+Non considerare il task completato se la classifica o la visibilità condizionata dei pronostici non è stata verificata.

@@ -9,6 +9,10 @@ import {
 } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
+import {
+  LeagueResultsContent,
+  MyResultsContent,
+} from '@/components/Task21Results';
 import { supabase } from '@/lib/supabase';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -248,6 +252,7 @@ function MainPageLayout({
   const sections = [
     { path: '/home', label: 'Home', icon: HomeIcon },
     { path: '/leghe', label: 'Leghe', icon: Trophy },
+    { path: '/miei-risultati', label: 'I miei risultati', icon: Target },
     { path: '/risultati', label: 'Risultati', icon: Flag },
     { path: '/profilo', label: 'Profilo', icon: UserRound },
     { path: '/regolamento', label: 'Regolamento', icon: BookOpen },
@@ -3092,6 +3097,33 @@ function ProtectedResultsPage() {
   );
 }
 
+function MyResultsPage() {
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
+
+  return (
+    <MainPageLayout
+      eyebrow="Fanta MotoGP · 2026"
+      title="I miei risultati"
+      text="Il riepilogo dei tuoi punteggi, GP dopo GP."
+      className="results-app-page"
+    >
+      <MyResultsContent
+        user={user}
+        onOpenOfficialResults={() => navigate('/risultati')}
+      />
+    </MainPageLayout>
+  );
+}
+
+function ProtectedMyResultsPage() {
+  return (
+    <ProtectedPage>
+      <MyResultsPage />
+    </ProtectedPage>
+  );
+}
+
 function ProtectedPronosticiPage() {
   return (
     <ProtectedPage>
@@ -3121,8 +3153,29 @@ function LegacyPronosticiRedirect() {
 function ProtectedLeagueDetailPage() {
   return (
     <ProtectedPage>
-      <LeagueDetailPage />
+      <LeagueResultsPage />
     </ProtectedPage>
+  );
+}
+
+function LeagueResultsPage() {
+  const { leagueId } = useParams<{ leagueId: string }>();
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
+
+  return (
+    <MainPageLayout
+      eyebrow="Fanta MotoGP · Leghe"
+      title="Classifica lega"
+      text="Punteggi e dettaglio dei partecipanti."
+      className="results-app-page"
+    >
+      <LeagueResultsContent
+        user={user}
+        leagueId={leagueId}
+        onBack={() => navigate('/leghe')}
+      />
+    </MainPageLayout>
   );
 }
 
@@ -3390,6 +3443,7 @@ function Router() {
         <Route path="/home" component={ProtectedHomePage} />
         <Route path="/leghe" component={ProtectedLeaguesPage} />
         <Route path="/pronostici" component={LegacyPronosticiRedirect} />
+        <Route path="/miei-risultati" component={ProtectedMyResultsPage} />
         <Route path="/risultati" component={ProtectedResultsPage} />
         <Route path="/leghe/:leagueId" component={ProtectedLeagueDetailPage} />
         <Route path="/profilo" component={ProtectedProfilePage} />
