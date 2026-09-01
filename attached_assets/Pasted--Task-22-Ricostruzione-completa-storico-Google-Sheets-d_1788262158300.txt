@@ -1,0 +1,494 @@
+# Task #22 — Ricostruzione completa storico Google Sheets di Nikyturets
+
+## Obiettivo
+
+Utilizzare la connessione OAuth Google Sheets già configurata nell'ambiente Replit per ricostruire automaticamente tutti i pronostici storici di:
+
+```text
+nikyturets@gmail.com
+```
+
+Lo scopo di questo task è **solo analizzare e ricostruire lo storico**.
+
+### IMPORTANTE
+
+In questo task:
+
+* NON creare prediction su Supabase;
+* NON modificare prediction esistenti;
+* NON modificare il database;
+* NON modificare RPC;
+* NON modificare scoring;
+* NON modificare Google Sheets;
+* NON modificare i dati ufficiali MotoGP.
+
+L'importazione effettiva su Supabase verrà eseguita in un task successivo, dopo la verifica manuale del risultato.
+
+---
+
+# 1. Utilizzare la connessione Google già autorizzata
+
+La connessione OAuth Google Sheets è già attiva e funzionante.
+
+Utilizzare la stessa integrazione già verificata nel Task precedente.
+
+Non richiedere nuovamente credenziali all'utente.
+
+Non salvare o stampare token, credenziali o dati sensibili nei log.
+
+L'indirizzo:
+
+```text
+nikyturets@gmail.com
+```
+
+deve essere utilizzato esclusivamente per filtrare i dati in memoria.
+
+Non inserirlo nel report finale se non strettamente necessario.
+
+---
+
+# 2. Individuare tutti i Google Sheets disponibili
+
+Utilizzare la connessione Google già configurata per individuare i fogli contenenti i pronostici Fanta MotoGP.
+
+Analizzare:
+
+* spreadsheet disponibili;
+* worksheet/tab;
+* eventuali fogli relativi ai singoli GP;
+* eventuali fogli riepilogativi.
+
+Non modificare alcun foglio.
+
+Se esistono più spreadsheet, analizzarli tutti solo se risultano pertinenti al Fanta MotoGP.
+
+---
+
+# 3. Individuazione automatica dei GP
+
+Per ogni tab pertinente, determinare a quale GP si riferisce.
+
+Il nome del GP può essere ricavato da:
+
+* nome del tab;
+* nome dello spreadsheet;
+* intestazioni;
+* contenuto del foglio;
+* eventuali informazioni presenti nel modulo originale.
+
+Non assumere che l'ordine dei tab corrisponda all'ordine della stagione.
+
+Creare una mappatura:
+
+```text
+Google Sheet / Tab → GP → stagione
+```
+
+Se un GP non può essere identificato con certezza:
+
+```text
+GP: UNKNOWN
+```
+
+e segnalarlo nel report invece di inventare l'associazione.
+
+---
+
+# 4. Filtrare Nikyturets
+
+Per ogni foglio individuato:
+
+1. leggere i record;
+2. identificare la colonna email;
+3. cercare:
+
+```text
+nikyturets@gmail.com
+```
+
+4. recuperare tutti i record corrispondenti.
+
+Il filtro deve essere case-insensitive.
+
+Se lo stesso GP contiene più invii dello stesso partecipante, NON scegliere arbitrariamente il primo.
+
+Segnalare:
+
+```text
+MULTIPLE SUBMISSIONS
+```
+
+e riportare timestamp e dati necessari per permettere una successiva scelta.
+
+---
+
+# 5. Ricostruire il pronostico
+
+Per ogni GP identificato, ricostruire:
+
+## Qualifica
+
+* pilota Pole;
+* tempo Pole;
+* eventuale Time Conversion;
+* punteggio Qualifica già presente nel foglio.
+
+## Sprint
+
+* P1;
+* P2;
+* P3;
+* punteggio Sprint già presente nel foglio.
+
+## Gara
+
+* P1;
+* P2;
+* P3;
+* P4;
+* P5;
+* pilota OUT;
+* punteggio Gara già presente nel foglio.
+
+## Totale
+
+Utilizzare il totale già presente nel foglio quando disponibile.
+
+NON ricalcolare i punteggi storici.
+
+Il punteggio presente nel Google Sheet è la fonte di verità per lo storico.
+
+---
+
+# 6. Conservare testo originale e valore normalizzato
+
+Per ogni pilota recuperato conservare internamente:
+
+```text
+original_value
+normalized_rider
+```
+
+Esempio:
+
+```text
+original_value: "Marc Marquez"
+normalized_rider: "M. Marquez"
+```
+
+La normalizzazione deve servire esclusivamente per confrontare i dati con i piloti presenti nell'app.
+
+NON modificare il testo originale del Google Sheet.
+
+---
+
+# 7. Matching con i GP dell'app
+
+Confrontare i GP individuati nei Google Sheets con quelli presenti nell'app/database.
+
+Creare una tabella:
+
+| Google Sheet | GP riconosciuto | GP app | Match |
+| ------------ | --------------- | ------ | ----- |
+| Aragón       | Aragón          | Aragón | YES   |
+| ...          | ...             | ...    | ...   |
+
+Utilizzare identificativi esistenti quando disponibili.
+
+Non associare un pronostico a un GP solo sulla base di una somiglianza approssimativa del nome.
+
+Se il matching è incerto:
+
+```text
+MATCH_STATUS = REVIEW
+```
+
+---
+
+# 8. Output richiesto
+
+Creare un report completo:
+
+```text
+.agents/outputs/google-history-nikyturets.md
+```
+
+Il report deve contenere una tabella riepilogativa:
+
+| GP | Qualifica | Tempo Pole | Sprint | Gara | OUT    | Totale | Stato |
+| -- | --------- | ---------- | -----: | ---: | ------ | -----: | ----- |
+| GP | Pilota    | MM:SS.mmm  |      X |    X | Pilota |      X | OK    |
+
+Per esempio:
+
+```text
+Aragon
+Qualifica: M. Marquez
+Tempo Pole: 01:45.128
+Sprint: M. Marquez / M. Bezzecchi / A. Marquez
+Gara: M. Marquez / A. Marquez / M. Bezzecchi / J. Martin / F. Di Giannantonio
+OUT: J. Mir
+
+Qualifica: 5
+Sprint: 5
+Gara: 14
+Totale: 24
+```
+
+---
+
+# 9. Controlli di coerenza
+
+Per ogni GP verificare:
+
+### Qualifica
+
+* esiste un pilota Pole?
+* esiste un tempo?
+* il tempo è parsabile?
+* esiste il punteggio?
+
+### Sprint
+
+* esistono esattamente 3 piloti?
+* ci sono duplicati?
+* esiste il punteggio?
+
+### Gara
+
+* esistono esattamente 5 piloti?
+* ci sono duplicati?
+* esiste il pilota OUT?
+* OUT è diverso dai cinque piloti Gara?
+* esiste il punteggio?
+
+### Totale
+
+Se il foglio contiene:
+
+```text
+Qualifica + Sprint + Gara
+```
+
+confrontare la somma con il totale dichiarato.
+
+NON correggere il totale automaticamente.
+
+Se differisce:
+
+```text
+TOTAL_MISMATCH
+```
+
+e riportare entrambi i valori.
+
+---
+
+# 10. Controllo duplicati
+
+Individuare eventuali:
+
+* doppio invio dello stesso GP;
+* record duplicati;
+* più risposte nello stesso GP;
+* dati parziali.
+
+Per ogni duplicato riportare:
+
+* GP;
+* timestamp;
+* differenze tra i record.
+
+NON decidere automaticamente quale record sia corretto.
+
+---
+
+# 11. Confronto con lo storico già disponibile
+
+Sono già stati analizzati alcuni GP storici manualmente.
+
+Confrontare i dati Google Sheets con eventuali dati storici già presenti nel progetto.
+
+IMPORTANTE:
+
+Il confronto serve esclusivamente alla verifica.
+
+Non modificare i dati storici esistenti.
+
+Segnalare:
+
+```text
+MATCH
+DIFFERENCE
+MISSING
+NEW RECORD
+UNKNOWN
+```
+
+---
+
+# 12. Nessun import Supabase
+
+Questo task è esclusivamente read-only.
+
+NON eseguire:
+
+```text
+INSERT
+UPDATE
+DELETE
+UPSERT
+```
+
+su Supabase.
+
+NON creare:
+
+* prediction;
+* prediction entries;
+* partecipanti;
+* fixture;
+* record storici.
+
+NON chiamare RPC mutative.
+
+In particolare non chiamare:
+
+```text
+submit_prediction
+score_prediction
+```
+
+---
+
+# 13. Nessuna modifica allo scoring
+
+NON modificare:
+
+```text
+score_prediction
+calculate_qualifying_time_points
+```
+
+Non ricalcolare i punteggi storici secondo il nuovo regolamento.
+
+I punteggi presenti nei Google Sheets devono essere trattati come:
+
+```text
+HISTORICAL_SCORE
+```
+
+e non come risultato del nuovo scoring.
+
+---
+
+# 14. Gestione dei dati mancanti
+
+Se un GP contiene solo una parte del pronostico:
+
+```text
+Qualifica: OK
+Sprint: OK
+Gara: MISSING
+OUT: MISSING
+```
+
+non inventare dati.
+
+Classificare il record come:
+
+```text
+PARTIAL
+```
+
+---
+
+# 15. Risultato finale richiesto
+
+Alla fine del task mostrare un riepilogo:
+
+```text
+Spreadsheet analizzati: X
+Tab analizzati: X
+GP identificati: X
+Pronostici Nikyturets trovati: X
+GP completi: X
+GP parziali: X
+Duplicati: X
+GP con matching certo: X
+GP da verificare: X
+```
+
+E soprattutto:
+
+```text
+Database modificato: NO
+Prediction create: NO
+Prediction modificate: NO
+RPC modificate: NO
+Scoring modificato: NO
+Google Sheets modificato: NO
+Dati ufficiali modificati: NO
+```
+
+---
+
+# 16. Test tecnici
+
+Eseguire:
+
+```text
+TypeScript
+Build
+Sintassi script
+git diff --check
+Workflow
+```
+
+Se viene creato o modificato uno script, verificare che sia eseguibile senza effettuare operazioni mutative.
+
+---
+
+# 17. Report finale Replit
+
+Al termine aggiornare:
+
+```text
+.agents/memory/MEMORY.md
+```
+
+solo con informazioni tecniche utili al progetto.
+
+NON salvare nella memoria persistente:
+
+* email personale;
+* token;
+* credenziali;
+* elenco completo dei pronostici personali.
+
+I dati dettagliati devono rimanere nel report:
+
+```text
+.agents/outputs/google-history-nikyturets.md
+```
+
+---
+
+# Criterio di completamento
+
+Il Task #22 è completato solamente quando:
+
+1. tutti i Google Sheets pertinenti sono stati analizzati;
+2. tutti i tab pertinenti sono stati controllati;
+3. tutti i pronostici di Nikyturets sono stati ricostruiti;
+4. ogni GP è stato associato, quando possibile, al GP corretto dell'app;
+5. duplicati e anomalie sono stati evidenziati;
+6. i punteggi storici sono stati mantenuti esattamente come presenti nei fogli;
+7. nessun dato Supabase è stato modificato;
+8. il report finale è stato creato;
+9. TypeScript, build e workflow risultano PASS.
+
+**NON procedere all'importazione su Supabase in questo task.**
+
+Al termine fornire il report sintetico con l'elenco completo dei GP trovati e chiedere conferma prima di qualsiasi importazione.
