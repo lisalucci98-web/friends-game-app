@@ -1,0 +1,182 @@
+## Task #16 — Verifica e matching dei GP storici con gli identificativi dell’app
+
+Abbiamo completato la ricostruzione dello storico dei pronostici MotoGP da Google Drive.
+
+Il report completo è disponibile in:
+
+`.agents/outputs/google-history-nikyturets.md`
+
+### Obiettivo
+
+Il prossimo obiettivo è **associare in modo affidabile ogni GP ricostruito dallo storico Google Drive al corrispondente GP presente nell’app/Supabase**, utilizzando gli identificativi univoci del database.
+
+**NON effettuare ancora alcuna importazione o modifica dei dati su Supabase.**
+
+### Storico ricostruito
+
+Sono stati identificati 23 GP:
+
+* Aragon
+* Argentina
+* Australia
+* Austria
+* Brasile
+* Catalogna
+* Francia
+* Germany
+* Giappone
+* Indonesia
+* Italia
+* Malesia
+* Netherlands
+* Portogallo
+* Qatar
+* Repubblica Ceca
+* San Marino
+* Spagna
+* Thailandia
+* UK
+* Ungheria
+* USA
+* Valencia
+
+Sono stati ricostruiti 68 pronostici target.
+
+### Cosa devi fare
+
+1. Analizza il codice dell'app e individua:
+
+   * tabella Supabase contenente i GP/eventi della stagione;
+   * identificativo univoco utilizzato dall'app per ogni GP;
+   * eventuali campi relativi a nome, circuito, data, stagione o round;
+   * eventuali API/RPC già disponibili per recuperare questi dati.
+
+2. Verifica perché nel Task #22 il database/app non ha restituito GP leggibili tramite la connessione read-only disponibile.
+
+3. Se esiste già un endpoint/API/server function in grado di recuperare i GP, utilizzalo invece di creare una nuova struttura inutilmente.
+
+4. Recupera l'elenco dei GP 2026 presenti nell'app e costruisci una tabella di matching con lo storico Google Drive.
+
+Per ogni GP voglio almeno:
+
+| Campo         | Descrizione                            |
+| ------------- | -------------------------------------- |
+| Historical GP | Nome del GP nello storico Google Drive |
+| App GP name   | Nome del GP nell'app                   |
+| App GP ID     | ID univoco del GP in Supabase          |
+| Date          | Data del GP, se disponibile            |
+| Round         | Numero round, se disponibile           |
+| Match status  | MATCH / REVIEW / NOT FOUND             |
+| Match reason  | Spiegazione del matching               |
+
+### Regole di matching
+
+Il matching deve essere il più possibile deterministico.
+
+Utilizza, in ordine di affidabilità:
+
+1. ID/round ufficiale, se disponibile;
+2. combinazione stagione + round;
+3. data del GP;
+4. circuito;
+5. nome del GP normalizzato.
+
+Non associare automaticamente due GP solamente perché hanno nomi simili se esiste ambiguità.
+
+Esempi di normalizzazione accettabili:
+
+* `FRANCIA` → `France`
+* `Germany` → `German GP`
+* `QATAR` → `Qatar`
+* `SPAGNA` → `Spain`
+* `UK` → `Great Britain`
+* differenze tra maiuscole/minuscole;
+* accenti;
+* traduzioni italiane/inglesi del nome.
+
+### Casi dubbi
+
+Se il matching non è certo, **NON scegliere arbitrariamente un GP**.
+
+Imposta:
+
+`MATCH_STATUS = REVIEW`
+
+e spiega chiaramente il motivo.
+
+### Importante: anomalie già individuate
+
+Mantieni le anomalie già presenti nel report e NON correggerle automaticamente:
+
+* Brasile → tempo Qualifica non valido;
+* Indonesia → Sprint mancante;
+* San Marino → tempo Qualifica non valido;
+* Qatar → conflitto nei riepiloghi aggregate;
+* Thailandia → conflitto nei riepiloghi aggregate.
+
+Queste anomalie riguardano il contenuto dei pronostici e sono separate dal matching del GP.
+
+### Output richiesto
+
+Crea un nuovo report:
+
+`.agents/outputs/gp-history-matching.md`
+
+Il report deve contenere:
+
+1. metodo utilizzato;
+2. struttura/tabelle/API utilizzate per recuperare i GP dell'app;
+3. elenco completo dei 23 GP;
+4. App GP ID associato a ciascun GP;
+5. stato `MATCH / REVIEW / NOT FOUND`;
+6. eventuali ambiguità;
+7. eventuali GP dello storico senza corrispondenza;
+8. eventuali GP dell'app senza corrispondenza nello storico.
+
+Inoltre, se utile per il successivo Task #15, crea un file strutturato con il mapping, ad esempio:
+
+`.agents/outputs/gp-history-mapping.json`
+
+### Sicurezza / vincoli
+
+Questa è una fase di **sola analisi e verifica**.
+
+NON devi:
+
+* creare prediction;
+* modificare prediction esistenti;
+* modificare GP;
+* modificare scoring;
+* modificare RPC;
+* modificare RLS;
+* modificare Google Sheets;
+* modificare dati ufficiali MotoGP;
+* eseguire INSERT/UPDATE/DELETE su Supabase.
+
+Sono consentite esclusivamente query/read necessarie alla verifica.
+
+### Validazione finale
+
+Al termine esegui:
+
+* lint/check JavaScript;
+* TypeScript check;
+* build;
+* `git diff --check`.
+
+Conferma esplicitamente che:
+
+* nessun dato Supabase è stato modificato;
+* nessun prediction record è stato creato/modificato;
+* nessuna RPC è stata modificata;
+* nessun token o secret è stato stampato nei log.
+
+### Criterio di completamento
+
+Il task è completato quando abbiamo un mapping affidabile:
+
+`Google Drive historical GP → App GP ID`
+
+per tutti i 23 GP, distinguendo chiaramente i casi `MATCH`, `REVIEW` e `NOT FOUND`.
+
+**Non procedere con il Task #15 e non importare alcun dato.**
