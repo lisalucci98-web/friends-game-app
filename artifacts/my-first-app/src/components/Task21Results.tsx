@@ -57,9 +57,7 @@ type PredictionScore = {
   user_id: string;
   grand_prix_id: string;
   league_id: string;
-  qualifying_pole_rider_id: string | null;
   qualifying_pole_time: number | string | null;
-  race_out_rider_id: string | null;
   qualifying_points: number | string | null;
   sprint_points: number | string | null;
   race_points: number | string | null;
@@ -93,9 +91,7 @@ const scoreSelect = [
   'user_id',
   'grand_prix_id',
   'league_id',
-  'qualifying_pole_rider_id',
   'qualifying_pole_time',
-  'race_out_rider_id',
   'qualifying_points',
   'sprint_points',
   'race_points',
@@ -393,6 +389,8 @@ export function MyResultsContent({
   const [grandPrix, setGrandPrix] = useState<GrandPrix[]>([]);
   const [sessions, setSessions] = useState<RaceSession[]>([]);
   const [predictions, setPredictions] = useState<PredictionScore[]>([]);
+  const [predictionEntries, setPredictionEntries] = useState<PredictionEntry[]>([]);
+  const [predictionRiders, setPredictionRiders] = useState<Rider[]>([]);
   const [leagues, setLeagues] = useState<League[]>([]);
   const [selectedLeagueId, setSelectedLeagueId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -426,6 +424,32 @@ export function MyResultsContent({
         throw new Error('Non è stato possibile caricare i tuoi dati personali.');
       }
 
+      const predictionRows = (predictionsResponse.data || []) as unknown as PredictionScore[];
+      const predictionIds = predictionRows.map((prediction) => prediction.id);
+      const entriesResponse = predictionIds.length
+        ? await supabase
+            .from('prediction_entries')
+            .select('id, prediction_id, prediction_type, position, rider_id, predicted_time, points')
+            .in('prediction_id', predictionIds)
+        : { data: [], error: null };
+
+      if (entriesResponse.error) {
+        throw new Error('Non è stato possibile caricare i dettagli dei tuoi pronostici.');
+      }
+
+      const nextEntries = (entriesResponse.data || []) as unknown as PredictionEntry[];
+      const entryRiderIds = [...new Set(nextEntries.map((entry) => entry.rider_id).filter(Boolean))];
+      const ridersResponse = entryRiderIds.length
+        ? await supabase
+            .from('riders')
+            .select('id, name, surname, nickname')
+            .in('id', entryRiderIds)
+        : { data: [], error: null };
+
+      if (ridersResponse.error) {
+        throw new Error('Non è stato possibile caricare i piloti dei tuoi pronostici.');
+      }
+
       const leagueIds = (membershipsResponse.data || []).map(
         (membership) => membership.league_id as string,
       );
@@ -444,7 +468,9 @@ export function MyResultsContent({
       setSeason(seasonData.season);
       setGrandPrix(seasonData.grandPrix);
       setSessions(seasonData.sessions);
-      setPredictions((predictionsResponse.data || []) as unknown as PredictionScore[]);
+      setPredictions(predictionRows);
+      setPredictionEntries(nextEntries);
+      setPredictionRiders((ridersResponse.data || []) as Rider[]);
       setLeagues((leaguesResponse.data || []) as League[]);
       setSelectedLeagueId((current) =>
         current && leagueIds.includes(current) ? current : leagueIds[0] || '',
@@ -470,6 +496,10 @@ export function MyResultsContent({
         ? predictions.filter((prediction) => prediction.league_id === selectedLeagueId)
         : predictions,
     [predictions, selectedLeagueId],
+  );
+  const predictionRiderMap = useMemo(
+    () => new Map(predictionRiders.map((rider) => [rider.id, rider])),
+    [predictionRiders],
   );
 
   const rows = useMemo(
@@ -593,6 +623,27 @@ export function MyResultsContent({
                   <span>Punteggio</span>
                   <strong>{formatTotal(prediction?.total_points)}</strong>
                 </div>
+                <div className="task21-gp-out">
+                  <span>OUT</span>
+                  <strong>
+                    {prediction
+                      ? riderName(
+                        predictionRiderMap.get(
+                          predictionEntries.find(
+                            (entry) =>
+                              entry.prediction_id === prediction.id &&
+                              entry.prediction_type === 'RACE_OUT',
+                          )?.rider_id || '',
+                        ),
+                        predictionEntries.find(
+                          (entry) =>
+                            entry.prediction_id === prediction.id &&
+                            entry.prediction_type === 'RACE_OUT',
+                        )?.rider_id,
+                      )
+                      : '—'}
+                  </strong>
+                </div>
                 <details className="task21-breakdown-details">
                   <summary>Dettaglio</summary>
                   <ScoreBreakdown prediction={prediction} compact />
@@ -686,7 +737,7 @@ function PredictionDetail({
         </ol>
         <p className="task21-out-value">
           <span>OUT</span>
-          <strong>{riderName(riderMap.get(out?.rider_id || ''), out?.rider_id || prediction.race_out_rider_id)}</strong>
+          <strong>{riderName(riderMap.get(out?.rider_id || ''), out?.rider_id)}</strong>
         </p>
       </div>
       <ScoreBreakdown prediction={prediction} />
@@ -888,8 +939,6 @@ export function LeagueResultsContent({
 
       const entries = (entriesResponse.data || []) as PredictionEntry[];
       const riderIds = [...new Set(entries.map((entry) => entry.rider_id).filter(Boolean))] as string[];
-      if (prediction.qualifying_pole_rider_id) riderIds.push(prediction.qualifying_pole_rider_id);
-      if (prediction.race_out_rider_id) riderIds.push(prediction.race_out_rider_id);
 
       const ridersResponse = riderIds.length
         ? await supabase

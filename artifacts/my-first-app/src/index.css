@@ -509,7 +509,7 @@
 .task21-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 13px 16px; border: 1px solid hsl(var(--foreground) / .13); background: hsl(var(--card)); }
 .task21-toolbar > div { display: grid; gap: 4px; }
 .task21-toolbar strong { font-size: .87rem; }
-.task21-kicker, .task21-round, .task21-select-label > span, .task21-score-item span, .task21-gp-points span, .task21-hero-side span, .task21-invite span, .task21-detail-values span, .task21-out-value span { color: hsl(var(--muted-foreground)); font-family: var(--app-font-mono); font-size: .59rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.task21-kicker, .task21-round, .task21-select-label > span, .task21-score-item span, .task21-gp-points span, .task21-gp-out span, .task21-hero-side span, .task21-invite span, .task21-detail-values span, .task21-out-value span { color: hsl(var(--muted-foreground)); font-family: var(--app-font-mono); font-size: .59rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .task21-select-label { display: grid; gap: 6px; min-width: 190px; }
 .task21-select-label select { min-height: 38px; padding: 8px 30px 8px 10px; border: 1px solid hsl(var(--foreground) / .16); border-radius: 3px; color: hsl(var(--foreground)); background: hsl(var(--card)); font: inherit; font-size: .78rem; }
 .task21-score-hero { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(125px, .7fr)); gap: 20px; padding: 25px 27px; color: hsl(var(--primary-foreground)); background: hsl(var(--foreground)); box-shadow: var(--shadow-md); }
@@ -536,7 +536,7 @@
 .task21-button--danger { color: hsl(var(--destructive)); border-color: hsl(var(--destructive) / .35); background: transparent; }
 .task21-button:disabled { cursor: wait; opacity: .55; transform: none; }
 .task21-gp-list { display: grid; }
-.task21-gp-row { display: grid; grid-template-columns: minmax(190px, 1.35fr) minmax(150px, .85fr) 95px minmax(105px, .7fr); gap: 16px; align-items: center; min-height: 78px; padding: 13px 20px; border-top: 1px solid hsl(var(--foreground) / .08); }
+.task21-gp-row { display: grid; grid-template-columns: minmax(190px, 1.35fr) minmax(150px, .85fr) minmax(95px, .55fr) 95px minmax(105px, .7fr); gap: 16px; align-items: center; min-height: 78px; padding: 13px 20px; border-top: 1px solid hsl(var(--foreground) / .08); }
 .task21-gp-row:first-child { border-top: 0; }
 .task21-gp-row:hover { background: hsl(var(--primary) / .035); }
 .task21-gp-identity { display: grid; gap: 4px; min-width: 0; }
@@ -550,6 +550,8 @@
 .task21-row-status.is-empty, .task21-status.is-empty { color: hsl(var(--muted-foreground)); }
 .task21-gp-points { display: grid; gap: 5px; justify-items: end; }
 .task21-gp-points strong { color: hsl(var(--primary)); font-family: var(--app-font-mono); font-size: 1.02rem; }
+.task21-gp-out { display: grid; gap: 5px; justify-items: end; min-width: 0; }
+.task21-gp-out strong { overflow: hidden; text-overflow: ellipsis; font-size: .74rem; text-align: right; white-space: nowrap; }
 .task21-breakdown-details { align-self: stretch; }
 .task21-breakdown-details summary { display: inline-flex; align-items: center; justify-content: center; height: 100%; color: hsl(var(--muted-foreground)); cursor: pointer; font-family: var(--app-font-mono); font-size: .59rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; list-style: none; }
 .task21-breakdown-details summary::-webkit-details-marker { display: none; }
@@ -642,8 +644,9 @@
   .task21-gp-row { grid-template-columns: minmax(0, 1fr) auto; gap: 10px 15px; padding: 16px 17px; }
   .task21-gp-identity { grid-column: 1 / -1; }
   .task21-gp-points { grid-column: 2; grid-row: 2; }
+  .task21-gp-out { grid-column: 1; grid-row: 3; justify-items: start; }
   .task21-row-status { grid-column: 1; grid-row: 2; }
-  .task21-breakdown-details { grid-column: 1 / -1; grid-row: 3; min-height: 30px; border-top: 1px solid hsl(var(--foreground) / .08); }
+  .task21-breakdown-details { grid-column: 1 / -1; grid-row: 4; min-height: 30px; border-top: 1px solid hsl(var(--foreground) / .08); }
   .task21-breakdown-details summary { height: 30px; }
   .task21-score-breakdown.is-compact { min-width: 0; }
   .task21-league-context { padding: 21px 19px; }

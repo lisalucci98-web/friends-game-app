@@ -740,9 +740,7 @@ type Prediction = {
   id: string;
   grand_prix_id: string;
   league_id: string;
-  qualifying_pole_rider_id: string | null;
   qualifying_pole_time: string | number | null;
-  race_out_rider_id: string | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -2759,7 +2757,7 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
       setRaceOutRiderId('');
       const predictionResponse = await supabase
         .from('predictions')
-        .select('id, grand_prix_id, league_id, qualifying_pole_rider_id, qualifying_pole_time, race_out_rider_id, created_at, updated_at')
+        .select('id, grand_prix_id, league_id, qualifying_pole_time, created_at, updated_at')
         .eq('user_id', user.id)
         .eq('grand_prix_id', selectedGrandPrixId)
         .eq('league_id', selectedLeagueId)
@@ -2792,13 +2790,17 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
         positions.map((position) =>
           entries.find((entry) => entry.prediction_type === type && Number(entry.position) === position)?.rider_id ?? '',
         );
+      const poleRiderIdFromEntries =
+        entries.find((entry) => entry.prediction_type === 'POLE')?.rider_id ?? '';
+      const raceOutRiderIdFromEntries =
+        entries.find((entry) => entry.prediction_type === 'RACE_OUT')?.rider_id ?? '';
       if (isMounted) {
         setPrediction(predictionRow);
-        setPoleRiderId(predictionRow.qualifying_pole_rider_id ?? '');
+        setPoleRiderId(poleRiderIdFromEntries);
         setPoleTime(formatPoleTime(predictionRow.qualifying_pole_time));
         setSprintRiderIds(byType('SPRINT', [1, 2, 3]));
         setRaceRiderIds(byType('RACE', [1, 2, 3, 4, 5]));
-        setRaceOutRiderId(predictionRow.race_out_rider_id ?? '');
+        setRaceOutRiderId(raceOutRiderIdFromEntries);
         setIsLoadingPrediction(false);
       }
     }

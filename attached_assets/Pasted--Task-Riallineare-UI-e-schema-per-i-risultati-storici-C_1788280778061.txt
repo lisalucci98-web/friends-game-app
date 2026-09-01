@@ -1,0 +1,103 @@
+## Task — Riallineare UI e schema per i risultati storici
+
+Correggi esclusivamente il problema di visualizzazione emerso dal Task 24.
+
+### Problema
+
+L'account Alessandro (`alessandro.cavasso.1995@gmail.com`) ha correttamente:
+
+* 7 prediction
+* 77 prediction_entries
+* 105 punti
+* 0 duplicati
+
+Tuttavia `/miei-risultati` restituisce errore 400 perché il componente UI cerca nella tabella `predictions` le colonne:
+
+* `qualifying_pole_rider_id`
+* `race_out_rider_id`
+
+Queste colonne **non esistono nello schema Supabase live**.
+
+I dati di Pole e OUT sono invece già presenti nelle `prediction_entries`.
+
+### Obiettivo
+
+Rendere `/miei-risultati` e la classifica completamente compatibili con lo schema live attuale, utilizzando la struttura dati realmente presente nel database.
+
+### Regole
+
+1. **NON modificare i dati storici già importati.**
+2. **NON ricreare le prediction.**
+3. **NON modificare i punteggi.**
+4. **NON modificare i risultati ufficiali.**
+5. **NON modificare RLS, scoring o RPC esistenti**, salvo che sia strettamente indispensabile e preventivamente documentato.
+6. Non aggiungere colonne duplicate solo per adattare la UI.
+7. Utilizzare `prediction_entries` come fonte corretta per Pole e OUT.
+8. Mantenere compatibilità con le prediction future create normalmente dall'app.
+
+### `/miei-risultati`
+
+Verifica e correggi il caricamento della pagina affinché mostri correttamente:
+
+* GP
+* Qualifica
+* Sprint
+* Gara
+* OUT
+* Bonus
+* Malus
+* Totale
+
+Per Alessandro devono essere visualizzati i seguenti dati:
+
+| GP              | Qualifica | Sprint | Gara | OUT      | Totale |
+| --------------- | --------: | -----: | ---: | -------- | -----: |
+| Brasile         |         0 |      6 |   12 | Joan Mir |     18 |
+| Catalogna       |         6 |      2 |    0 | Joan Mir |      8 |
+| Repubblica Ceca |         3 |      3 |    8 | Joan Mir |     14 |
+| Spagna          |         5 |      3 |   11 | Joan Mir |     19 |
+| Regno Unito     |         5 |      9 |    8 | Joan Mir |     22 |
+| Ungheria        |         5 |      1 |    3 | Joan Mir |      9 |
+| USA             |         3 |      0 |   12 | Joan Mir |     15 |
+
+Totale atteso: **105 punti**.
+
+### Pole e OUT
+
+Individua nella struttura `prediction_entries` come vengono rappresentate:
+
+* Qualifica / Pole
+* OUT
+
+e usa quei record per costruire la visualizzazione.
+
+Non assumere nomi di colonne: prima verifica lo schema effettivo.
+
+### Classifica
+
+Verifica che la correzione non rompa la classifica della lega.
+
+Per la lega **FantaTest**, Alessandro deve continuare a risultare:
+
+* partecipanti: 3
+* posizione: 2ª
+* punti: 105
+* GP conteggiati: 7
+
+### Verifica finale
+
+Esegui:
+
+* TypeScript check
+* build completa
+* `git diff --check`
+* verifica della query Supabase che precedentemente restituiva 400
+* verifica `/miei-risultati`
+* verifica classifica
+* verifica che non siano state effettuate scritture sul database
+
+### Importante
+
+Non creare una nuova migration o modificare lo schema database se la UI può essere corretta utilizzando le colonne/entry già esistenti.
+
+Se invece una modifica allo schema fosse realmente necessaria, **NON applicarla automaticamente**: fermati, descrivi quale modifica sarebbe necessaria e perché.
