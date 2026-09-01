@@ -84,3 +84,17 @@ mtime_ms = 1788280415266
 storage_uri = "gcs://replit-rams-assets-archer/rams/assets/repl:92af7a65-61ba-4849-85b4-634f42e78888/5a6bf7e3-1f38-477d-88df-72e447a5e35a/6cccf6eb-8b1b-4a39-afc4-d44693fa0e76"
 storage_version_token = "1788280440898493"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "DTrH6mZ8cAiF8rsL_abK7"
+uri = "file://.agents/outputs/task-24-historical-results-verification.md"
+type = "text"
+title = "Verifica risultati storici Alessandro"
+description = "Report read-only con 7 GP, 77 entry, 105 punti, classifica e anomalia schema/UI documentata."
+logical_id = "1bca080a-2853-4807-ada7-63975ee25085"
+content_hash = "sha256:a10a7cbf3e32f58a0866b684a989bdcdba60965cf2e2f188371a04448c66be27"
+size = 3396
+mtime_ms = 1788280679981
+storage_uri = "gcs://replit-rams-assets-archer/rams/assets/repl:92af7a65-61ba-4849-85b4-634f42e78888/1bca080a-2853-4807-ada7-63975ee25085/ff1dad0b-cee5-4ae9-9eec-98e8ea9c4e43"
+storage_version_token = "1788280708316713"
+content_type = "text/markdown"

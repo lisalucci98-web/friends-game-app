@@ -1,0 +1,109 @@
+## Task — Verifica completa risultati storici di Alessandro
+
+Esegui una verifica **read-only** dell’account target:
+
+`alessandro.cavasso.1995@gmail.com`
+
+I dati storici di questo account sono già stati importati nel Task 23.
+
+### Obiettivo
+
+Verificare che l’importazione sia correttamente visibile nell’app, senza modificare dati esistenti.
+
+### Controlli obbligatori
+
+Accedi/verifica la pagina `/miei-risultati` con l’account target e controlla che risultino presenti esattamente questi 7 GP:
+
+1. Brasile
+2. Catalogna
+3. Repubblica Ceca
+4. Spagna
+5. Regno Unito / UK
+6. Ungheria
+7. USA
+
+Per ogni GP verifica:
+
+* Qualifica
+* Sprint
+* Gara
+* OUT
+* punteggio delle singole sessioni
+* totale GP
+
+Il totale storico atteso dell'account è:
+
+**105 punti**
+
+Devono risultare:
+
+* **7 prediction**
+* **77 prediction_entries**
+* **105 punti storici**
+
+### Verifica classifica
+
+Apri/verifica la classifica della lega associata all’utente.
+
+Controlla che:
+
+* Alessandro sia presente tra i partecipanti;
+* il suo punteggio storico sia incluso nel totale;
+* i 7 GP importati contribuiscano correttamente alla classifica;
+* i dettagli del pronostico siano visibili secondo le regole di privacy già implementate;
+* non vengano mostrati pronostici di altri partecipanti prima della chiusura delle relative sessioni.
+
+### Controllo database
+
+Esegui esclusivamente query/read:
+
+* conta le prediction dell'account target;
+* conta le prediction_entries;
+* verifica che non esistano duplicati;
+* verifica i totali per GP;
+* verifica che il totale sia 105.
+
+Non modificare:
+
+* `predictions`
+* `prediction_entries`
+* risultati ufficiali
+* scoring
+* RPC
+* RLS
+* Google Sheets
+* account utente
+* dati di altri partecipanti
+
+### Idempotenza
+
+Non eseguire alcun import.
+
+La verifica deve confermare che una eventuale riesecuzione dell'import **non sarebbe necessaria** e che i 7 record risultano già presenti.
+
+### Output richiesto
+
+Al termine restituisci un report sintetico con:
+
+| GP              | Prediction | Qualifica | Sprint | Gara | OUT | Totale | Stato |
+| --------------- | ---------- | --------: | -----: | ---: | --- | -----: | ----- |
+| Brasile         |            |           |        |      |     |        |       |
+| Catalogna       |            |           |        |      |     |        |       |
+| Repubblica Ceca |            |           |        |      |     |        |       |
+| Spagna          |            |           |        |      |     |        |       |
+| Regno Unito     |            |           |        |      |     |        |       |
+| Ungheria        |            |           |        |      |     |        |       |
+| USA             |            |           |        |      |     |        |       |
+
+Alla fine indica chiaramente:
+
+* **Prediction totali**
+* **Entry totali**
+* **Punti totali**
+* eventuali anomalie
+* esito verifica UI
+* esito verifica classifica
+* esito verifica database
+* conferma che non sono state effettuate scritture
+
+Se qualche dato non coincide con gli attesi, **non correggerlo automaticamente**: segnala l'anomalia e indica quale record è differente.
