@@ -1,0 +1,177 @@
+## Task #17 — Verifica import storico Nikyturets e completamento importazione
+
+Il Task #16 ha prodotto:
+
+* `.agents/outputs/gp-history-matching.md`
+* `.agents/outputs/gp-history-mapping.json`
+
+Il matching ha identificato 13 GP con `MATCH`, 9 con `REVIEW` e 1 `NOT FOUND`.
+
+Prima di effettuare QUALSIASI scrittura su Supabase, verifica lo stato reale dell'importazione storica già eventualmente eseguita dal precedente Task #15.
+
+### 1. VERIFICA PRELIMINARE OBBLIGATORIA
+
+Identifica l'account Supabase associato a:
+
+`nikyturets@gmail.com`
+
+Poi verifica in sola lettura se esistono già prediction storiche per questo utente.
+
+NON creare nulla durante questa fase.
+
+Per ogni eventuale prediction già presente verifica:
+
+* GP associato;
+* sessione;
+* dati del pronostico;
+* eventuale punteggio;
+* eventuale origine/import marker;
+* eventuale timestamp.
+
+L'obiettivo è determinare esattamente quali dati del Task #22 sono già stati importati e quali mancano.
+
+### 2. REGOLA DI SICUREZZA
+
+NON creare duplicati.
+
+Se una prediction storica esiste già ed è chiaramente riconducibile allo stesso pronostico Google Sheets, considerala già importata.
+
+NON sovrascrivere automaticamente prediction esistenti.
+
+NON modificare prediction appartenenti ad altri utenti.
+
+NON modificare:
+
+* scoring;
+* RPC;
+* RLS;
+* dati ufficiali MotoGP;
+* struttura dei GP;
+* risultati delle gare.
+
+### 3. GP AUTORIZZATI
+
+Sono autorizzati all'importazione questi GP completi:
+
+* Aragon: Qualifica, Sprint, Gara
+* Australia: Qualifica, Sprint, Gara
+* Austria: Qualifica, Sprint, Gara
+* Catalogna: Qualifica, Sprint, Gara
+* Francia: Qualifica, Sprint, Gara
+* Germania: Qualifica, Sprint, Gara
+* Giappone: Qualifica, Sprint, Gara
+* Italia: Qualifica, Sprint, Gara
+* Malesia: Qualifica, Sprint, Gara
+* Netherlands: Qualifica, Sprint, Gara
+* Portogallo: Qualifica, Sprint, Gara
+* Repubblica Ceca: Qualifica, Sprint, Gara
+* Spagna: Qualifica, Sprint, Gara
+* UK: Qualifica, Sprint, Gara
+* Ungheria: Qualifica, Sprint, Gara
+* USA: Qualifica, Sprint, Gara
+* Valencia: Qualifica, Sprint, Gara
+
+NON importare:
+
+* Argentina — non presente nel calendario 2026 dell'app
+* Brasile — Qualifica non valida/mancante
+* Indonesia — Sprint mancante
+* San Marino — Qualifica non valida/mancante
+* Qatar — conflitto nei riepiloghi
+* Thailandia — conflitto nei riepiloghi
+
+### 4. ATTENZIONE ALLA STAGIONE
+
+Il matching del Task #16 ha evidenziato che alcuni GP storici del 2025 hanno lo stesso nome di GP 2026.
+
+NON associare automaticamente un GP 2025 a un GP 2026 soltanto sulla base del nome.
+
+Per i GP 2026 utilizzare prioritariamente:
+
+* season_id;
+* GP app id;
+* circuito;
+* paese;
+* data/weekend;
+* nome/short_name.
+
+Per Aragon, Australia, Austria, Giappone, Malesia, Portogallo, Valencia ecc. verificare attentamente che il record storico Google corrisponda al GP 2026 oppure che il dato sia effettivamente storico di un'altra stagione.
+
+Se un record è del 2025 e l'app contiene solamente il corrispondente GP 2026, NON importarlo nel GP 2026 senza una corrispondenza certa.
+
+### 5. IMPORTAZIONE
+
+Solo dopo la verifica preliminare:
+
+* importa esclusivamente i record autorizzati;
+* mantieni esattamente i pronostici ricostruiti dal Task #22;
+* NON ricalcolare i punteggi;
+* conserva i punteggi HISTORICAL_SCORE presenti nei Google Sheets;
+* mantieni separati Qualifica, Sprint e Gara;
+* associa ogni record al corretto `user_id` e `grand_prix.id`;
+* usa gli ID reali dell'app, non nomi testuali;
+* rendi l'importazione idempotente.
+
+Se il database non consente di distinguere in modo affidabile un record già importato, NON procedere con la scrittura e documenta il blocco.
+
+### 6. IMPORTANTE SULLE DATE
+
+Il Task #22 contiene record provenienti da stagioni diverse.
+
+Non assumere che tutti i 23 GP siano 2026.
+
+Utilizza le date dei timestamp Google Sheets e il calendario ufficiale presente nel database/app per evitare qualsiasi cross-season import.
+
+### 7. REPORT FINALE
+
+Al termine crea:
+
+`.agents/outputs/task-17-historical-import-report.md`
+
+con:
+
+* account target identificato;
+* prediction già presenti prima dell'import;
+* prediction nuove create;
+* prediction già presenti e quindi saltate;
+* GP/sessioni importati;
+* GP/sessioni esclusi;
+* motivo di ogni esclusione;
+* eventuali ambiguità residue;
+* totale storico importato;
+* verifica idempotenza.
+
+Non inserire l'indirizzo email nel report: usa `TARGET`.
+
+### VINCOLI ASSOLUTI
+
+Database modificato: SOLO le prediction autorizzate e mancanti.
+
+NON modificare:
+
+* scoring;
+* RPC;
+* RLS;
+* migration;
+* risultati ufficiali;
+* GP;
+* piloti;
+* Google Sheets;
+* prediction di altri utenti.
+
+Prima della fase di scrittura mostra nel report/log operativo il piano di importazione risultante dalla verifica preliminare.
+
+Esegui poi l'importazione solo se ogni record ha:
+
+1. utente identificato;
+2. GP app identificato;
+3. sessione identificata;
+4. corrispondenza storica certa;
+5. assenza di duplicato.
+
+Infine esegui:
+
+* TypeScript;
+* build;
+* git diff --check;
+* verifica che l'app continui a funzionare.

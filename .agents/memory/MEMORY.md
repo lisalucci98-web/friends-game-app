@@ -11,3 +11,4 @@
 - [UI data audit](task-18-ui-data-audit.md) — the UI loads prediction inputs and official results, but no fantasy scoring breakdown, history, or server-side score.
 - [Google history reconstruction](google-history-reconstruction.md) — coalesce identical summary copies; reserve multiple-submission flags for repeated participant rows.
 - [Supabase read path discrepancy](supabase-read-path-discrepancy.md) — distinguish empty connector visibility from the project REST path before declaring tables empty.
+- [Historical import preflight](historical-import-preflight.md) — classify existing predictions by deterministic import ID and natural key before completing a historical import.

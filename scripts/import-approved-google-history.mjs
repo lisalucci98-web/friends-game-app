@@ -44,9 +44,7 @@ const APPROVED_GP_CODES = new Map([
   ['Valencia', 'VAL'],
 ]);
 
-const EXPLICIT_EXCLUSIONS = new Map([
-  ['UK', 'GP 1 Gran Bretagna escluso dall’utente per verifica separata della Qualifica'],
-]);
+const EXPLICIT_EXCLUSIONS = new Map();
 
 const RIDER_ALIASES = new Map([
   ['r. fernandez', 'Raul Fernandez'],

@@ -56,3 +56,17 @@ mtime_ms = 1788272233804
 storage_uri = "gcs://replit-rams-assets-archer/rams/assets/repl:92af7a65-61ba-4849-85b4-634f42e78888/7f890589-0acd-4247-bd55-04a1deabd8c7/5da2242b-f0cc-46a6-9beb-309cb1528300"
 storage_version_token = "1788272275211512"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "8_-97YL-xMCI5qzqAzi7n"
+uri = "file://.agents/outputs/task-17-historical-import-report.md"
+type = "text"
+title = "Task 17 — Report import storico TARGET"
+description = "Report finale con verifica preliminare, dati già presenti, unica prediction UK creata, esclusioni cross-season, controllo idempotenza e validazioni."
+logical_id = "7c887c31-d2e2-4d85-a853-1d3865d49179"
+content_hash = "sha256:9b9bf927b9606823cbb5d49da7e648ca6373a00b443f0b01345a8fae2d2556d5"
+size = 8461
+mtime_ms = 1788272694985
+storage_uri = "gcs://replit-rams-assets-archer/rams/assets/repl:92af7a65-61ba-4849-85b4-634f42e78888/7c887c31-d2e2-4d85-a853-1d3865d49179/cc29cc76-9825-44e6-8b6e-4fa3301bc810"
+storage_version_token = "1788272745912115"
+content_type = "text/markdown"
