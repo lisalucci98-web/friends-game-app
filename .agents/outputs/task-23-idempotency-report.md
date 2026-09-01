@@ -1,6 +1,6 @@
 # Task 23 — Import storico Google Sheets
 
-- Modalità: **DRY-RUN — NESSUNA SCRITTURA**
+- Modalità: **IMPORT COMPLETATO**
 - Account target verificato: **SÌ, match univoco**
 - Profilo target verificato: **SÌ** (profilo 6)
 - Lega: **FantaTest**
@@ -14,7 +14,6 @@
 - Prediction trovate: **60**
 - GP completi: **13**
 - GP parziali: **8**
-- Invii multipli: **0**
 - Conflitti: **2**
 - GP importabili: **7**
 - Prediction già esistenti: **7**

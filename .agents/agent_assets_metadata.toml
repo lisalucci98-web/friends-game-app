@@ -70,3 +70,17 @@ mtime_ms = 1788272694985
 storage_uri = "gcs://replit-rams-assets-archer/rams/assets/repl:92af7a65-61ba-4849-85b4-634f42e78888/7c887c31-d2e2-4d85-a853-1d3865d49179/cc29cc76-9825-44e6-8b6e-4fa3301bc810"
 storage_version_token = "1788272745912115"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "-CYtp-pFnX6ogwBu_A-re"
+uri = "file://.agents/outputs/task-23-historical-import-report.md"
+type = "text"
+title = "Task 23 — Report import storico"
+description = "Report finale dell’import storico Google Sheets, con mapping dei 23 GP, stati, conteggi, esclusioni e verifica di idempotenza."
+logical_id = "5a6bf7e3-1f38-477d-88df-72e447a5e35a"
+content_hash = "sha256:0fd4c5db74061c44d26b85235cf70a4db16861eb9c51bbe2d4e688fd4c16f4b6"
+size = 8476
+mtime_ms = 1788280415266
+storage_uri = "gcs://replit-rams-assets-archer/rams/assets/repl:92af7a65-61ba-4849-85b4-634f42e78888/5a6bf7e3-1f38-477d-88df-72e447a5e35a/6cccf6eb-8b1b-4a39-afc4-d44693fa0e76"
+storage_version_token = "1788280440898493"
+content_type = "text/markdown"

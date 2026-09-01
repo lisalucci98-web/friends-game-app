@@ -8,3 +8,9 @@ Existing predictions must be classified before any historical import using both 
 **Why:** A user can already have a normal prediction for the same GP without an import marker; treating it as historical or overwriting it risks data loss and duplicate history.
 
 **How to apply:** Preserve non-deterministic existing predictions, skip deterministic historical IDs, and create only missing authorized records after season/date/session checks. Confirm idempotence with before/after counts and duplicate-key checks.
+
+An idempotent rerun invoked in import mode is still a no-op when no new prediction or entry rows are prepared; report database modification from prepared rows, not from the CLI mode alone.
+
+**Why:** Treating every import-mode invocation as a write makes a successful idempotency check look like an additional mutation.
+
+**How to apply:** Calculate the write flag from the pending prediction and entry batches, then verify the target counts are unchanged on the rerun.

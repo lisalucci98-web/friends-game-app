@@ -1,6 +1,6 @@
 # Task 23 — Import storico Google Sheets
 
-- Modalità: **DRY-RUN — NESSUNA SCRITTURA**
+- Modalità: **IMPORT COMPLETATO**
 - Account target verificato: **SÌ, match univoco**
 - Profilo target verificato: **SÌ** (profilo 6)
 - Lega: **FantaTest**
@@ -17,10 +17,10 @@
 - Invii multipli: **0**
 - Conflitti: **2**
 - GP importabili: **7**
-- Prediction già esistenti: **7**
-- Prediction nuove importate: **0**
-- Entry nuove importate: **0**
-- Punti storici caricati: **0**
+- Prediction già esistenti: **0**
+- Prediction nuove importate: **7**
+- Entry nuove importate: **77**
+- Punti storici caricati: **105**
 
 ## Mapping verificato prima della scrittura
 
@@ -30,8 +30,8 @@
 | Argentina | 2025-03-15, 2025-03-15, 2025-03-16 | ARG | — | — | — | 0 | ESCLUSO — nessun GP 2025 con date corrispondenti nell’app |
 | Australia | 2025-10-17, 2025-10-18, 2025-10-26 | AUS | — | — | — | 0 | ESCLUSO — nessun GP 2025 con date corrispondenti nell’app |
 | Austria | 2025-08-16, 2025-08-16, 2025-08-17 | AUT | — | — | — | 0 | ESCLUSO — sorgente PARTIAL |
-| Brasile | 2026-03-21, 2026-03-21, 2026-03-22 | BRA | GRAND PRIX OF BRAZIL | 2026-03-20 | Autódromo Internacional de Goiânia - Ayrton Senna | 1 | ALREADY_EXISTS — nessuna scrittura |
-| Catalogna | 2026-05-16, 2026-05-16, 2026-05-17 | CAT | GRAND PRIX OF CATALONIA | 2026-05-15 | Circuit de Barcelona-Catalunya | 1 | ALREADY_EXISTS — nessuna scrittura |
+| Brasile | 2026-03-21, 2026-03-21, 2026-03-22 | BRA | GRAND PRIX OF BRAZIL | 2026-03-20 | Autódromo Internacional de Goiânia - Ayrton Senna | 1 | IMPORTA |
+| Catalogna | 2026-05-16, 2026-05-16, 2026-05-17 | CAT | GRAND PRIX OF CATALONIA | 2026-05-15 | Circuit de Barcelona-Catalunya | 1 | IMPORTA |
 | FRANCIA | 2025-05-10, 2025-05-10, 2026-05-10 | FRA | — | — | — | 0 | ESCLUSO — sorgente DATE_REVIEW |
 | Germany | 2026-07-11, 2026-07-11, 2025-07-13 | GER | — | — | — | 0 | ESCLUSO — sorgente DATE_REVIEW |
 | Giappone | 2025-09-28 | JPN | — | — | — | 0 | ESCLUSO — sorgente DATE_REVIEW |
@@ -41,26 +41,26 @@
 | Netherlands | 2026-06-28 | NED | GRAND PRIX OF THE NETHERLANDS | 2026-06-26 | TT Circuit Assen | 1 | ESCLUSO — sorgente DATE_REVIEW |
 | Portogallo | 2025-11-08, 2025-11-08, 2025-11-09 | POR | — | — | — | 0 | ESCLUSO — nessun GP 2025 con date corrispondenti nell’app |
 | QATAR | 2025-04-12, 2025-04-12, 2025-04-13 | QAT | — | — | — | 0 | ESCLUSO — sorgente AGGREGATE_CONFLICT |
-| Repubblica Ceca | 2026-06-20, 2026-06-20, 2026-06-21 | CZE | GRAND PRIX OF CZECHIA | 2026-06-19 | CREDITAS Autodrom Brno | 1 | ALREADY_EXISTS — nessuna scrittura |
+| Repubblica Ceca | 2026-06-20, 2026-06-20, 2026-06-21 | CZE | GRAND PRIX OF CZECHIA | 2026-06-19 | CREDITAS Autodrom Brno | 1 | IMPORTA |
 | San Marino | 2025-09-14 | RSM | — | — | — | 0 | ESCLUSO — sorgente DATE_REVIEW |
-| SPAGNA | 2026-04-25, 2026-04-25, 2026-04-26 | SPA | GRAND PRIX OF SPAIN | 2026-04-24 | Circuito de Jerez - Ángel Nieto | 1 | ALREADY_EXISTS — nessuna scrittura |
+| SPAGNA | 2026-04-25, 2026-04-25, 2026-04-26 | SPA | GRAND PRIX OF SPAIN | 2026-04-24 | Circuito de Jerez - Ángel Nieto | 1 | IMPORTA |
 | Thailandia | 2026-02-27, 2026-02-28, 2026-03-01 | THA | GRAND PRIX OF THAILAND | 2026-02-27 | Chang International Circuit | 1 | ESCLUSO — sorgente AGGREGATE_CONFLICT |
-| UK | 2026-08-08, 2026-08-08, 2026-08-09 | GBR | GRAND PRIX OF GREAT BRITAIN | 2026-08-07 | Silverstone Circuit | 1 | ALREADY_EXISTS — nessuna scrittura |
-| Ungheria | 2026-06-06, 2026-06-06, 2026-06-07 | HUN | GRAND PRIX OF HUNGARY | 2026-06-05 | Balaton Park Circuit | 1 | ALREADY_EXISTS — nessuna scrittura |
-| USA | 2026-03-28, 2026-03-28, 2026-03-29 | USA | GRAND PRIX OF THE UNITED STATES | 2026-03-27 | Circuit Of The Americas | 1 | ALREADY_EXISTS — nessuna scrittura |
+| UK | 2026-08-08, 2026-08-08, 2026-08-09 | GBR | GRAND PRIX OF GREAT BRITAIN | 2026-08-07 | Silverstone Circuit | 1 | IMPORTA |
+| Ungheria | 2026-06-06, 2026-06-06, 2026-06-07 | HUN | GRAND PRIX OF HUNGARY | 2026-06-05 | Balaton Park Circuit | 1 | IMPORTA |
+| USA | 2026-03-28, 2026-03-28, 2026-03-29 | USA | GRAND PRIX OF THE UNITED STATES | 2026-03-27 | Circuit Of The Americas | 1 | IMPORTA |
 | Valencia | 2025-11-15, 2025-11-15, 2025-11-16 | VAL | — | — | — | 0 | ESCLUSO — nessun GP 2025 con date corrispondenti nell’app |
 
 ## GP importati
 
 | GP | Qualifica | Sprint | Gara | Totale | Sessioni | Stato |
 |---|---:|---:|---:|---:|---|---|
-| Brasile | 0 | 6 | 12 | 18 | Qualifica, Sprint, Gara | ALREADY_EXISTS |
-| Catalogna | 6 | 2 | 0 | 8 | Qualifica, Sprint, Gara | ALREADY_EXISTS |
-| Repubblica Ceca | 3 | 3 | 8 | 14 | Qualifica, Sprint, Gara | ALREADY_EXISTS |
-| SPAGNA | 5 | 3 | 11 | 19 | Qualifica, Sprint, Gara | ALREADY_EXISTS |
-| UK | 5 | 9 | 8 | 22 | Qualifica, Sprint, Gara | ALREADY_EXISTS |
-| Ungheria | 5 | 1 | 3 | 9 | Qualifica, Sprint, Gara | ALREADY_EXISTS |
-| USA | 3 | 0 | 12 | 15 | Qualifica, Sprint, Gara | ALREADY_EXISTS |
+| Brasile | 0 | 6 | 12 | 18 | Qualifica, Sprint, Gara | NEW |
+| Catalogna | 6 | 2 | 0 | 8 | Qualifica, Sprint, Gara | NEW |
+| Repubblica Ceca | 3 | 3 | 8 | 14 | Qualifica, Sprint, Gara | NEW |
+| SPAGNA | 5 | 3 | 11 | 19 | Qualifica, Sprint, Gara | NEW |
+| UK | 5 | 9 | 8 | 22 | Qualifica, Sprint, Gara | NEW |
+| Ungheria | 5 | 1 | 3 | 9 | Qualifica, Sprint, Gara | NEW |
+| USA | 3 | 0 | 12 | 15 | Qualifica, Sprint, Gara | NEW |
 
 ## Tabella finale per GP
 
@@ -70,8 +70,8 @@
 | Argentina | — | 10 | 5 | 15 | Pedro Acosta | 30 | EXCLUDED |
 | Australia | — | 2 | 4 | 3 | Joan Mir | 9 | EXCLUDED |
 | Austria | — | — | — | — | — | — | PARTIAL |
-| Brasile | 738a8b22-f744-4c75-847b-a2565dce17de | 0 | 6 | 12 | Joan Mir | 18 | ALREADY_EXISTS |
-| Catalogna | a0251657-afe5-4d90-a66f-d4779babd571 | 6 | 2 | 0 | Joan Mir | 8 | ALREADY_EXISTS |
+| Brasile | 738a8b22-f744-4c75-847b-a2565dce17de | 0 | 6 | 12 | Joan Mir | 18 | IMPORTED |
+| Catalogna | a0251657-afe5-4d90-a66f-d4779babd571 | 6 | 2 | 0 | Joan Mir | 8 | IMPORTED |
 | FRANCIA | — | — | — | — | — | — | REVIEW |
 | Germany | — | — | — | — | — | — | REVIEW |
 | Giappone | — | — | — | — | — | — | REVIEW |
@@ -81,34 +81,34 @@
 | Netherlands | 83804cb1-a417-4213-b727-37f84b26d36e | — | — | — | — | — | REVIEW |
 | Portogallo | — | 0 | 2 | 21 | Joan Mir | 23 | EXCLUDED |
 | QATAR | — | — | — | — | — | — | CONFLICT |
-| Repubblica Ceca | f9d2e80c-431b-485f-afcf-671950648ad7 | 3 | 3 | 8 | Joan Mir | 14 | ALREADY_EXISTS |
+| Repubblica Ceca | f9d2e80c-431b-485f-afcf-671950648ad7 | 3 | 3 | 8 | Joan Mir | 14 | IMPORTED |
 | San Marino | — | — | — | — | — | — | REVIEW |
-| SPAGNA | 506917f4-179d-4e1d-b750-805c15bab8d7 | 5 | 3 | 11 | Joan Mir | 19 | ALREADY_EXISTS |
+| SPAGNA | 506917f4-179d-4e1d-b750-805c15bab8d7 | 5 | 3 | 11 | Joan Mir | 19 | IMPORTED |
 | Thailandia | f3fd8ba7-2966-46bd-8687-b92047f5e733 | — | — | — | — | — | CONFLICT |
-| UK | 6a16e0cb-ef4b-44b1-92e5-2e958cca0815 | 5 | 9 | 8 | Joan Mir | 22 | ALREADY_EXISTS |
-| Ungheria | 4bd780c9-9da4-48c6-a69f-ebfd6bf8a425 | 5 | 1 | 3 | Joan Mir | 9 | ALREADY_EXISTS |
-| USA | 782c929d-faaf-44e2-9d6f-0fde033855be | 3 | 0 | 12 | Joan Mir | 15 | ALREADY_EXISTS |
+| UK | 6a16e0cb-ef4b-44b1-92e5-2e958cca0815 | 5 | 9 | 8 | Joan Mir | 22 | IMPORTED |
+| Ungheria | 4bd780c9-9da4-48c6-a69f-ebfd6bf8a425 | 5 | 1 | 3 | Joan Mir | 9 | IMPORTED |
+| USA | 782c929d-faaf-44e2-9d6f-0fde033855be | 3 | 0 | 12 | Joan Mir | 15 | IMPORTED |
 | Valencia | — | 6 | 2 | 17 | Joan Mir | 25 | EXCLUDED |
 
 ## Conteggi
 
 | Controllo | Prima | Dopo |
 |---|---:|---:|
-| Pronostici complessivi account target | 7 | 7 |
-| Pronostici di questo import | 0 | 0 |
-| Entry di questo import | 0 | 0 |
+| Pronostici complessivi account target | 0 | 7 |
+| Pronostici di questo import | 0 | 7 |
+| Entry di questo import | 0 | 77 |
 
-- Record prediction nuovi preparati: **0**
-- Record prediction_entries nuovi preparati: **0**
-- Prediction già presenti riconosciute: **7**
+- Record prediction nuovi preparati: **7**
+- Record prediction_entries nuovi preparati: **77**
+- Prediction già presenti riconosciute: **0**
 - Punti delle entry individuali: **0**; i punteggi storici approvati sono conservati nei campi aggregati Qualifica/Sprint/Gara/Totale senza inventare una distribuzione.
 - Scoring/RPC invocati o modificati: **NO**
 - Dati ufficiali MotoGP modificati: **NO**
 - Pronostici di altri utenti modificati: **NO**
-- Database modificato: **NO**
-- Prediction create: **0**
+- Database modificato: **SI**
+- Prediction create: **7**
 - Prediction modificate: **0**
-- Entry create: **0**
+- Entry create: **77**
 - Prediction esistenti sovrascritte: **0**
 - RPC modificate: **NO**
 - RLS modificate: **NO**
@@ -134,4 +134,20 @@
 - **San Marino** — sorgente DATE_REVIEW.
 - **Thailandia** — sorgente AGGREGATE_CONFLICT.
 - **Valencia** — nessun GP 2025 con date corrispondenti nell’app.
+
+## Verifica idempotenza
+
+È stato ripetuto lo stesso import dopo la scrittura iniziale, senza modificare la sorgente:
+
+| Controllo | Risultato |
+|---|---:|
+| Prediction già presenti riconosciute al secondo passaggio | 7 |
+| Nuove prediction al secondo passaggio | 0 |
+| Nuove prediction_entries al secondo passaggio | 0 |
+| Prediction account target prima/dopo | 7 / 7 |
+| Scritture effettive al secondo passaggio | 0 |
+
+I 7 GP importati risultano `ALREADY_EXISTS` al secondo passaggio: nessun record è stato sovrascritto.
+
+Report tecnico del secondo passaggio: `.agents/outputs/task-23-idempotency-report.md`.
 

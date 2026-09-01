@@ -590,11 +590,12 @@ function sourceSummaryFromReport(markdown) {
     ['predictions', 'Pronostici TARGET trovati'],
     ['complete', 'GP completi'],
     ['partial', 'GP parziali'],
+    ['duplicates', 'Duplicati/multiple submissions'],
     ['conflicts', 'Conflitti tra riepiloghi aggregate'],
   ];
   return Object.fromEntries(labels.map(([key, label]) => [
     key,
-    Number(markdown.match(new RegExp(`^- ${label}: \\*\\*(\\d+)\\*\\*`))?.[1] ?? 0),
+    Number(markdown.match(new RegExp(`^- ${label}: \\*\\*(\\d+)\\*\\*`, 'm'))?.[1] ?? 0),
   ]));
 }
 
@@ -617,6 +618,7 @@ function buildReport({
     if (decision?.importStatus === 'ALREADY_EXISTS') return 'ALREADY_EXISTS';
     return row.reportStatus;
   };
+  const writePerformed = importMode && (rows.predictions.length > 0 || rows.entries.length > 0);
   const lines = [
     '# Task 23 — Import storico Google Sheets',
     '',
@@ -634,6 +636,7 @@ function buildReport({
     `- Prediction trovate: **${sourceSummary.predictions}**`,
     `- GP completi: **${sourceSummary.complete}**`,
     `- GP parziali: **${sourceSummary.partial}**`,
+    `- Invii multipli: **${sourceSummary.duplicates}**`,
     `- Conflitti: **${sourceSummary.conflicts}**`,
     `- GP importabili: **${rows.decisions.length}**`,
     `- Prediction già esistenti: **${alreadyExists.length}**`,
@@ -707,10 +710,10 @@ function buildReport({
     '- Scoring/RPC invocati o modificati: **NO**',
     '- Dati ufficiali MotoGP modificati: **NO**',
     '- Pronostici di altri utenti modificati: **NO**',
-    `- Database modificato: **${importMode ? 'SI' : 'NO'}**`,
-    `- Prediction create: **${importMode ? rows.predictions.length : 0}**`,
+    `- Database modificato: **${writePerformed ? 'SI' : 'NO'}**`,
+    `- Prediction create: **${writePerformed ? rows.predictions.length : 0}**`,
     '- Prediction modificate: **0**',
-    `- Entry create: **${importMode ? rows.entries.length : 0}**`,
+    `- Entry create: **${writePerformed ? rows.entries.length : 0}**`,
     '- Prediction esistenti sovrascritte: **0**',
     '- RPC modificate: **NO**',
     '- RLS modificate: **NO**',
