@@ -1,0 +1,497 @@
+# Task #21 — Beta privata Fanta MotoGP: registrazione e pronostici da smartphone
+
+## Obiettivo
+
+Preparare l'app **Fanta MotoGP** per essere utilizzata realmente da un piccolo gruppo di amici in modalità beta.
+
+Ogni partecipante deve poter:
+
+1. aprire l'app da smartphone tramite un URL pubblico;
+2. registrarsi autonomamente;
+3. effettuare il login;
+4. visualizzare l'app autenticata;
+5. compilare il pronostico;
+6. salvare il pronostico;
+7. tornare successivamente nell'app e modificare/ricaricare il proprio pronostico, secondo il comportamento già previsto;
+8. utilizzare l'app senza necessità di accedere a Replit o Supabase.
+
+---
+
+# 1. PRIMA FASE — AUDIT
+
+Prima di modificare qualsiasi cosa, analizza l'implementazione attuale.
+
+Verifica concretamente:
+
+### Autenticazione
+
+* provider Supabase Auth utilizzato;
+* registrazione email/password;
+* login;
+* logout;
+* gestione sessione;
+* persistenza della sessione sul browser mobile;
+* eventuale email confirmation;
+* redirect dopo registrazione/login;
+* gestione errori;
+* reset password, se già implementato.
+
+### Database
+
+Verifica le tabelle effettivamente utilizzate dalla registrazione e dai pronostici.
+
+Verifica:
+
+* `profiles`;
+* `predictions`;
+* eventuali prediction entries;
+* relazioni con `auth.users`;
+* RLS;
+* policy SELECT;
+* policy INSERT;
+* policy UPDATE;
+* eventuali policy DELETE.
+
+NON modificare ancora il database.
+
+### Pronostici
+
+Verifica il flusso attuale:
+
+```text
+utente
+↓
+login
+↓
+pagina Pronostici
+↓
+selezione piloti
+↓
+tempo Pole
+↓
+OUT
+↓
+submit_prediction
+↓
+Supabase
+```
+
+Verifica che il pronostico venga effettivamente associato all'utente autenticato e non possa essere salvato per conto di un altro utente.
+
+---
+
+# 2. PUBBLICAZIONE DELL'APP
+
+Verifica se l'app dispone già di un URL pubblico raggiungibile da un normale smartphone.
+
+Se NON è pubblicata:
+
+* identifica il metodo corretto per pubblicare l'app tramite Replit;
+* NON acquistare servizi;
+* NON creare account esterni;
+* NON modificare Supabase senza necessità.
+
+Se è già pubblicata:
+
+* verifica l'URL;
+* verifica che sia raggiungibile da un browser mobile;
+* verifica che HTTPS sia attivo.
+
+Nel report finale indicare chiaramente:
+
+```text
+URL pubblico: ...
+```
+
+---
+
+# 3. SUPABASE AUTH
+
+Verificare la configurazione reale di Supabase Authentication.
+
+L'obiettivo è permettere a un nuovo utente di registrarsi autonomamente.
+
+Verificare:
+
+* Sign Up;
+* Sign In;
+* session persistence;
+* email/password;
+* email confirmation;
+* Site URL;
+* Redirect URLs.
+
+NON disabilitare la sicurezza di Supabase.
+
+NON utilizzare chiavi `service_role` nel frontend.
+
+NON inserire credenziali o segreti nel codice.
+
+Se la registrazione è già correttamente implementata, non modificarla inutilmente.
+
+---
+
+# 4. REGISTRAZIONE
+
+La pagina di registrazione deve essere semplice e ottimizzata per smartphone.
+
+Campi minimi:
+
+* email;
+* password;
+* conferma password, se necessaria.
+
+Messaggi chiari:
+
+* email non valida;
+* password troppo corta;
+* password non coincidente;
+* account già esistente;
+* errore di registrazione;
+* registrazione completata.
+
+Dopo una registrazione riuscita, mostrare chiaramente all'utente cosa deve fare.
+
+Se Supabase richiede la conferma email, mostrare un messaggio del tipo:
+
+> Controlla la tua email per confermare l'account.
+
+NON inventare un comportamento diverso da quello realmente configurato.
+
+---
+
+# 5. PROFILO
+
+Verificare la pagina Profilo già presente.
+
+Se esiste già un campo nome/nickname, verificare che venga salvato correttamente.
+
+Se non esiste, NON creare automaticamente nuove colonne senza prima verificare lo schema.
+
+L'obiettivo della beta è che gli amici possano essere riconoscibili senza dover condividere pubblicamente il proprio indirizzo email.
+
+Se è già presente un sistema profilo/nickname, utilizzarlo.
+
+---
+
+# 6. PRONOSTICO DA SMARTPHONE
+
+Questa è la parte più importante.
+
+Testare la pagina Pronostici su:
+
+```text
+360 × 800
+375 × 812
+390 × 844
+```
+
+L'utente deve poter compilare comodamente:
+
+### QUALIFICA
+
+* Pole Position;
+* Tempo Pole.
+
+### SPRINT
+
+* P1;
+* P2;
+* P3.
+
+### GARA
+
+* P1;
+* P2;
+* P3;
+* P4;
+* P5.
+
+### OUT
+
+* Pilota OUT.
+
+Controllare in particolare:
+
+* select/input abbastanza grandi per il touch;
+* nessun elemento troppo piccolo;
+* nessun testo tagliato;
+* nessun overflow orizzontale;
+* tastiera mobile che non copra i campi;
+* pulsante Salva sempre facilmente raggiungibile;
+* feedback chiaro dopo il salvataggio.
+
+---
+
+# 7. SALVATAGGIO
+
+Verificare realmente il flusso:
+
+```text
+login
+→ pronostico
+→ compilazione
+→ SALVA PRONOSTICO
+→ risposta Supabase
+→ conferma all'utente
+```
+
+Utilizzare il meccanismo già presente:
+
+```text
+supabase.rpc('submit_prediction', ...)
+```
+
+NON sostituirlo con INSERT diretto se non necessario.
+
+NON modificare il payload senza una ragione tecnica dimostrata.
+
+NON modificare lo scoring.
+
+---
+
+# 8. RICARICAMENTO DEL PRONOSTICO
+
+Dopo il salvataggio:
+
+1. ricaricare la pagina;
+2. uscire dall'account;
+3. rientrare;
+4. tornare alla pagina Pronostici.
+
+Verificare che il pronostico dell'utente venga recuperato correttamente.
+
+Verificare inoltre che:
+
+* un utente veda il proprio pronostico;
+* un utente non possa modificare quello di un altro utente;
+* il caricamento non dipenda dal dispositivo utilizzato.
+
+---
+
+# 9. SICUREZZA RLS
+
+Controllare le policy RLS esistenti.
+
+Obiettivo minimo:
+
+```text
+Utente A
+→ può gestire i propri dati
+
+Utente B
+→ non può leggere/modificare i dati privati di Utente A
+```
+
+NON disabilitare RLS.
+
+NON utilizzare:
+
+```text
+service_role
+```
+
+nel frontend.
+
+NON creare policy permissive tipo:
+
+```text
+USING (true)
+```
+
+se non strettamente necessario e giustificato.
+
+Se le policy attuali sono sufficienti, non modificarle.
+
+---
+
+# 10. NON TOCCARE LO SCORING
+
+È fondamentale.
+
+In questo task NON modificare:
+
+```text
+score_prediction
+calculate_qualifying_time_points
+```
+
+e NON modificare:
+
+* bonus;
+* malus;
+* punteggi;
+* regolamento;
+* algoritmo scoring.
+
+Il fatto che lo scoring completo non sia ancora verificabile NON deve bloccare la beta di inserimento pronostici.
+
+Per questa fase ci interessa soprattutto:
+
+```text
+REGISTRAZIONE
+LOGIN
+PRONOSTICO
+SALVATAGGIO
+RICARICAMENTO
+```
+
+---
+
+# 11. TEST MULTI-UTENTE
+
+Se è possibile effettuare test senza creare dati persistenti reali, verificare il comportamento multiutente.
+
+NON creare account reali di amici.
+
+Se servono account di test, utilizzare esclusivamente fixture temporanee e documentare qualsiasi modifica.
+
+In assenza di un sistema sicuro di rollback:
+
+**NON creare account o prediction di test persistenti.**
+
+---
+
+# 12. MOBILE UX
+
+Controllare particolarmente:
+
+* Safari iPhone;
+* Chrome Android;
+* viewport 360 px;
+* viewport 390 px.
+
+Verificare:
+
+* input numerico del tempo Pole;
+* dropdown piloti;
+* pulsanti;
+* navbar;
+* menu mobile;
+* scrolling;
+* tastiera;
+* messaggi di errore;
+* messaggio di successo.
+
+L'esperienza deve essere utilizzabile con una sola mano.
+
+---
+
+# 13. PWA / INSTALLAZIONE
+
+Verificare se l'app può essere installata come web app sul telefono.
+
+Se esiste già un manifest/PWA:
+
+* verificarne correttezza;
+* verificare icona;
+* nome "Fanta MotoGP";
+* comportamento mobile.
+
+NON aggiungere una PWA complessa se non necessaria.
+
+Se non esiste, indicare semplicemente nel report che non è presente.
+
+---
+
+# 14. TEST TECNICI
+
+Eseguire:
+
+```text
+TypeScript
+Build
+Workflow
+Console browser
+Mobile responsive
+Authentication flow
+Prediction flow
+```
+
+Verificare che non compaiano nuovi errori.
+
+---
+
+# 15. CHECKLIST DI BETA
+
+La beta può essere dichiarata pronta solo se è possibile completare questo percorso:
+
+```text
+APRO IL LINK
+      ↓
+REGISTRAZIONE
+      ↓
+LOGIN
+      ↓
+HOME
+      ↓
+PRONOSTICI
+      ↓
+COMPILO POLE
+      ↓
+COMPILO SPRINT
+      ↓
+COMPILO GARA
+      ↓
+SCELGO OUT
+      ↓
+SALVA PRONOSTICO
+      ↓
+CONFERMA
+      ↓
+RICARICO
+      ↓
+PRONOSTICO ANCORA PRESENTE
+```
+
+---
+
+# 16. REPORT FINALE
+
+Restituire:
+
+```text
+Task #21 — Beta privata Fanta MotoGP
+
+URL pubblico: ...
+
+Registrazione: PASS/FAIL
+Login: PASS/FAIL
+Logout: PASS/FAIL
+Session persistence: PASS/FAIL
+
+Pronostico Qualifica: PASS/FAIL
+Pronostico Sprint: PASS/FAIL
+Pronostico Gara: PASS/FAIL
+Pronostico OUT: PASS/FAIL
+
+Salvataggio: PASS/FAIL
+Ricaricamento: PASS/FAIL
+
+RLS: PASS/FAIL/UNKNOWN
+Sicurezza multiutente: PASS/FAIL/UNKNOWN
+
+Mobile 360px: PASS/FAIL
+Mobile 390px: PASS/FAIL
+Desktop: PASS/FAIL
+
+TypeScript: PASS/FAIL
+Build: PASS/FAIL
+Workflow: PASS/FAIL
+Console: PASS/FAIL
+
+Scoring modificato: NO
+Database modificato: NO/YES
+RPC modificate: NO/YES
+Migration create: NO/YES
+```
+
+Per ogni eventuale modifica a database o Supabase, spiegare esattamente cosa è stato modificato e perché.
+
+## CRITERIO DI SUCCESSO
+
+Il task è completato quando un nuovo utente può ricevere il link dell'app, aprirlo dal proprio smartphone, registrarsi, fare login e inserire autonomamente il proprio pronostico.
+
+NON dichiarare il task completato semplicemente perché la pagina di login esiste.
+
+La verifica deve riguardare il **flusso reale end-to-end dell'utente**.

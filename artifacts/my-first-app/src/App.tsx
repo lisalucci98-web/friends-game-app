@@ -2403,17 +2403,31 @@ function LeagueDetailPage() {
 
 function AuthPage() {
   const { user, isAuthLoading } = useAuth();
+  const [, navigate] = useLocation();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordConfirmation, setPasswordConfirmation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isAuthLoading && user) {
+      navigate('/home');
+    }
+  }, [isAuthLoading, navigate, user]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAuthError(null);
     setAuthMessage(null);
+
+    if (mode === 'register' && password !== passwordConfirmation) {
+      setAuthError('Le password non coincidono.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     const result = mode === 'login'
@@ -2437,6 +2451,7 @@ function AuthPage() {
     }
 
     setPassword('');
+    setPasswordConfirmation('');
     setIsSubmitting(false);
   }
 
@@ -2518,6 +2533,33 @@ function AuthPage() {
               font: 'inherit',
             }}
           />
+           {mode === 'register' && (
+             <>
+               <label htmlFor="auth-password-confirmation">Conferma password</label>
+               <input
+                 id="auth-password-confirmation"
+                 name="passwordConfirmation"
+                 type="password"
+                 autoComplete="new-password"
+                 required
+                 minLength={6}
+                 value={passwordConfirmation}
+                 onChange={(event) => setPasswordConfirmation(event.target.value)}
+                 disabled={isSubmitting}
+                 placeholder="Ripeti la password"
+                 style={{
+                   boxSizing: 'border-box',
+                   width: '100%',
+                   padding: '13px 16px',
+                   border: '1px solid hsl(var(--border))',
+                   borderRadius: '999px',
+                   color: 'hsl(var(--foreground))',
+                   background: 'hsl(var(--card) / 0.8)',
+                   font: 'inherit',
+                 }}
+               />
+             </>
+           )}
           <button className="start-button" type="submit" disabled={isSubmitting}>
             {isSubmitting
               ? 'Attendi...'
@@ -2529,6 +2571,7 @@ function AuthPage() {
             type="button"
             onClick={() => {
               setMode(mode === 'login' ? 'register' : 'login');
+               setPasswordConfirmation('');
               setAuthError(null);
               setAuthMessage(null);
             }}
