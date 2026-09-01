@@ -1,0 +1,265 @@
+# Task #21 — Collegamento Google Drive/Google Sheets e importazione pronostici storici
+
+OBIETTIVO
+
+Voglio recuperare i pronostici storici del giocatore:
+
+nikyturets@gmail.com
+
+I pronostici storici sono raccolti nei Google Form e nei relativi Google Sheet presenti nel mio Google Drive.
+
+Google Sheet/cartella di riferimento:
+https://docs.google.com/spreadsheets/d/12LPMVYnqA6gb6uyFYTesw4XVG3XVZbPidVWEHOy7UhY/edit?usp=drive_link
+
+IMPORTANTE:
+Questa fase deve essere ESCLUSIVAMENTE DI ANALISI E LETTURA.
+
+NON modificare:
+- Supabase
+- database
+- RPC
+- RLS
+- migration
+- prediction
+- risultati ufficiali
+- scoring
+- dati esistenti dell'app
+
+NON creare fixture persistenti.
+
+NON inserire dati storici in Supabase in questa fase.
+
+--------------------------------------------------
+1. COLLEGAMENTO GOOGLE
+--------------------------------------------------
+
+Verifica se l'ambiente Replit dispone già di una connessione/autorizzazione Google utilizzabile per accedere a Google Drive e/o Google Sheets.
+
+Se esiste già una connessione autorizzata:
+- utilizzala;
+- non richiedere credenziali da inserire nel codice;
+- non salvare token o password nel repository.
+
+Se non esiste:
+- spiegami esattamente quale integrazione/autorizzazione è necessaria;
+- NON creare workaround insicuri;
+- NON chiedermi di inserire credenziali Google nel codice sorgente.
+
+Preferire API OAuth ufficiali Google Drive/Google Sheets.
+
+--------------------------------------------------
+2. ACCESSO AL FILE
+--------------------------------------------------
+
+Una volta disponibile l'accesso:
+
+1. Apri il Google Sheet indicato sopra.
+2. Analizza tutti i fogli/tab presenti.
+3. Identifica quali fogli corrispondono ai diversi GP e alle diverse sessioni:
+   - Qualifica
+   - Sprint
+   - Gara
+4. Se il file contiene collegamenti ad altri Google Sheet/Form, analizzali se accessibili.
+5. Non limitarti alle prime righe: analizza l'intero contenuto disponibile.
+
+Cerca sempre il partecipante:
+
+nikyturets@gmail.com
+
+La ricerca deve essere case-insensitive e tollerare eventuali differenze minime di formattazione dell'indirizzo email.
+
+--------------------------------------------------
+3. DATI DA RICOSTRUIRE
+--------------------------------------------------
+
+Per ogni GP trovato, ricostruisci:
+
+QUALIFICA:
+- email
+- pilota Pole Position
+- tempo Pole
+- eventuale Time Conversion
+- punteggio Qualifica
+
+SPRINT:
+- email
+- P1
+- P2
+- P3
+- punteggio Sprint
+
+GARA:
+- email
+- P1
+- P2
+- P3
+- P4
+- P5
+- pilota OUT
+- punteggio Gara
+
+Se il foglio contiene già il punteggio calcolato, conservarlo come:
+historical_score
+
+NON ricalcolare o modificare i punteggi storici in questa fase.
+
+--------------------------------------------------
+4. IDENTIFICAZIONE DEL GP
+--------------------------------------------------
+
+Per ogni record determina il GP corrispondente utilizzando, in ordine di preferenza:
+
+1. nome GP esplicito;
+2. nome circuito;
+3. data;
+4. nome del Form/Sheet;
+5. eventuali informazioni presenti nei metadati.
+
+Non inventare il GP quando non può essere determinato con sufficiente sicurezza.
+
+Se un record non è associabile con certezza a un GP:
+- segnalarlo separatamente;
+- non eliminarlo;
+- non assegnargli un GP arbitrario.
+
+--------------------------------------------------
+5. NORMALIZZAZIONE PILOTI
+--------------------------------------------------
+
+Mantieni inizialmente esattamente il testo presente nei Google Sheet.
+
+Poi crea, se possibile, una seconda rappresentazione normalizzata compatibile con i piloti già presenti nell'app.
+
+Esempio:
+
+"M. Marquez" → Marc Marquez
+
+"F. Di Giannantonio" → Fabio Di Giannantonio
+
+NON modificare i dati originali.
+
+Se una corrispondenza non è certa:
+- segnalarla come AMBIGUA;
+- non inventare il pilota.
+
+--------------------------------------------------
+6. OUTPUT
+
+Crea uno script locale, ad esempio:
+
+scripts/import-historical-google-sheets.mjs
+
+Lo script deve essere utilizzabile per:
+- leggere i dati;
+- filtrare nikyturets@gmail.com;
+- ricostruire i pronostici;
+- produrre un report.
+
+NON deve scrivere su Supabase.
+
+Produci anche un file/report locale:
+
+.agents/memory/task-21-google-history-import.md
+
+--------------------------------------------------
+7. REPORT FINALE
+
+Il report deve contenere una tabella:
+
+| GP | Qualifica | Sprint | Gara | OUT | Totale |
+|---|---|---|---|---|---|
+
+Per ogni GP mostra anche il dettaglio:
+
+| GP | Sessione | Pronostico | Punteggio storico |
+|---|---|---|---:|
+
+Esempio:
+
+GP X
+Qualifica:
+- Pole: M. Bezzecchi
+- Tempo: 01:56.354
+- Score: 3
+
+Sprint:
+- P1: ...
+- P2: ...
+- P3: ...
+- Score: ...
+
+Gara:
+- P1: ...
+- P2: ...
+- P3: ...
+- P4: ...
+- P5: ...
+- OUT: ...
+- Score: ...
+
+--------------------------------------------------
+8. CONFRONTO CON I DATI GIÀ FORNITI
+
+Nel progetto esistono già dati storici forniti manualmente relativi ad almeno 3 GP.
+
+Confronta i dati recuperati da Google Sheets con quelli già disponibili.
+
+Per ogni differenza indica:
+
+- GP
+- sessione
+- valore precedente
+- valore Google Sheet
+- differenza
+- possibile causa
+
+NON correggere automaticamente nessun dato.
+
+--------------------------------------------------
+9. SICUREZZA
+
+È VIETATO:
+
+- inserire password Google nel codice;
+- inserire OAuth token hardcoded;
+- stampare token nei log;
+- committare credenziali;
+- modificare Supabase;
+- modificare RPC;
+- creare prediction;
+- creare fixture persistenti.
+
+Utilizzare esclusivamente il meccanismo di autenticazione/autorizzazione disponibile nell'ambiente Replit.
+
+--------------------------------------------------
+10. VERIFICHE FINALI
+
+Eseguire:
+
+- TypeScript/typecheck se applicabile;
+- build;
+- verifica dello script;
+- verifica che nessun dato Supabase sia stato modificato.
+
+Riportare esplicitamente:
+
+Database modificato: NO
+RPC modificate: NO
+Migration: NO
+Prediction create: NO
+Dati ufficiali modificati: NO
+Scoring modificato: NO
+Google Sheet modificato: NO
+
+--------------------------------------------------
+RISULTATO ATTESO
+
+Al termine NON voglio ancora importare i dati nella nuova app.
+
+Voglio prima ottenere un dataset storico affidabile per:
+
+nikyturets@gmail.com
+
+con tutti i pronostici disponibili gara per gara.
+
+Solo dopo aver verificato il report decideremo come importare i dati storici in Supabase.
