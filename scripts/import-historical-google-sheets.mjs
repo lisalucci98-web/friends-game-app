@@ -17,7 +17,7 @@ import { dirname } from 'node:path';
 import { ReplitConnectors } from '@replit/connectors-sdk';
 
 const DEFAULT_SPREADSHEET_ID = '12LPMVYnqA6gb6uyFYTesw4XVG3XVZbPidVWEHOy7UhY';
-const DEFAULT_REPORT = '.agents/memory/task-21-google-history-import.md';
+const DEFAULT_REPORT = '.agents/outputs/google-history-import.md';
 const DEFAULT_LOCAL_SOURCE =
   'attached_assets/Pasted-Certo-A-questo-punto-userei-i-dati-storici-come-dataset_1787240203484.txt';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -459,6 +459,33 @@ function extractSheetEntries(input) {
   );
 }
 
+function findRelatedGoogleLinks(input) {
+  const valuesBySheet = input?.valuesBySheet ?? input?.values ?? {};
+  const sheetEntries = Array.isArray(input?.sheets)
+    ? input.sheets.map((sheet) => [sheet.title ?? sheet.name ?? '', sheet.values ?? []])
+    : Object.entries(valuesBySheet).map(([title, payload]) => [
+        title,
+        Array.isArray(payload) ? payload : payload?.values ?? [],
+      ]);
+  const links = [];
+
+  for (const [sheetTitle, rows] of sheetEntries) {
+    for (const row of rows) {
+      for (const cell of row ?? []) {
+        const matches = displayValue(cell).match(/https?:\/\/[^\s"')]+/g) ?? [];
+        for (const url of matches) {
+          if (!/docs\.google\.com\/(spreadsheets|forms)/i.test(url)) continue;
+          links.push({
+            sheetTitle,
+            kind: /docs\.google\.com\/forms/i.test(url) ? 'Google Form' : 'Google Sheet',
+          });
+        }
+      }
+    }
+  }
+  return links;
+}
+
 function getSheetMetadataPayload(metadata) {
   return (metadata?.sheets ?? []).map((sheet) => ({
     title: sheet.properties?.title ?? sheet.title ?? '',
@@ -673,7 +700,7 @@ function markdownCell(value) {
   return String(value ?? '—').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 }
 
-function buildReport({ args, status, googleRecords, localRecords, differences, error }) {
+function buildReport({ args, status, googleRecords, localRecords, differences, relatedLinks, error }) {
   const byGp = new Map();
   for (const record of googleRecords) {
     const key = record.grandPrixKey || `unresolved-${record.sheetTitle}-${record.rowNumber}`;
@@ -689,6 +716,7 @@ function buildReport({ args, status, googleRecords, localRecords, differences, e
     `- Stato accesso Google Sheets: **${status}**`,
     `- Foglio analizzato: **${args.spreadsheetId ? 'ID configurato' : 'non configurato'}**`,
     `- Record del partecipante trovati: **${googleRecords.length}**`,
+    `- Collegamenti ad altri Google Sheet/Form: **${relatedLinks.length}**`,
     `- Punteggi ricalcolati: **NO**`,
     `- Scritture Google Sheets: **NO**`,
     `- Scritture Supabase: **NO**`,
@@ -722,7 +750,7 @@ function buildReport({ args, status, googleRecords, localRecords, differences, e
     lines.push(`| ${markdownCell(label || key)} | ${scores[0]} | ${scores[1]} | ${scores[2]} | ${markdownCell(formatRider(race?.out))} | ${total} |`);
   }
   if (!byGp.size) lines.push('| — | — | — | — | — | — |');
-  lines.push('');
+  lines.push('', '_Il Totale è la somma dei punteggi storici già presenti nelle tre sessioni; non è un nuovo calcolo di scoring._', '');
 
   lines.push(
     '## Dettaglio',
@@ -749,22 +777,37 @@ function buildReport({ args, status, googleRecords, localRecords, differences, e
   lines.push('');
 
   lines.push('## Normalizzazione piloti', '');
-  const ambiguous = [];
+  const riderNormalizations = new Map();
   for (const record of googleRecords) {
-    const values = record.prediction?.positions ?? [record.prediction?.pole, record.prediction?.out];
+    const values = [
+      record.prediction?.pole,
+      ...(record.prediction?.positions ?? []),
+      record.prediction?.out,
+    ];
     for (const value of values) {
-      if (value?.status === 'AMBIGUA' || value?.status === 'UNKNOWN') ambiguous.push(value.original);
-      for (const item of value?.items ?? []) {
-        if (item.status === 'AMBIGUA' || item.status === 'UNKNOWN') ambiguous.push(item.original);
-      }
+      if (value?.original) riderNormalizations.set(value.original, value);
     }
   }
-  if (ambiguous.length) {
-    lines.push('- **AMBIGUA/DA VERIFICARE:** ' + [...new Set(ambiguous)].join(', '));
+  if (riderNormalizations.size) {
+    lines.push('| Testo originale | Rappresentazione normalizzata | Stato |');
+    lines.push('|---|---|---|');
+    for (const value of riderNormalizations.values()) {
+      lines.push(`| ${markdownCell(value.original)} | ${markdownCell(value.normalized ?? '—')} | ${value.status} |`);
+    }
   } else {
-    lines.push('- Nessuna corrispondenza ambigua rilevata nei record trovati.');
+    lines.push('- Nessun pilota disponibile da normalizzare.');
   }
   lines.push('- I valori originali restano disponibili nel processo e non vengono sovrascritti dalla rappresentazione normalizzata.');
+  lines.push('');
+
+  lines.push('## Collegamenti ad altri file Google', '');
+  if (relatedLinks.length) {
+    for (const link of relatedLinks) {
+      lines.push(`- ${link.kind} rilevato nel tab \`${link.sheetTitle}\`.`);
+    }
+  } else {
+    lines.push('- Nessun collegamento a Google Sheet o Google Form rilevato nei valori o nelle formule disponibili.');
+  }
   lines.push('');
 
   lines.push('## Confronto con il dataset locale', '');
@@ -813,6 +856,7 @@ async function main() {
 
   let status = 'NON ESEGUITO';
   let googleRecords = [];
+  let relatedLinks = [];
   let error = null;
 
   try {
@@ -820,6 +864,7 @@ async function main() {
       ? JSON.parse(await readFile(args.input, 'utf8'))
       : await fetchGoogleSheets(args.spreadsheetId);
     googleRecords = filteredRecords(extractSheetEntries(payload), args.email);
+    relatedLinks = findRelatedGoogleLinks(payload);
     status = args.input ? 'EXPORT LOCALE LETTO' : 'LETTO';
   } catch (caught) {
     error = caught instanceof Error ? caught.message : 'errore non specificato';
@@ -834,7 +879,15 @@ async function main() {
   }
 
   const differences = comparePredictions(googleRecords, localRecords);
-  const report = buildReport({ args, status, googleRecords, localRecords, differences, error });
+  const report = buildReport({
+    args,
+    status,
+    googleRecords,
+    localRecords,
+    differences,
+    relatedLinks,
+    error,
+  });
   await mkdir(dirname(args.report), { recursive: true });
   await writeFile(args.report, report, 'utf8');
 

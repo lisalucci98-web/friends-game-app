@@ -4,7 +4,8 @@
 
 - Stato accesso Google Sheets: **LETTO**
 - Foglio analizzato: **ID configurato**
-- Record del partecipante trovati: **5**
+- Record del partecipante trovati: **3**
+- Collegamenti ad altri Google Sheet/Form: **0**
 - Punteggi ricalcolati: **NO**
 - Scritture Google Sheets: **NO**
 - Scritture Supabase: **NO**
@@ -14,7 +15,8 @@
 | GP | Qualifica | Sprint | Gara | OUT | Totale |
 |---|---:|---:|---:|---|---:|
 | Aragon | 5 | 5 | 14 | J. Mir | 24 |
-| 14 | 5 | 5 | — | — | — |
+
+_Il Totale è la somma dei punteggi storici già presenti nelle tre sessioni; non è un nuovo calcolo di scoring._
 
 ## Dettaglio
 
@@ -23,8 +25,6 @@
 | Aragon | Qualifica | Pole: M. Marquez; Tempo: 01:45.128; Time Conversion: 0,166; Score: 5 | 5 |
 | Aragon | Sprint | Top: M. Marquez / M. Bezzecchi / A. Marquez; OUT: —; Score: 5 | 5 |
 | Aragon | Gara | Top: M. Marquez / A. Marquez / M. Bezzecchi / J. Martin / F. Di Giannantonio; OUT: J. Mir; Score: 14 | 14 |
-| 14 | Qualifica | Pole: —; Tempo: —; Time Conversion: —; Score: 5 | 5 |
-| 14 | Sprint | Top: — / — / —; OUT: —; Score: 5 | 5 |
 
 ## GP/sessioni non determinabili
 
@@ -32,8 +32,19 @@
 
 ## Normalizzazione piloti
 
-- Nessuna corrispondenza ambigua rilevata nei record trovati.
+| Testo originale | Rappresentazione normalizzata | Stato |
+|---|---|---|
+| M. Marquez | Marc Marquez | NORMALIZED |
+| M. Bezzecchi | Marco Bezzecchi | NORMALIZED |
+| A. Marquez | Alex Marquez | NORMALIZED |
+| J. Martin | Jorge Martin | NORMALIZED |
+| F. Di Giannantonio | Fabio Di Giannantonio | NORMALIZED |
+| J. Mir | Joan Mir | NORMALIZED |
 - I valori originali restano disponibili nel processo e non vengono sovrascritti dalla rappresentazione normalizzata.
+
+## Collegamenti ad altri file Google
+
+- Nessun collegamento a Google Sheet o Google Form rilevato nei valori o nelle formule disponibili.
 
 ## Confronto con il dataset locale
 
@@ -51,8 +62,6 @@
 | Aragon | Qualifica | non presente nel dataset locale | Pole: M. Marquez; Tempo: 01:45.128; Time Conversion: 0,166; Score: 5 | sì | record Google aggiuntivo o GP/sessione non allineati |
 | Aragon | Sprint | non presente nel dataset locale | Top: M. Marquez / M. Bezzecchi / A. Marquez; OUT: —; Score: 5 | sì | record Google aggiuntivo o GP/sessione non allineati |
 | Aragon | Gara | non presente nel dataset locale | Top: M. Marquez / A. Marquez / M. Bezzecchi / J. Martin / F. Di Giannantonio; OUT: J. Mir; Score: 14 | sì | record Google aggiuntivo o GP/sessione non allineati |
-| 14 | Qualifica | non presente nel dataset locale | Pole: —; Tempo: —; Time Conversion: —; Score: 5 | sì | record Google aggiuntivo o GP/sessione non allineati |
-| 14 | Sprint | non presente nel dataset locale | Top: — / — / —; OUT: —; Score: 5 | sì | record Google aggiuntivo o GP/sessione non allineati |
 
 ## Verifiche di sicurezza
 

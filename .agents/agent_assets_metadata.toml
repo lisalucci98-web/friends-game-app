@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "dHr_QfhfAS9LQxRt-fwuq"
+uri = "file://.agents/outputs/google-history-import.md"
+type = "text"
+title = "Report pronostici storici Google Sheets"
+description = "Analisi read-only anonimizzata del GP di Aragon, con dettaglio Qualifica, Sprint, Gara, punteggi storici e confronto con il dataset locale."
+logical_id = "f8a562b2-3b96-422d-ae91-f8e20a3a72f1"
+content_hash = "sha256:a3d67352ae983847edd05bd55013c6eff378a978f5a24451a07ebeec1099e9e0"
+size = 4965
+mtime_ms = 1788261620599
+storage_uri = "gcs://replit-rams-assets-archer/rams/assets/repl:92af7a65-61ba-4849-85b4-634f42e78888/f8a562b2-3b96-422d-ae91-f8e20a3a72f1/b625c298-1849-48e9-b56d-38f3fa35c793"
+storage_version_token = "1788261658094462"
+content_type = "text/markdown"
