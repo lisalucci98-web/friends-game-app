@@ -10,3 +10,4 @@
 - [Supabase SQL access limitation](task-17-score-prediction-sql-analysis.md) — the connected integration is REST-only and its current role cannot read `public.predictions`.
 - [UI data audit](task-18-ui-data-audit.md) — the UI loads prediction inputs and official results, but no fantasy scoring breakdown, history, or server-side score.
 - [Google history reconstruction](google-history-reconstruction.md) — coalesce identical summary copies; reserve multiple-submission flags for repeated participant rows.
+- [Supabase read path discrepancy](supabase-read-path-discrepancy.md) — distinguish empty connector visibility from the project REST path before declaring tables empty.

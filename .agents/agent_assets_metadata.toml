@@ -28,3 +28,31 @@ mtime_ms = 1788265956102
 storage_uri = "gcs://replit-rams-assets-archer/rams/assets/repl:92af7a65-61ba-4849-85b4-634f42e78888/7663f5e0-f43a-4820-871d-7eb7e257f632/9e0d254c-9412-41aa-8762-c4cf4eb8d0e1"
 storage_version_token = "1788266053958897"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "bRbYhDXSU8JTQRNMpERiO"
+uri = "file://.agents/outputs/gp-history-matching.md"
+type = "text"
+title = "Task 16 — Report matching storico GP"
+description = "Report read-only con metodo, struttura Supabase/app, diagnosi del canale vuoto, mapping completo dei 23 GP e stati MATCH/REVIEW/NOT FOUND."
+logical_id = "241a26a9-4c06-40ce-991e-ad4c078edaa3"
+content_hash = "sha256:76bcffcdd40a144d833059268f3df1ae8583f6e94de512ff4898d1132f48b3c8"
+size = 9908
+mtime_ms = 1788272233664
+storage_uri = "gcs://replit-rams-assets-archer/rams/assets/repl:92af7a65-61ba-4849-85b4-634f42e78888/241a26a9-4c06-40ce-991e-ad4c078edaa3/832b5684-3244-4bfb-abf4-680767a47200"
+storage_version_token = "1788272274141717"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "HxGAlLo_f_VygK4ICalpZ"
+uri = "file://.agents/outputs/gp-history-mapping.json"
+type = "unspecified"
+title = "Task 16 — Mapping GP in JSON"
+description = "Mapping strutturato dei 23 GP storici verso gli UUID dei GP app 2026, con date, round derivato, stato e motivazione."
+logical_id = "7f890589-0acd-4247-bd55-04a1deabd8c7"
+content_hash = "sha256:7d69e0c19943d37b9534f8bf679747f72e97a5e1ee3cb435bc15c9f2bb6744ec"
+size = 27170
+mtime_ms = 1788272233804
+storage_uri = "gcs://replit-rams-assets-archer/rams/assets/repl:92af7a65-61ba-4849-85b4-634f42e78888/7f890589-0acd-4247-bd55-04a1deabd8c7/5da2242b-f0cc-46a6-9beb-309cb1528300"
+storage_version_token = "1788272275211512"
+content_type = "application/octet-stream"

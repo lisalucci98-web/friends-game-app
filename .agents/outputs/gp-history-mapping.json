@@ -1,0 +1,781 @@
+{
+  "reportVersion": 1,
+  "generatedAt": "2026-09-01",
+  "mode": "read-only",
+  "season": {
+    "year": 2026,
+    "id": "e88b4e43-2209-47aa-8e83-0e0b1cedde6e",
+    "source": "GET public.seasons?year=eq.2026&select=id,year"
+  },
+  "method": {
+    "sourceReport": ".agents/outputs/google-history-nikyturets.md",
+    "appCode": [
+      "artifacts/my-first-app/src/App.tsx",
+      "scripts/import-motogp-calendar-2026.mjs"
+    ],
+    "appTables": [
+      "public.seasons",
+      "public.grand_prix",
+      "public.sessions"
+    ],
+    "appGrandPrixIdField": "grand_prix.id",
+    "matchingOrder": [
+      "official ID/round if available",
+      "season + round",
+      "date",
+      "circuit",
+      "normalized name/short_name"
+    ],
+    "roundNote": "public.grand_prix non espone round nel codice/query verificati; il numero è derivato dall'ordine date_start solo per lettura.",
+    "sessionQuery": "GET public.sessions con grand_prix_id, type, status, session_date, number; verifica accessoria"
+  },
+  "queryEvidence": {
+    "replitSupabaseConnection": {
+      "seasons": "HTTP 200 []",
+      "seasonsByKnownId": "HTTP 200 []",
+      "grandPrixSample": "HTTP 200 []",
+      "grandPrixByKnownSeason": "HTTP 200 []"
+    },
+    "directReadPath": {
+      "seasons": "HTTP 200, 1 row",
+      "grandPrix": "HTTP 200, 22 rows"
+    },
+    "interpretation": "Il connettore Supabase integrato non espone righe in questo contesto; il percorso read-only già usato dagli script con la configurazione Supabase del progetto espone invece il calendario. La risposta 200 [] non consente di distinguere da sola RLS/chiave anon, progetto errato o visibilità limitata."
+  },
+  "summary": {
+    "match": 13,
+    "review": 9,
+    "notFound": 1,
+    "appGrandPrixCount": 22,
+    "historicalGrandPrixCount": 23,
+    "appGrandPrixWithoutHistoricalCandidate": []
+  },
+  "matches": [
+    {
+      "historicalGp": "Aragon",
+      "sourceYear": 2026,
+      "sourceDates": [
+        "2026-08-29",
+        "2026-08-29",
+        "2026-08-29"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX OF ARAGON",
+      "appGpId": "23b7a561-17e4-4aa6-9be3-2529a5b69938",
+      "appShortName": "ARA",
+      "appCountry": "Spain",
+      "appCircuit": "MotorLand Aragón",
+      "appDateStart": "2026-08-28",
+      "appDateEnd": "2026-08-30",
+      "round": 13,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "MATCH",
+      "matchReason": "Codice breve e nome normalizzato coerenti; tutte le date sorgente 2026 ricadono nella finestra del GP app con tolleranza di ±1 giorno sul weekend."
+    },
+    {
+      "historicalGp": "Argentina",
+      "sourceYear": 2025,
+      "sourceDates": [
+        "2025-03-15",
+        "2025-03-15",
+        "2025-03-16"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": null,
+      "appGpId": null,
+      "appShortName": null,
+      "appCountry": null,
+      "appCircuit": null,
+      "appDateStart": null,
+      "appDateEnd": null,
+      "round": null,
+      "roundSource": null,
+      "matchStatus": "NOT FOUND",
+      "matchReason": "Nessun GP 2026 con questo codice/nome normalizzato nel calendario app."
+    },
+    {
+      "historicalGp": "Australia",
+      "sourceYear": 2025,
+      "sourceDates": [
+        "2025-10-17",
+        "2025-10-18",
+        "2025-10-18"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX OF AUSTRALIA",
+      "appGpId": "c1dea7a7-e35e-4363-9e28-7997e3bc6fbf",
+      "appShortName": "AUS",
+      "appCountry": "Australia",
+      "appCircuit": "Phillip Island",
+      "appDateStart": "2026-10-23",
+      "appDateEnd": "2026-10-25",
+      "round": 18,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "REVIEW",
+      "matchReason": "Candidato nominale/codice coerente, ma le date sorgente sono del 2025 e il record app è del 2026: non associare automaticamente stagioni diverse."
+    },
+    {
+      "historicalGp": "Austria",
+      "sourceYear": 2025,
+      "sourceDates": [
+        "2025-08-16",
+        "2025-08-16",
+        "2025-08-17"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX OF AUSTRIA",
+      "appGpId": "e191f3f6-218b-4a1c-bbd2-3ed8b5135683",
+      "appShortName": "AUT",
+      "appCountry": "Austria",
+      "appCircuit": "Red Bull Ring - Spielberg",
+      "appDateStart": "2026-09-18",
+      "appDateEnd": "2026-09-20",
+      "round": 15,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "REVIEW",
+      "matchReason": "Candidato nominale/codice coerente, ma le date sorgente sono del 2025 e il record app è del 2026: non associare automaticamente stagioni diverse."
+    },
+    {
+      "historicalGp": "Brasile",
+      "sourceYear": 2026,
+      "sourceDates": [
+        "2026-03-20",
+        "2026-03-21",
+        "2026-03-22"
+      ],
+      "sourceStatus": "PARTIAL",
+      "appGpName": "GRAND PRIX OF BRAZIL",
+      "appGpId": "738a8b22-f744-4c75-847b-a2565dce17de",
+      "appShortName": "BRA",
+      "appCountry": "Brazil",
+      "appCircuit": "Autódromo Internacional de Goiânia - Ayrton Senna",
+      "appDateStart": "2026-03-20",
+      "appDateEnd": "2026-03-22",
+      "round": 2,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "MATCH",
+      "matchReason": "Codice breve e nome normalizzato coerenti; tutte le date sorgente 2026 ricadono nella finestra del GP app con tolleranza di ±1 giorno sul weekend."
+    },
+    {
+      "historicalGp": "Catalogna",
+      "sourceYear": 2026,
+      "sourceDates": [
+        "2026-05-15",
+        "2026-05-16",
+        "2026-05-16"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX OF CATALONIA",
+      "appGpId": "a0251657-afe5-4d90-a66f-d4779babd571",
+      "appShortName": "CAT",
+      "appCountry": "Spain",
+      "appCircuit": "Circuit de Barcelona-Catalunya",
+      "appDateStart": "2026-05-15",
+      "appDateEnd": "2026-05-17",
+      "round": 6,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "MATCH",
+      "matchReason": "Codice breve e nome normalizzato coerenti; tutte le date sorgente 2026 ricadono nella finestra del GP app con tolleranza di ±1 giorno sul weekend."
+    },
+    {
+      "historicalGp": "FRANCIA",
+      "sourceYear": 2026,
+      "sourceDates": [
+        "2026-05-08",
+        "2026-05-09",
+        "2026-05-10"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX DE FRANCE",
+      "appGpId": "edcfdba3-7a1f-44f3-8fe8-1f8a6609770c",
+      "appShortName": "FRA",
+      "appCountry": "France",
+      "appCircuit": "Le Mans",
+      "appDateStart": "2026-05-08",
+      "appDateEnd": "2026-05-10",
+      "round": 5,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "MATCH",
+      "matchReason": "Codice breve e nome normalizzato coerenti; tutte le date sorgente 2026 ricadono nella finestra del GP app con tolleranza di ±1 giorno sul weekend."
+    },
+    {
+      "historicalGp": "Germany",
+      "sourceYear": 2026,
+      "sourceDates": [
+        "2026-07-11",
+        "2026-07-11",
+        "2026-07-12"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX OF GERMANY",
+      "appGpId": "b26a84f7-2d9b-4cc5-a3e5-3d1abe916d8c",
+      "appShortName": "GER",
+      "appCountry": "Germany",
+      "appCircuit": "Sachsenring",
+      "appDateStart": "2026-07-10",
+      "appDateEnd": "2026-07-12",
+      "round": 11,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "MATCH",
+      "matchReason": "Codice breve e nome normalizzato coerenti; tutte le date sorgente 2026 ricadono nella finestra del GP app con tolleranza di ±1 giorno sul weekend."
+    },
+    {
+      "historicalGp": "Giappone",
+      "sourceYear": 2025,
+      "sourceDates": [
+        "2025-09-26",
+        "2025-09-27",
+        "2025-09-27"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX OF JAPAN",
+      "appGpId": "5a671255-63ca-46e2-bd60-34134bb063b4",
+      "appShortName": "JPN",
+      "appCountry": "Japan",
+      "appCircuit": "Mobility Resort Motegi",
+      "appDateStart": "2026-10-02",
+      "appDateEnd": "2026-10-04",
+      "round": 16,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "REVIEW",
+      "matchReason": "Candidato nominale/codice coerente, ma le date sorgente sono del 2025 e il record app è del 2026: non associare automaticamente stagioni diverse."
+    },
+    {
+      "historicalGp": "Indonesia",
+      "sourceYear": 2025,
+      "sourceDates": [
+        "2025-10-01",
+        "2025-10-04"
+      ],
+      "sourceStatus": "PARTIAL",
+      "appGpName": "GRAND PRIX OF INDONESIA",
+      "appGpId": "275ca55d-45d3-440f-ad59-17d6b3e6b2d3",
+      "appShortName": "INA",
+      "appCountry": "Indonesia",
+      "appCircuit": "Pertamina Mandalika Circuit",
+      "appDateStart": "2026-10-09",
+      "appDateEnd": "2026-10-11",
+      "round": 17,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "REVIEW",
+      "matchReason": "Candidato nominale/codice coerente, ma le date sorgente sono del 2025 e il record app è del 2026: non associare automaticamente stagioni diverse."
+    },
+    {
+      "historicalGp": "Italia",
+      "sourceYear": 2026,
+      "sourceDates": [
+        "2026-05-30",
+        "2026-05-30",
+        "2026-05-30"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX OF ITALY",
+      "appGpId": "dd266adb-3930-4099-a3d1-a9807362f048",
+      "appShortName": "ITA",
+      "appCountry": "Italy",
+      "appCircuit": "Autodromo Internazionale del Mugello",
+      "appDateStart": "2026-05-29",
+      "appDateEnd": "2026-05-31",
+      "round": 7,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "MATCH",
+      "matchReason": "Codice breve e nome normalizzato coerenti; tutte le date sorgente 2026 ricadono nella finestra del GP app con tolleranza di ±1 giorno sul weekend."
+    },
+    {
+      "historicalGp": "Malesia",
+      "sourceYear": 2025,
+      "sourceDates": [
+        "2025-10-24",
+        "2025-10-25",
+        "2025-10-25"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX OF MALAYSIA",
+      "appGpId": "ea2ba334-b943-462f-aedb-084ac38408d1",
+      "appShortName": "MAL",
+      "appCountry": "Malaysia",
+      "appCircuit": "Petronas Sepang International Circuit",
+      "appDateStart": "2026-10-30",
+      "appDateEnd": "2026-11-01",
+      "round": 19,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "REVIEW",
+      "matchReason": "Candidato nominale/codice coerente, ma le date sorgente sono del 2025 e il record app è del 2026: non associare automaticamente stagioni diverse."
+    },
+    {
+      "historicalGp": "Netherlands",
+      "sourceYear": 2026,
+      "sourceDates": [
+        "2026-06-27",
+        "2026-06-27",
+        "2026-06-27"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX OF THE NETHERLANDS",
+      "appGpId": "83804cb1-a417-4213-b727-37f84b26d36e",
+      "appShortName": "NED",
+      "appCountry": "Netherlands",
+      "appCircuit": "TT Circuit Assen",
+      "appDateStart": "2026-06-26",
+      "appDateEnd": "2026-06-28",
+      "round": 10,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "MATCH",
+      "matchReason": "Codice breve e nome normalizzato coerenti; tutte le date sorgente 2026 ricadono nella finestra del GP app con tolleranza di ±1 giorno sul weekend."
+    },
+    {
+      "historicalGp": "Portogallo",
+      "sourceYear": 2025,
+      "sourceDates": [
+        "2025-11-08",
+        "2025-11-08",
+        "2025-11-09"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX OF PORTUGAL",
+      "appGpId": "4b3882a8-24b2-4321-aa12-d1847c989438",
+      "appShortName": "POR",
+      "appCountry": "Portugal",
+      "appCircuit": "Autódromo Internacional do Algarve",
+      "appDateStart": "2026-11-20",
+      "appDateEnd": "2026-11-22",
+      "round": 21,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "REVIEW",
+      "matchReason": "Candidato nominale/codice coerente, ma le date sorgente sono del 2025 e il record app è del 2026: non associare automaticamente stagioni diverse."
+    },
+    {
+      "historicalGp": "QATAR",
+      "sourceYear": 2025,
+      "sourceDates": [
+        "2025-04-10",
+        "2025-04-12",
+        "2025-04-13"
+      ],
+      "sourceStatus": "AGGREGATE_CONFLICT",
+      "appGpName": "GRAND PRIX OF QATAR",
+      "appGpId": "5a880aba-62c4-413c-bb2d-b721683dd064",
+      "appShortName": "QAT",
+      "appCountry": "Qatar",
+      "appCircuit": "Lusail International Circuit",
+      "appDateStart": "2026-11-06",
+      "appDateEnd": "2026-11-08",
+      "round": 20,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "REVIEW",
+      "matchReason": "Candidato nominale/codice coerente, ma le date sorgente sono del 2025 e il record app è del 2026: non associare automaticamente stagioni diverse."
+    },
+    {
+      "historicalGp": "Repubblica Ceca",
+      "sourceYear": 2026,
+      "sourceDates": [
+        "2026-06-18",
+        "2026-06-20",
+        "2026-06-20"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX OF CZECHIA",
+      "appGpId": "f9d2e80c-431b-485f-afcf-671950648ad7",
+      "appShortName": "CZE",
+      "appCountry": "Czechia",
+      "appCircuit": "CREDITAS Autodrom Brno",
+      "appDateStart": "2026-06-19",
+      "appDateEnd": "2026-06-21",
+      "round": 9,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "MATCH",
+      "matchReason": "Codice breve e nome normalizzato coerenti; tutte le date sorgente 2026 ricadono nella finestra del GP app con tolleranza di ±1 giorno sul weekend."
+    },
+    {
+      "historicalGp": "San Marino",
+      "sourceYear": 2025,
+      "sourceDates": [
+        "2025-09-13",
+        "2025-09-13",
+        "2025-09-13"
+      ],
+      "sourceStatus": "PARTIAL",
+      "appGpName": "GRAND PRIX OF SAN MARINO",
+      "appGpId": "a5881826-ec88-4a41-8e4c-ba58709d4591",
+      "appShortName": "RSM",
+      "appCountry": "San Marino",
+      "appCircuit": "Misano World Circuit Marco Simoncelli",
+      "appDateStart": "2026-09-11",
+      "appDateEnd": "2026-09-13",
+      "round": 14,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "REVIEW",
+      "matchReason": "Candidato nominale/codice coerente, ma le date sorgente sono del 2025 e il record app è del 2026: non associare automaticamente stagioni diverse."
+    },
+    {
+      "historicalGp": "SPAGNA",
+      "sourceYear": 2026,
+      "sourceDates": [
+        "2026-04-24",
+        "2026-04-25",
+        "2026-04-26"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX OF SPAIN",
+      "appGpId": "506917f4-179d-4e1d-b750-805c15bab8d7",
+      "appShortName": "SPA",
+      "appCountry": "Spain",
+      "appCircuit": "Circuito de Jerez - Ángel Nieto",
+      "appDateStart": "2026-04-24",
+      "appDateEnd": "2026-04-26",
+      "round": 4,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "MATCH",
+      "matchReason": "Codice breve e nome normalizzato coerenti; tutte le date sorgente 2026 ricadono nella finestra del GP app con tolleranza di ±1 giorno sul weekend."
+    },
+    {
+      "historicalGp": "Thailandia",
+      "sourceYear": 2026,
+      "sourceDates": [
+        "2026-02-27",
+        "2026-02-27",
+        "2026-02-28"
+      ],
+      "sourceStatus": "AGGREGATE_CONFLICT",
+      "appGpName": "GRAND PRIX OF THAILAND",
+      "appGpId": "f3fd8ba7-2966-46bd-8687-b92047f5e733",
+      "appShortName": "THA",
+      "appCountry": "Thailand",
+      "appCircuit": "Chang International Circuit",
+      "appDateStart": "2026-02-27",
+      "appDateEnd": "2026-03-01",
+      "round": 1,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "MATCH",
+      "matchReason": "Codice breve e nome normalizzato coerenti; tutte le date sorgente 2026 ricadono nella finestra del GP app con tolleranza di ±1 giorno sul weekend."
+    },
+    {
+      "historicalGp": "UK",
+      "sourceYear": 2026,
+      "sourceDates": [
+        "2026-08-08",
+        "2026-08-08",
+        "2026-08-09"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX OF GREAT BRITAIN",
+      "appGpId": "6a16e0cb-ef4b-44b1-92e5-2e958cca0815",
+      "appShortName": "GBR",
+      "appCountry": "United Kingdom of Great Britain and Northern Ireland",
+      "appCircuit": "Silverstone Circuit",
+      "appDateStart": "2026-08-07",
+      "appDateEnd": "2026-08-09",
+      "round": 12,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "MATCH",
+      "matchReason": "Codice breve e nome normalizzato coerenti; tutte le date sorgente 2026 ricadono nella finestra del GP app con tolleranza di ±1 giorno sul weekend."
+    },
+    {
+      "historicalGp": "Ungheria",
+      "sourceYear": 2026,
+      "sourceDates": [
+        "2026-06-05",
+        "2026-06-04",
+        "2026-06-06"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX OF HUNGARY",
+      "appGpId": "4bd780c9-9da4-48c6-a69f-ebfd6bf8a425",
+      "appShortName": "HUN",
+      "appCountry": "Hungary",
+      "appCircuit": "Balaton Park Circuit",
+      "appDateStart": "2026-06-05",
+      "appDateEnd": "2026-06-07",
+      "round": 8,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "MATCH",
+      "matchReason": "Codice breve e nome normalizzato coerenti; tutte le date sorgente 2026 ricadono nella finestra del GP app con tolleranza di ±1 giorno sul weekend."
+    },
+    {
+      "historicalGp": "USA",
+      "sourceYear": 2026,
+      "sourceDates": [
+        "2026-03-28",
+        "2026-03-28",
+        "2026-03-29"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX OF THE UNITED STATES",
+      "appGpId": "782c929d-faaf-44e2-9d6f-0fde033855be",
+      "appShortName": "USA",
+      "appCountry": "United States of America",
+      "appCircuit": "Circuit Of The Americas",
+      "appDateStart": "2026-03-27",
+      "appDateEnd": "2026-03-29",
+      "round": 3,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "MATCH",
+      "matchReason": "Codice breve e nome normalizzato coerenti; tutte le date sorgente 2026 ricadono nella finestra del GP app con tolleranza di ±1 giorno sul weekend."
+    },
+    {
+      "historicalGp": "Valencia",
+      "sourceYear": 2025,
+      "sourceDates": [
+        "2025-11-15",
+        "2025-11-15",
+        "2025-11-16"
+      ],
+      "sourceStatus": "OK",
+      "appGpName": "GRAND PRIX OF VALENCIA",
+      "appGpId": "723031d1-27bd-4467-b59c-4cb8f7e081ab",
+      "appShortName": "VAL",
+      "appCountry": "Spain",
+      "appCircuit": "Circuit Ricardo Tormo",
+      "appDateStart": "2026-11-27",
+      "appDateEnd": "2026-11-29",
+      "round": 22,
+      "roundSource": "ordine date_start del calendario 2026; non è una colonna del DB",
+      "matchStatus": "REVIEW",
+      "matchReason": "Candidato nominale/codice coerente, ma le date sorgente sono del 2025 e il record app è del 2026: non associare automaticamente stagioni diverse."
+    }
+  ],
+  "appGrandPrix": [
+    {
+      "appGpId": "f3fd8ba7-2966-46bd-8687-b92047f5e733",
+      "appGpName": "GRAND PRIX OF THAILAND",
+      "appShortName": "THA",
+      "country": "Thailand",
+      "circuit": "Chang International Circuit",
+      "dateStart": "2026-02-27",
+      "dateEnd": "2026-03-01",
+      "status": "FINISHED",
+      "round": 1
+    },
+    {
+      "appGpId": "738a8b22-f744-4c75-847b-a2565dce17de",
+      "appGpName": "GRAND PRIX OF BRAZIL",
+      "appShortName": "BRA",
+      "country": "Brazil",
+      "circuit": "Autódromo Internacional de Goiânia - Ayrton Senna",
+      "dateStart": "2026-03-20",
+      "dateEnd": "2026-03-22",
+      "status": "FINISHED",
+      "round": 2
+    },
+    {
+      "appGpId": "782c929d-faaf-44e2-9d6f-0fde033855be",
+      "appGpName": "GRAND PRIX OF THE UNITED STATES",
+      "appShortName": "USA",
+      "country": "United States of America",
+      "circuit": "Circuit Of The Americas",
+      "dateStart": "2026-03-27",
+      "dateEnd": "2026-03-29",
+      "status": "FINISHED",
+      "round": 3
+    },
+    {
+      "appGpId": "506917f4-179d-4e1d-b750-805c15bab8d7",
+      "appGpName": "GRAND PRIX OF SPAIN",
+      "appShortName": "SPA",
+      "country": "Spain",
+      "circuit": "Circuito de Jerez - Ángel Nieto",
+      "dateStart": "2026-04-24",
+      "dateEnd": "2026-04-26",
+      "status": "FINISHED",
+      "round": 4
+    },
+    {
+      "appGpId": "edcfdba3-7a1f-44f3-8fe8-1f8a6609770c",
+      "appGpName": "GRAND PRIX DE FRANCE",
+      "appShortName": "FRA",
+      "country": "France",
+      "circuit": "Le Mans",
+      "dateStart": "2026-05-08",
+      "dateEnd": "2026-05-10",
+      "status": "FINISHED",
+      "round": 5
+    },
+    {
+      "appGpId": "a0251657-afe5-4d90-a66f-d4779babd571",
+      "appGpName": "GRAND PRIX OF CATALONIA",
+      "appShortName": "CAT",
+      "country": "Spain",
+      "circuit": "Circuit de Barcelona-Catalunya",
+      "dateStart": "2026-05-15",
+      "dateEnd": "2026-05-17",
+      "status": "FINISHED",
+      "round": 6
+    },
+    {
+      "appGpId": "dd266adb-3930-4099-a3d1-a9807362f048",
+      "appGpName": "GRAND PRIX OF ITALY",
+      "appShortName": "ITA",
+      "country": "Italy",
+      "circuit": "Autodromo Internazionale del Mugello",
+      "dateStart": "2026-05-29",
+      "dateEnd": "2026-05-31",
+      "status": "FINISHED",
+      "round": 7
+    },
+    {
+      "appGpId": "4bd780c9-9da4-48c6-a69f-ebfd6bf8a425",
+      "appGpName": "GRAND PRIX OF HUNGARY",
+      "appShortName": "HUN",
+      "country": "Hungary",
+      "circuit": "Balaton Park Circuit",
+      "dateStart": "2026-06-05",
+      "dateEnd": "2026-06-07",
+      "status": "FINISHED",
+      "round": 8
+    },
+    {
+      "appGpId": "f9d2e80c-431b-485f-afcf-671950648ad7",
+      "appGpName": "GRAND PRIX OF CZECHIA",
+      "appShortName": "CZE",
+      "country": "Czechia",
+      "circuit": "CREDITAS Autodrom Brno",
+      "dateStart": "2026-06-19",
+      "dateEnd": "2026-06-21",
+      "status": "FINISHED",
+      "round": 9
+    },
+    {
+      "appGpId": "83804cb1-a417-4213-b727-37f84b26d36e",
+      "appGpName": "GRAND PRIX OF THE NETHERLANDS",
+      "appShortName": "NED",
+      "country": "Netherlands",
+      "circuit": "TT Circuit Assen",
+      "dateStart": "2026-06-26",
+      "dateEnd": "2026-06-28",
+      "status": "FINISHED",
+      "round": 10
+    },
+    {
+      "appGpId": "b26a84f7-2d9b-4cc5-a3e5-3d1abe916d8c",
+      "appGpName": "GRAND PRIX OF GERMANY",
+      "appShortName": "GER",
+      "country": "Germany",
+      "circuit": "Sachsenring",
+      "dateStart": "2026-07-10",
+      "dateEnd": "2026-07-12",
+      "status": "FINISHED",
+      "round": 11
+    },
+    {
+      "appGpId": "6a16e0cb-ef4b-44b1-92e5-2e958cca0815",
+      "appGpName": "GRAND PRIX OF GREAT BRITAIN",
+      "appShortName": "GBR",
+      "country": "United Kingdom of Great Britain and Northern Ireland",
+      "circuit": "Silverstone Circuit",
+      "dateStart": "2026-08-07",
+      "dateEnd": "2026-08-09",
+      "status": "FINISHED",
+      "round": 12
+    },
+    {
+      "appGpId": "23b7a561-17e4-4aa6-9be3-2529a5b69938",
+      "appGpName": "GRAND PRIX OF ARAGON",
+      "appShortName": "ARA",
+      "country": "Spain",
+      "circuit": "MotorLand Aragón",
+      "dateStart": "2026-08-28",
+      "dateEnd": "2026-08-30",
+      "status": "NOT-STARTED",
+      "round": 13
+    },
+    {
+      "appGpId": "a5881826-ec88-4a41-8e4c-ba58709d4591",
+      "appGpName": "GRAND PRIX OF SAN MARINO",
+      "appShortName": "RSM",
+      "country": "San Marino",
+      "circuit": "Misano World Circuit Marco Simoncelli",
+      "dateStart": "2026-09-11",
+      "dateEnd": "2026-09-13",
+      "status": "NOT-STARTED",
+      "round": 14
+    },
+    {
+      "appGpId": "e191f3f6-218b-4a1c-bbd2-3ed8b5135683",
+      "appGpName": "GRAND PRIX OF AUSTRIA",
+      "appShortName": "AUT",
+      "country": "Austria",
+      "circuit": "Red Bull Ring - Spielberg",
+      "dateStart": "2026-09-18",
+      "dateEnd": "2026-09-20",
+      "status": "NOT-STARTED",
+      "round": 15
+    },
+    {
+      "appGpId": "5a671255-63ca-46e2-bd60-34134bb063b4",
+      "appGpName": "GRAND PRIX OF JAPAN",
+      "appShortName": "JPN",
+      "country": "Japan",
+      "circuit": "Mobility Resort Motegi",
+      "dateStart": "2026-10-02",
+      "dateEnd": "2026-10-04",
+      "status": "NOT-STARTED",
+      "round": 16
+    },
+    {
+      "appGpId": "275ca55d-45d3-440f-ad59-17d6b3e6b2d3",
+      "appGpName": "GRAND PRIX OF INDONESIA",
+      "appShortName": "INA",
+      "country": "Indonesia",
+      "circuit": "Pertamina Mandalika Circuit",
+      "dateStart": "2026-10-09",
+      "dateEnd": "2026-10-11",
+      "status": "NOT-STARTED",
+      "round": 17
+    },
+    {
+      "appGpId": "c1dea7a7-e35e-4363-9e28-7997e3bc6fbf",
+      "appGpName": "GRAND PRIX OF AUSTRALIA",
+      "appShortName": "AUS",
+      "country": "Australia",
+      "circuit": "Phillip Island",
+      "dateStart": "2026-10-23",
+      "dateEnd": "2026-10-25",
+      "status": "NOT-STARTED",
+      "round": 18
+    },
+    {
+      "appGpId": "ea2ba334-b943-462f-aedb-084ac38408d1",
+      "appGpName": "GRAND PRIX OF MALAYSIA",
+      "appShortName": "MAL",
+      "country": "Malaysia",
+      "circuit": "Petronas Sepang International Circuit",
+      "dateStart": "2026-10-30",
+      "dateEnd": "2026-11-01",
+      "status": "NOT-STARTED",
+      "round": 19
+    },
+    {
+      "appGpId": "5a880aba-62c4-413c-bb2d-b721683dd064",
+      "appGpName": "GRAND PRIX OF QATAR",
+      "appShortName": "QAT",
+      "country": "Qatar",
+      "circuit": "Lusail International Circuit",
+      "dateStart": "2026-11-06",
+      "dateEnd": "2026-11-08",
+      "status": "NOT-STARTED",
+      "round": 20
+    },
+    {
+      "appGpId": "4b3882a8-24b2-4321-aa12-d1847c989438",
+      "appGpName": "GRAND PRIX OF PORTUGAL",
+      "appShortName": "POR",
+      "country": "Portugal",
+      "circuit": "Autódromo Internacional do Algarve",
+      "dateStart": "2026-11-20",
+      "dateEnd": "2026-11-22",
+      "status": "NOT-STARTED",
+      "round": 21
+    },
+    {
+      "appGpId": "723031d1-27bd-4467-b59c-4cb8f7e081ab",
+      "appGpName": "GRAND PRIX OF VALENCIA",
+      "appShortName": "VAL",
+      "country": "Spain",
+      "circuit": "Circuit Ricardo Tormo",
+      "dateStart": "2026-11-27",
+      "dateEnd": "2026-11-29",
+      "status": "NOT-STARTED",
+      "round": 22
+    }
+  ]
+}
