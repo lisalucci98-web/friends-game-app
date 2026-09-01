@@ -119,6 +119,16 @@ const leaderboardSelect = [
   'updated_at',
 ].join(',');
 
+const predictionEntrySelect = [
+  'id',
+  'prediction_id',
+  'prediction_type',
+  'position',
+  'rider_id',
+  'predicted_time',
+  'points',
+].join(',');
+
 const closedStatuses = new Set([
   'FINISHED',
   'COMPLETED',
@@ -925,7 +935,7 @@ export function LeagueResultsContent({
       const prediction = predictionResponse.data as unknown as PredictionScore;
       const entriesResponse = await supabase
         .from('prediction_entries')
-        .select('id, prediction_id, prediction_type, position, rider_id, predicted_time, points')
+        .select(predictionEntrySelect)
         .eq('prediction_id', prediction.id)
         .order('prediction_type', { ascending: true })
         .order('position', { ascending: true });
@@ -937,7 +947,7 @@ export function LeagueResultsContent({
         return;
       }
 
-      const entries = (entriesResponse.data || []) as PredictionEntry[];
+      const entries = (entriesResponse.data || []) as unknown as PredictionEntry[];
       const riderIds = [...new Set(entries.map((entry) => entry.rider_id).filter(Boolean))] as string[];
 
       const ridersResponse = riderIds.length
