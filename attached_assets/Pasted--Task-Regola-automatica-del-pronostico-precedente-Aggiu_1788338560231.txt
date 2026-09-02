@@ -1,0 +1,137 @@
+## Task — Regola automatica del pronostico precedente
+
+Aggiungi al FantaMotoGP la seguente regola di gioco:
+
+> **Se un partecipante non invia il pronostico entro il termine previsto per una sessione, viene utilizzato automaticamente il suo pronostico della sessione equivalente del GP precedente.**
+
+### Applicazione della regola
+
+La regola deve essere applicata separatamente per:
+
+* Qualifica
+* Sprint
+* Gara
+
+Esempio:
+
+Se per il GP corrente un giocatore non invia il pronostico della Gara entro la deadline, il sistema utilizza automaticamente il suo pronostico della Gara del GP precedente.
+
+Lo stesso vale indipendentemente per Qualifica e Sprint.
+
+### Priorità
+
+Per ogni sessione:
+
+1. **Pronostico inviato in tempo** → utilizza quello.
+2. **Nessun pronostico inviato entro la deadline** → recupera automaticamente il pronostico della stessa sessione del GP precedente.
+3. **Nessun pronostico disponibile neanche nel GP precedente** → lascia la sessione come `Non compilato` e non inventare alcun pronostico.
+
+### Importante: non copiare troppo presto
+
+Il pronostico precedente deve essere utilizzato come **fallback al momento della chiusura della sessione**, non copiato preventivamente nel nuovo GP.
+
+In questo modo il giocatore può ancora inserire/modificare il proprio pronostico fino alla deadline.
+
+### Tracciabilità
+
+Il sistema deve distinguere chiaramente:
+
+* `MANUAL` → pronostico inserito dal giocatore;
+* `CARRY_OVER` → pronostico ereditato automaticamente dal GP precedente.
+
+Il pronostico ereditato deve mantenere esattamente:
+
+* piloti scelti;
+* ordine delle posizioni;
+* OUT;
+* eventuali altri campi previsti dalla sessione.
+
+Non deve essere ricalcolato o modificato.
+
+### Visualizzazione
+
+Nella pagina `/miei-risultati`, quando viene utilizzato il pronostico precedente, mostrare chiaramente un'indicazione del tipo:
+
+**"Pronostico precedente utilizzato"**
+
+oppure:
+
+**"Ereditato dal GP precedente"**
+
+Specificare anche da quale GP proviene.
+
+Esempio:
+
+> Gara — Pronostico ereditato dal GP Italia
+
+### Classifica
+
+Il pronostico ereditato deve essere considerato esattamente come un normale pronostico ai fini del punteggio.
+
+Il punteggio ottenuto deve quindi contribuire normalmente alla classifica della lega.
+
+### Privacy
+
+Il carry-over deve essere eseguito esclusivamente per il giocatore interessato.
+
+Non rendere visibile il pronostico di un altro partecipante prima della chiusura della relativa sessione.
+
+### Edge cases
+
+Gestire correttamente:
+
+* primo GP della stagione → nessun GP precedente disponibile;
+* giocatore senza pronostico precedente → `Non compilato`;
+* GP precedente senza quella specifica sessione → `Non compilato`;
+* sessione precedente con pronostico già ereditato → può essere utilizzata come fallback;
+* deadline già superata → non permettere di sostituire il carry-over con un nuovo pronostico;
+* eventuale annullamento/ripetizione di una sessione → non creare duplicati.
+
+### Database
+
+Prima di modificare lo schema, verifica la struttura esistente.
+
+Preferibilmente implementare il comportamento utilizzando le tabelle e i campi già presenti.
+
+Se è necessario aggiungere un campo per distinguere `MANUAL` e `CARRY_OVER`, proponi prima la modifica e verifica che sia compatibile con lo schema attuale.
+
+Non modificare:
+
+* scoring esistente;
+* risultati ufficiali;
+* RLS esistente, salvo necessità documentata;
+* prediction storiche già presenti;
+* Google Sheets.
+
+### Idempotenza
+
+La chiusura automatica della sessione deve essere idempotente.
+
+Se il processo viene eseguito più volte:
+
+* non creare prediction duplicate;
+* non creare prediction_entries duplicate;
+* non modificare un pronostico manuale già presente;
+* non applicare più volte il carry-over.
+
+### Verifica
+
+Crea/testa almeno questi casi:
+
+1. Giocatore con pronostico corrente → viene mantenuto quello corrente.
+2. Giocatore senza pronostico corrente ma con pronostico precedente → viene utilizzato il precedente.
+3. Giocatore senza pronostico corrente e senza precedente → rimane `Non compilato`.
+4. Carry-over eseguito due volte → nessun duplicato.
+5. Verifica che il punteggio del carry-over venga calcolato normalmente.
+6. Verifica che la classifica della lega tenga conto del punteggio.
+
+Non effettuare modifiche ai dati storici degli utenti esistenti durante questo task, salvo che sia esplicitamente necessario per i test; in tal caso utilizzare dati di test isolati.
+
+Al termine restituisci un report con:
+
+* implementazione effettuata;
+* eventuali modifiche allo schema;
+* comportamento della deadline;
+* risultati dei test;
+* conferma idempotenza;
+* conferma che i dati storici esistenti non sono stati modificati.
