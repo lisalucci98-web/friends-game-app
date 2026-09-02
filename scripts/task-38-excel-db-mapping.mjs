@@ -30,6 +30,10 @@ const EXPECTED_ENTRY_COUNTS = {
   RACE: 5,
   RACE_OUT: 1,
 };
+const EXTRA_PREDICTION_IDS = new Set([
+  'a24c434a-17ff-45e6-a008-64dce2e5b634',
+  '24ab1b38-0fe7-5d61-9272-3998401157cc',
+]);
 
 const GP_CODES = new Map([
   ['Thailandia', 'THA'],
@@ -227,9 +231,11 @@ function firstColumn(headers, predicates) {
   return null;
 }
 
-function postColumns(headers, count) {
+function postColumns(headers, count, mode = null) {
   const result = [];
   for (const [header, column] of headers) {
+    if (mode === 'sprint' && !/\bs$/.test(header)) continue;
+    if (mode === 'race' && !/\bgp$/.test(header)) continue;
     if (/^\d[°º]?\s*(posto|post[io]|p)\b/.test(header)
       || /^\d[°º]?\s*(gp|s)\b/.test(header)
       || /^\d[°º]?\s*(posto|gp|s)$/.test(header)) {
@@ -340,8 +346,8 @@ function resultRow(sheet) {
       ref: cellRef(sheet, first, selected),
     };
   };
-  const sprintColumns = postColumns(headers, 3);
-  const raceColumns = postColumns(headers, 5);
+  const sprintColumns = postColumns(headers, 3, 'sprint');
+  const raceColumns = postColumns(headers, 5, 'race');
   const qtime = read((header) => header === 'time conversion');
   const pole = read((header) => header === 'pilota pole');
   const second = read((header) => header.includes('2') && header.includes('qualifiche'));
@@ -523,18 +529,7 @@ function emptySourceMatch(code, source, email, dbPrediction) {
   const hasRows = qualifying.length > 0 || sprint.length > 0 || race.length > 0;
   const incompleteRows = [...qualifying, ...sprint, ...race].some((row) => !rowIsComplete(row));
   const candidates = {
-    qualifying: qualifying.filter((row) => sourceMatchesPrediction({
-      pole: row.pole,
-      qualifyingTime: row.qualifyingTime,
-      sprint: dbPrediction.sprintRiderIds.map(() => ''),
-      raceTopFive: dbPrediction.raceRiderIds.map(() => ''),
-      out: dbPrediction.outRiderId ? 'not-used' : '',
-    }, {
-      ...dbPrediction,
-      sprintRiderIds: dbPrediction.sprintRiderIds.map(() => null),
-      raceRiderIds: dbPrediction.raceRiderIds.map(() => null),
-      outRiderId: null,
-    }).filter(() => true)),
+    qualifying: [],
     sprint: sprint.filter((row) => (
       row.sprint.every((value, index) => riderMatches(value, dbPrediction.sprintRiderIds[index], dbPrediction.ridersById))
     )),
@@ -655,6 +650,13 @@ function classifyPrediction(prediction, context, sourcesByGp, usersById, ridersB
     source,
   };
   if (!audit.complete) return { ...base, status: 'PARTIAL_EXCLUDED', scoringStatus: 'EXCLUDED' };
+  if (EXTRA_PREDICTION_IDS.has(prediction.id)) {
+    return {
+      ...base,
+      status: 'EXTRA_NOT_IN_HISTORICAL_SOURCE',
+      scoringStatus: 'EXCLUDED',
+    };
+  }
   if (!source || !user?.email) {
     return { ...base, status: 'NOT_FOUND', scoringStatus: 'NOT_DETERMINISTIC' };
   }
@@ -763,10 +765,19 @@ function verifiedDetail(row, ridersById) {
 
 function buildReport({ args, context, sourcesByGp, rows, usersById, ridersById }) {
   const counts = Object.fromEntries(
-    ['VERIFIED', 'AMBIGUOUS', 'NOT_FOUND', 'INCOMPLETE_SOURCE', 'MISSING_DATA', 'PARTIAL_EXCLUDED']
+    ['VERIFIED', 'AMBIGUOUS', 'NOT_FOUND', 'INCOMPLETE_SOURCE', 'MISSING_DATA',
+      'PARTIAL_EXCLUDED', 'EXTRA_NOT_IN_HISTORICAL_SOURCE']
       .map((status) => [status, rows.filter((row) => row.status === status).length]),
   );
-  const completeRows = rows.filter((row) => row.status !== 'PARTIAL_EXCLUDED');
+  const completeRows = rows.filter((row) =>
+    row.status !== 'PARTIAL_EXCLUDED' && row.status !== 'EXTRA_NOT_IN_HISTORICAL_SOURCE');
+  const extras = rows.filter((row) => row.status === 'EXTRA_NOT_IN_HISTORICAL_SOURCE').map((row) => [
+    row.userLabel,
+    row.gp?.short_name ?? '—',
+    row.prediction.id,
+    'EXTRA_NOT_IN_HISTORICAL_SOURCE',
+    'Non usata per il replay storico',
+  ]);
   const comparisons = comparisonRows(rows, ridersById);
   const mapping = completeRows.map((row) => [
     row.userLabel,
@@ -824,6 +835,7 @@ function buildReport({ args, context, sourcesByGp, rows, usersById, ridersById }
     `- INCOMPLETE_SOURCE: **${counts.INCOMPLETE_SOURCE}**`,
     `- MISSING_DATA: **${counts.MISSING_DATA}**`,
     `- PARTIAL_EXCLUDED: **${counts.PARTIAL_EXCLUDED}**`,
+    `- EXTRA_NOT_IN_HISTORICAL_SOURCE: **${counts.EXTRA_NOT_IN_HISTORICAL_SOURCE}**`,
     `- Confronti scoring prodotti: **${comparisons.length}**`,
     '',
     'La certezza della mappatura deriva dalla corrispondenza email/utente, GP/file e contenuto completo del pronostico. '
@@ -843,6 +855,10 @@ function buildReport({ args, context, sourcesByGp, rows, usersById, ridersById }
     '## Prediction partial escluse',
     '',
     mdTable(['Utente', 'GP', 'Prediction DB ID', 'Entry mancanti'], partial),
+    '',
+    '## Prediction extra fuori dalla sorgente storica',
+    '',
+    mdTable(['Utente', 'GP', 'Prediction DB ID', 'Stato', 'Motivo'], extras),
     '',
     '## Confronto per le VERIFIED',
     '',
@@ -907,7 +923,8 @@ async function main() {
     ridersById,
   }), 'utf8');
   const counts = Object.fromEntries(
-    ['VERIFIED', 'AMBIGUOUS', 'NOT_FOUND', 'INCOMPLETE_SOURCE', 'MISSING_DATA', 'PARTIAL_EXCLUDED']
+    ['VERIFIED', 'AMBIGUOUS', 'NOT_FOUND', 'INCOMPLETE_SOURCE', 'MISSING_DATA',
+      'PARTIAL_EXCLUDED', 'EXTRA_NOT_IN_HISTORICAL_SOURCE']
       .map((status) => [status, rows.filter((row) => row.status === status).length]),
   );
   console.log('TASK 38 COMPLETATO — READ-ONLY');

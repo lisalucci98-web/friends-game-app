@@ -20,3 +20,4 @@
 - [Authenticated results verification](authenticated-results-verification.md) — confronta i valori visibili con REST usando un account temporaneo isolato, senza impersonare utenti o persistere credenziali.
 - [PostgREST read-filter syntax](postgrest-read-filter-syntax.md) — i filtri scalari REST devono usare operatori espliciti come `eq`, anche nelle query di audit read-only.
 - [Historical scoring apply gate](historical-scoring-apply-gate.md) — un apply è sicuro solo con fixture Excel verificabile; live replay, partial ed extra non bastano.
+- [Historical Excel row mapping](historical-excel-row-mapping.md) — i fogli risultati mescolano Sprint/Gara e gli extra restano fuori anche se un export contiene una riga compatibile.
