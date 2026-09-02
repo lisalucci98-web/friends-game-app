@@ -23,7 +23,7 @@ Risultati più importanti:
    - `−1` se `L` è da 1 a 2;
    - `−5` se `L` è da 3 a 4;
    - `−10` se `L=5`.
-4. `L` non conta semplicemente i `NOT_CLASSIFIED` del risultato: conta quanti dei cinque piloti pronosticati per la Gara **non** sono trovati nella stringa `Out`, tramite `SEARCH`.
+4. `L` non conta semplicemente i `NOT_CLASSIFIED` del risultato: conta quanti dei cinque piloti pronosticati per la Gara **sono** trovati nella stringa `Out`, tramite `SEARCH`.
 5. Il caso **Niky / Thailandia** è spiegato dall’Excel:
    - Qualifica `8`;
    - Sprint `3`;
@@ -325,7 +325,7 @@ Formula originale della colonna `L`:
 )
 ```
 
-`L` è quindi il numero di piloti fra i cinque pronostici Gara che **non** sono trovati nella stringa degli OUT ufficiali. Non è il numero di NC ufficiali e non è il numero di NC fra i primi cinque.
+`L` è quindi il numero di piloti fra i cinque pronostici Gara che **sono** trovati nella stringa degli OUT ufficiali. Non è il numero di NC ufficiali e non è il numero di NC fra i primi cinque.
 
 Formula originale della colonna `M`:
 

@@ -1,0 +1,308 @@
+# Task 32 — Formalizzazione dello scoring storico e test offline
+
+Il Task 31 ha ricostruito con successo lo scoring storico dagli Excel ufficiali.
+
+Ora voglio trasformare quelle formule in una specifica tecnica precisa e verificabile, PRIMA di modificare qualsiasi RPC o dato applicativo.
+
+## MODALITÀ
+
+Questa fase deve rimanere READ-ONLY rispetto al database.
+
+NON:
+
+* modificare database;
+* modificare prediction;
+* modificare prediction_entries;
+* modificare session_results;
+* modificare RPC;
+* creare migration;
+* chiamare `score_prediction`;
+* eseguire INSERT/UPDATE/DELETE;
+* modificare RLS;
+* modificare gli Excel.
+
+È consentita esclusivamente la creazione di file di analisi/test nel repository.
+
+---
+
+## 1. UTILIZZARE IL REPORT TASK 31 COME FONTE
+
+Leggi:
+
+`.agents/outputs/task-31-excel-scoring-reverse-engineering.md`
+
+e tutte le informazioni/formule Excel da cui il report è stato ricavato.
+
+NON reinterpretare le regole autonomamente.
+
+La fonte primaria deve essere la formula Excel storica.
+
+---
+
+## 2. CREARE LA SPECIFICA DELLO SCORING
+
+Crea:
+
+`.agents/outputs/task-32-historical-scoring-spec.md`
+
+La specifica deve definire matematicamente:
+
+### Qualifica
+
+* Pole Position;
+* Qualifying Time;
+* unità;
+* conversione tempi;
+* arrotondamenti;
+* soglie;
+* gestione valori mancanti.
+
+### Sprint
+
+* P1;
+* P2;
+* P3;
+* eventuali altre regole.
+
+### Gara
+
+* P1-P5;
+* eventuali altre posizioni;
+* gestione NC/DNF.
+
+### Bonus
+
+Documentare esattamente l'interpretazione A confermata dal Task 31.
+
+### OUT
+
+Documentare esattamente la formula storica.
+
+### Malus
+
+Documentare la formula storica:
+
+`0 / -1 / -5 / -10`
+
+e soprattutto spiegare esattamente come viene determinato il valore `L`.
+
+NON semplificare il malus come semplice conteggio dei NOT_CLASSIFIED se l'Excel utilizza una condizione diversa.
+
+---
+
+# 3. PSEUDOCODICE
+
+Creare una funzione di scoring in pseudocodice, senza collegarla al database.
+
+Deve essere concettualmente:
+
+```text
+scorePrediction(prediction, officialResults):
+
+    qualifying = ...
+
+    qualifyingTime = ...
+
+    sprint = ...
+
+    race = ...
+
+    bonus = ...
+
+    out = ...
+
+    malus = ...
+
+    total =
+        qualifying
+        + qualifyingTime
+        + sprint
+        + race
+        + bonus
+        + out
+        + malus
+
+    return {
+        qualifying,
+        qualifyingTime,
+        sprint,
+        race,
+        bonus,
+        out,
+        malus,
+        total
+    }
+```
+
+Le formule devono derivare direttamente dagli Excel.
+
+---
+
+# 4. TEST CASE OBBLIGATORI
+
+Creare test offline per almeno questi casi:
+
+| Utente                                                                        | GP         | Totale atteso |
+| ----------------------------------------------------------------------------- | ---------- | ------------: |
+| [nikyturets@gmail.com](mailto:nikyturets@gmail.com)                           | Thailandia |            21 |
+| [nikyturets@gmail.com](mailto:nikyturets@gmail.com)                           | Brasile    |            25 |
+| [nikyturets@gmail.com](mailto:nikyturets@gmail.com)                           | Francia    |            18 |
+| [nikyturets@gmail.com](mailto:nikyturets@gmail.com)                           | Aragon     |            24 |
+| [marty.bria1996@gmail.com](mailto:marty.bria1996@gmail.com)                   | Catalogna  |            13 |
+| [marty.bria1996@gmail.com](mailto:marty.bria1996@gmail.com)                   | Italia     |            30 |
+| [simo.salva92@gmail.com](mailto:simo.salva92@gmail.com)                       | Thailandia |            26 |
+| [alessandro.cavasso.1995@gmail.com](mailto:alessandro.cavasso.1995@gmail.com) | Spagna     |            19 |
+| [alessandro.cavasso.1995@gmail.com](mailto:alessandro.cavasso.1995@gmail.com) | UK         |            22 |
+| [marino.dilorenzo@gmail.com](mailto:marino.dilorenzo@gmail.com)               | Aragon     |            28 |
+
+Per ogni test non verificare soltanto il totale.
+
+Verificare:
+
+* Qualifica;
+* Qualifying Time;
+* Sprint;
+* Gara;
+* Bonus;
+* OUT;
+* Malus;
+* Totale.
+
+Il test deve fallire se anche una singola componente è diversa.
+
+---
+
+# 5. CONFRONTO CON EXCEL
+
+Per ogni test confrontare:
+
+`Excel → implementazione offline`
+
+e produrre:
+
+| Utente | GP | Excel Q | Calc Q | Excel S | Calc S | Excel R | Calc R | Excel B | Calc B | Excel O | Calc O | Excel M | Calc M | Totale Excel | Totale Calc |
+| ------ | -- | ------: | -----: | ------: | -----: | ------: | -----: | ------: | -----: | ------: | -----: | ------: | -----: | -----------: | ----------: |
+
+Tutti i delta devono essere zero.
+
+---
+
+# 6. CASI SPECIALI
+
+Testare esplicitamente:
+
+### Qualifying Time
+
+* formato `MM:SS.MMM`;
+* formato `MM:SS:MMM`;
+* tempo mancante;
+* pole mancante;
+* differenze di pochi millisecondi.
+
+### Sprint mancanti
+
+Verificare il comportamento storico.
+
+### Prediction parziali
+
+Verificare il comportamento esatto degli Excel.
+
+### `#N/A`
+
+Verificare che non venga trasformato arbitrariamente in un rider valido.
+
+### OUT
+
+Testare i casi con:
+
+* OUT corretto;
+* OUT errato;
+* pilota previsto OUT ma classificato;
+* pilota previsto in Top 5 ma NC.
+
+### Malus
+
+Testare i diversi valori storici:
+
+* 0;
+* -1;
+* -5;
+* -10.
+
+Verificare la condizione che determina `L`.
+
+---
+
+# 7. CONFRONTO CON SCORING ATTUALE
+
+Senza modificare nulla, confrontare la specifica storica con:
+
+* RPC attuale;
+* codice frontend/backend;
+* eventuali utility TypeScript.
+
+Produrre:
+
+| Regola          | Storico Excel | Attuale | Azione necessaria |
+| --------------- | ------------- | ------- | ----------------- |
+| Pole            | ...           | ...     | ...               |
+| Qualifying Time | ...           | ...     | ...               |
+| Sprint          | ...           | ...     | ...               |
+| Race            | ...           | ...     | ...               |
+| Bonus           | ...           | ...     | ...               |
+| OUT             | ...           | ...     | ...               |
+| Malus           | ...           | ...     | ...               |
+
+---
+
+# 8. PROPOSTA DI MODIFICA MINIMA
+
+Alla fine indicare esattamente quale modifica sarebbe necessaria per fare coincidere lo scoring applicativo con quello storico.
+
+Preferire:
+
+* modifica minima;
+* nessuna modifica allo schema se non necessaria;
+* nessuna modifica alle prediction;
+* nessuna modifica ai risultati ufficiali;
+* mantenimento della compatibilità con i dati esistenti.
+
+NON applicare la modifica.
+
+---
+
+# 9. CRITERIO DI APPROVAZIONE
+
+Il Task 32 è PASS solo se:
+
+* tutte le 10 righe di test coincidono;
+* tutte le componenti coincidono;
+* i casi Qualifying Time coincidono;
+* bonus coincide;
+* OUT coincide;
+* malus coincide;
+* non rimangono differenze inspiegate nei casi test.
+
+Se anche un solo test fallisce, NON proporre ancora una modifica alla RPC: spiegare la discrepanza.
+
+---
+
+# 10. OUTPUT
+
+Creare:
+
+`.agents/outputs/task-32-historical-scoring-spec.md`
+
+Il report deve contenere:
+
+1. fonte delle regole;
+2. formule matematiche;
+3. pseudocodice;
+4. tabella completa dei test;
+5. confronto con scoring attuale;
+6. differenze individuate;
+7. modifica minima proposta;
+8. rischi/regressioni possibili;
+9. conclusione PASS/FAIL.
+
+NESSUNA MODIFICA AL DATABASE O ALLO SCORING IN QUESTA FASE.
