@@ -98,3 +98,17 @@ mtime_ms = 1788280679981
 storage_uri = "gcs://replit-rams-assets-archer/rams/assets/repl:92af7a65-61ba-4849-85b4-634f42e78888/1bca080a-2853-4807-ada7-63975ee25085/ff1dad0b-cee5-4ae9-9eec-98e8ea9c4e43"
 storage_version_token = "1788280708316713"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "pE8OenG9QQYvJfrT91glO"
+uri = "file://.agents/outputs/task-30-historical-score-reconciliation-read-only.md"
+type = "text"
+title = "Task 30 — Riconciliazione scoring storico"
+description = "Report read-only con breakdown di Niky/Thailandia e Marty/Catalogna, confronto bonus, malus e Qualifying Time, senza modifiche a dati o RPC."
+logical_id = "661c72cb-c446-43a1-9558-ba78bfdc0ef8"
+content_hash = "sha256:079d418a42bc6f163f3f6f410d0ae0a0bc89b8aa425ab4f59a592c00bbea2a17"
+size = 19351
+mtime_ms = 1788358140432
+storage_uri = "gcs://replit-rams-assets-archer/rams/assets/repl:92af7a65-61ba-4849-85b4-634f42e78888/661c72cb-c446-43a1-9558-ba78bfdc0ef8/65dc95a8-754d-42a6-b2d4-d30c323b4583"
+storage_version_token = "1788358178631715"
+content_type = "text/markdown"
