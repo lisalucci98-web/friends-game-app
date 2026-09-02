@@ -552,6 +552,8 @@
 .task21-gp-points strong { color: hsl(var(--primary)); font-family: var(--app-font-mono); font-size: 1.02rem; }
 .task21-gp-out { display: grid; gap: 5px; justify-items: end; min-width: 0; }
 .task21-gp-out strong { overflow: hidden; text-overflow: ellipsis; font-size: .74rem; text-align: right; white-space: nowrap; }
+.task21-carry-over-note { display: flex; grid-column: 1 / -1; align-items: flex-start; gap: 7px; margin: -2px 0 2px; color: hsl(30 70% 38%); font-size: .68rem; line-height: 1.35; }
+.task21-carry-over-note svg { flex: 0 0 auto; margin-top: 1px; }
 .task21-breakdown-details { align-self: stretch; }
 .task21-breakdown-details summary { display: inline-flex; align-items: center; justify-content: center; height: 100%; color: hsl(var(--muted-foreground)); cursor: pointer; font-family: var(--app-font-mono); font-size: .59rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; list-style: none; }
 .task21-breakdown-details summary::-webkit-details-marker { display: none; }
@@ -607,6 +609,7 @@
 .task21-detail-title { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
 .task21-detail-title span { color: hsl(var(--primary)); font-family: var(--app-font-mono); font-size: .61rem; font-weight: 700; }
 .task21-detail-title h4 { margin: 0; font-family: var(--app-font-display); font-size: 1.45rem; line-height: .8; text-transform: uppercase; }
+.task21-source-note { display: inline-flex; align-items: center; gap: 6px; margin: -4px 0 12px; color: hsl(30 70% 38%); font-size: .68rem; font-weight: 700; }
 .task21-detail-values { display: grid; gap: 8px; }
 .task21-detail-values p, .task21-out-value { display: flex; justify-content: space-between; gap: 12px; margin: 0; }
 .task21-detail-values strong, .task21-out-value strong { max-width: 65%; font-size: .75rem; text-align: right; }

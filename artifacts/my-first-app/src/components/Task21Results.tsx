@@ -77,6 +77,8 @@ type PredictionEntry = {
   rider_id: string | null;
   predicted_time: number | string | null;
   points: number | string | null;
+  source: 'MANUAL' | 'CARRY_OVER' | string | null;
+  carried_from_grand_prix_id: string | null;
 };
 
 type Rider = {
@@ -127,7 +129,45 @@ const predictionEntrySelect = [
   'rider_id',
   'predicted_time',
   'points',
+  'source',
+  'carried_from_grand_prix_id',
 ].join(',');
+const legacyPredictionEntrySelect = [
+  'id',
+  'prediction_id',
+  'prediction_type',
+  'position',
+  'rider_id',
+  'predicted_time',
+  'points',
+].join(',');
+
+function isMissingCarryOverColumns(error: { message?: string | null } | null) {
+  const message = error?.message?.toLowerCase() ?? '';
+  return (
+    message.includes('source') ||
+    message.includes('carried_from_grand_prix_id') ||
+    message.includes('column') && message.includes('does not exist')
+  );
+}
+
+async function loadPredictionEntries(predictionIds: string[]) {
+  if (!predictionIds.length) return { data: [], error: null };
+
+  const response = await supabase
+    .from('prediction_entries')
+    .select(predictionEntrySelect)
+    .in('prediction_id', predictionIds);
+
+  if (!response.error || !isMissingCarryOverColumns(response.error)) {
+    return response;
+  }
+
+  return supabase
+    .from('prediction_entries')
+    .select(legacyPredictionEntrySelect)
+    .in('prediction_id', predictionIds);
+}
 
 const closedStatuses = new Set([
   'FINISHED',
@@ -200,6 +240,40 @@ function sessionLabel(type: string | null) {
   if (type === 'SPR') return 'Sprint';
   if (type === 'RAC') return 'Gara';
   return type || 'Sessione';
+}
+
+const carryOverEntryTypes: Record<string, string[]> = {
+  Q: ['POLE', 'QUALIFYING_TIME'],
+  SPR: ['SPRINT'],
+  RAC: ['RACE', 'RACE_OUT'],
+};
+
+function carryOverSessionsForPrediction(
+  prediction: PredictionScore | undefined,
+  entries: PredictionEntry[],
+  grandPrix: GrandPrix[],
+) {
+  if (!prediction) return [];
+
+  const sourceBySession = new Map<string, string>();
+  for (const [sessionType, entryTypes] of Object.entries(carryOverEntryTypes)) {
+    const sourceEntry = entries.find(
+      (entry) =>
+        entry.prediction_id === prediction.id &&
+        entry.source === 'CARRY_OVER' &&
+        entry.prediction_type !== null &&
+        entryTypes.includes(entry.prediction_type),
+    );
+    if (sourceEntry?.carried_from_grand_prix_id) {
+      sourceBySession.set(sessionType, sourceEntry.carried_from_grand_prix_id);
+    }
+  }
+
+  return [...sourceBySession.entries()].map(([sessionType, sourceGrandPrixId]) => ({
+    sessionType,
+    sourceGrandPrix:
+      grandPrix.find((item) => item.id === sourceGrandPrixId) ?? null,
+  }));
 }
 
 function isClosedSession(session: RaceSession) {
@@ -436,12 +510,7 @@ export function MyResultsContent({
 
       const predictionRows = (predictionsResponse.data || []) as unknown as PredictionScore[];
       const predictionIds = predictionRows.map((prediction) => prediction.id);
-      const entriesResponse = predictionIds.length
-        ? await supabase
-            .from('prediction_entries')
-            .select('id, prediction_id, prediction_type, position, rider_id, predicted_time, points')
-            .in('prediction_id', predictionIds)
-        : { data: [], error: null };
+      const entriesResponse = await loadPredictionEntries(predictionIds);
 
       if (entriesResponse.error) {
         throw new Error('Non è stato possibile caricare i dettagli dei tuoi pronostici.');
@@ -618,6 +687,11 @@ export function MyResultsContent({
               isGpClosed(item.id, sessions),
             );
             const StatusIcon = status.icon;
+            const carryOvers = carryOverSessionsForPrediction(
+              prediction,
+              predictionEntries,
+              grandPrix,
+            );
             return (
               <article className="task21-gp-row" key={item.id}>
                 <div className="task21-gp-identity">
@@ -654,6 +728,20 @@ export function MyResultsContent({
                       : '—'}
                   </strong>
                 </div>
+                {carryOvers.length > 0 && (
+                  <div className="task21-carry-over-note" role="status">
+                    <RefreshCw size={13} aria-hidden="true" />
+                    <span>
+                      {carryOvers.map(({ sessionType, sourceGrandPrix }, index) => (
+                        <span key={sessionType}>
+                          {index > 0 ? ' · ' : ''}
+                          {sessionLabel(sessionType)} — ereditato dal{' '}
+                          {sourceGrandPrix ? gpName(sourceGrandPrix) : 'GP precedente'}
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                )}
                 <details className="task21-breakdown-details">
                   <summary>Dettaglio</summary>
                   <ScoreBreakdown prediction={prediction} compact />
@@ -680,10 +768,12 @@ function PredictionDetail({
   prediction,
   entries,
   riders,
+  grandPrix,
 }: {
   prediction?: PredictionScore;
   entries: PredictionEntry[];
   riders: Rider[];
+  grandPrix?: GrandPrix[];
 }) {
   const riderMap = new Map(riders.map((rider) => [rider.id, rider]));
   const byType = (type: string) =>
@@ -695,6 +785,20 @@ function PredictionDetail({
   const sprint = byType('SPRINT');
   const race = byType('RACE');
   const out = byType('RACE_OUT')[0];
+  const sourceForType = (types: string[]) => {
+    const entry = entries.find(
+      (candidate) =>
+        candidate.source === 'CARRY_OVER' &&
+        candidate.prediction_type !== null &&
+        types.includes(candidate.prediction_type),
+    );
+    if (!entry?.carried_from_grand_prix_id) return null;
+    return grandPrix?.find((item) => item.id === entry.carried_from_grand_prix_id) ?? null;
+  };
+  const sourceLabel = (types: string[]) => {
+    const source = sourceForType(types);
+    return source ? `Ereditato dal ${gpName(source)}` : null;
+  };
 
   if (!prediction) {
     return (
@@ -713,6 +817,9 @@ function PredictionDetail({
           <span>01</span>
           <h4>Qualifica</h4>
         </div>
+        {sourceLabel(carryOverEntryTypes.Q) && (
+          <p className="task21-source-note">{sourceLabel(carryOverEntryTypes.Q)}</p>
+        )}
         <div className="task21-detail-values">
           <p><span>Pole</span><strong>{riderName(riderMap.get(qualifying[0]?.rider_id || ''), qualifying[0]?.rider_id)}</strong></p>
           <p><span>Tempo pole</span><strong>{toNumber(qualifyingTime[0]?.predicted_time ?? prediction.qualifying_pole_time)?.toFixed(3) || '—'} s</strong></p>
@@ -723,6 +830,9 @@ function PredictionDetail({
           <span>02</span>
           <h4>Sprint</h4>
         </div>
+        {sourceLabel(carryOverEntryTypes.SPR) && (
+          <p className="task21-source-note">{sourceLabel(carryOverEntryTypes.SPR)}</p>
+        )}
         <ol className="task21-rider-list">
           {sprint.length > 0 ? sprint.map((entry) => (
             <li key={entry.id}>
@@ -737,6 +847,9 @@ function PredictionDetail({
           <span>03</span>
           <h4>Gara</h4>
         </div>
+        {sourceLabel(carryOverEntryTypes.RAC) && (
+          <p className="task21-source-note">{sourceLabel(carryOverEntryTypes.RAC)}</p>
+        )}
         <ol className="task21-rider-list">
           {race.length > 0 ? race.map((entry) => (
             <li key={entry.id}>
@@ -933,12 +1046,21 @@ export function LeagueResultsContent({
       }
 
       const prediction = predictionResponse.data as unknown as PredictionScore;
-      const entriesResponse = await supabase
+      let entriesResponse = await supabase
         .from('prediction_entries')
         .select(predictionEntrySelect)
         .eq('prediction_id', prediction.id)
         .order('prediction_type', { ascending: true })
         .order('position', { ascending: true });
+
+      if (entriesResponse.error && isMissingCarryOverColumns(entriesResponse.error)) {
+        entriesResponse = await supabase
+          .from('prediction_entries')
+          .select(legacyPredictionEntrySelect)
+          .eq('prediction_id', prediction.id)
+          .order('prediction_type', { ascending: true })
+          .order('position', { ascending: true });
+      }
 
       if (!isMounted) return;
       if (entriesResponse.error) {
@@ -1125,7 +1247,12 @@ export function LeagueResultsContent({
                 <strong>{detailError}</strong>
               </div>
             ) : (
-              <PredictionDetail prediction={detailPrediction} entries={detailEntries} riders={detailRiders} />
+              <PredictionDetail
+                prediction={detailPrediction}
+                entries={detailEntries}
+                riders={detailRiders}
+                grandPrix={grandPrix}
+              />
             )}
           </section>
         </div>
