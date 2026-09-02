@@ -644,7 +644,7 @@ bonus =
 
 out_in_race_penalty = -2 if predicted_out occurs in race_predictions else 0
 
-L = count(predicted_race_rider not found in out_text)
+L = count(predicted_race_rider found in out_text)
 malus =
   -10 if L == 5
   -5  if L >= 3

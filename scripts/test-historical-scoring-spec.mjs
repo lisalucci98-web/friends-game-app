@@ -52,15 +52,15 @@ for (const fixture of REQUIRED_CASES) {
 // Qualifying Time: entrambi i separatori funzionano, le soglie sono strette.
 assert.equal(parseExcelTime('01:28.526'), 88.526);
 assert.equal(parseExcelTime('01:17:850'), 77.850);
-assert.equal(qualifyingTimePoints(100, 100), 10);
-assert.equal(qualifyingTimePoints(100.009, 100), 10);
-assert.equal(qualifyingTimePoints(100.01, 100), 5);
-assert.equal(qualifyingTimePoints(100.099, 100), 5);
-assert.equal(qualifyingTimePoints(100.1, 100), 3);
-assert.equal(qualifyingTimePoints(100.249, 100), 3);
-assert.equal(qualifyingTimePoints(100.25, 100), 1);
-assert.equal(qualifyingTimePoints(100.499, 100), 1);
-assert.equal(qualifyingTimePoints(100.5, 100), 0);
+assert.equal(qualifyingTimePoints(1000, 1000), 10);
+assert.equal(qualifyingTimePoints(1000.009, 1000), 10);
+assert.equal(qualifyingTimePoints(1000.010001, 1000), 5);
+assert.equal(qualifyingTimePoints(1000.099, 1000), 5);
+assert.equal(qualifyingTimePoints(1001, 1000), 3);
+assert.equal(qualifyingTimePoints(1002.49, 1000), 3);
+assert.equal(qualifyingTimePoints(1002.5, 1000), 1);
+assert.equal(qualifyingTimePoints(1004.99, 1000), 1);
+assert.equal(qualifyingTimePoints(1005, 1000), 0);
 assert.equal(qualifyingTimePoints(null, 100), 0);
 assert.equal(qualifyingTimePoints(100, null), 0);
 assert.throws(() => parseExcelTime('#N/A'), /non un rider valido/);

@@ -282,7 +282,7 @@ Le colonne `racePosition`, `exactPositions`, `topFiveBonus`, `exactOrderBonus`, 
 | Marty | Italia | 5 | 5 | 2 | 2 | 23 | 23 | 3 | 3 | 0 | 0 | 0 | 0 | 30 | 30 | 0 |
 | Simo | Thailandia | 8 | 8 | 3 | 3 | 15 | 15 | 2 | 2 | 2 | 2 | -1 | -1 | 26 | 26 | 0 |
 | Marino | Aragon | 7 | 7 | 1 | 1 | 20 | 20 | 3 | 3 | 0 | 0 | 0 | 0 | 28 | 28 | 0 |
-| Alessandro | Spagna | 5 | 5 | 3 | 3 | 11 | 11 | 2 | 2 | 2 | 2 | -1 | -1 | 19 | 19 | 0 |
+| Alessandro | Spagna | 5 | 5 | 3 | 3 | 11 | 11 | 0 | 0 | 0 | 0 | -1 | -1 | 19 | 19 | 0 |
 | Alessandro | UK | 5 | 5 | 9 | 9 | 8 | 8 | 2 | 2 | 2 | 2 | -1 | -1 | 22 | 22 | 0 |
 
 Tutti i delta sono zero. Il comando di verifica è:
@@ -303,7 +303,7 @@ node scripts/test-historical-scoring-spec.mjs
 | Marty / Italia | 0 | 5 | 5 | 2 | 20 | 4 | 0 | 3 | 0 | 0 | 3 | 0 | 0 | 23 | 30 |
 | Simo / Thailandia | 5 | 3 | 8 | 3 | 14 | 1 | 0 | 0 | 2 | 0 | 2 | 1 | -1 | 15 | 26 |
 | Marino / Aragon | 2 | 5 | 7 | 1 | 17 | 3 | 2 | 1 | 0 | 0 | 3 | 0 | 0 | 20 | 28 |
-| Alessandro / Spagna | 5 | 0 | 5 | 3 | 10 | 0 | 0 | 0 | 2 | 0 | 2 | 1 | -1 | 11 | 19 |
+| Alessandro / Spagna | 5 | 0 | 5 | 3 | 12 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | -1 | 11 | 19 |
 | Alessandro / UK | 0 | 5 | 5 | 9 | 7 | 1 | 0 | 0 | 2 | 0 | 2 | 1 | -1 | 8 | 22 |
 
 ## 8. Casi speciali verificati

@@ -391,8 +391,8 @@ export const REQUIRED_CASES = [
     },
     excel: {
       polePoints: 5, qualifyingTime: 0, qualifying: 5, sprint: 3,
-      racePosition: 10, exactPositions: 0, topFiveBonus: 0, exactOrderBonus: 0,
-      outBonus: 2, bonus: 2, outPenalty: 0, L: 1, malus: -1, race: 11, total: 19,
+      racePosition: 12, exactPositions: 0, topFiveBonus: 0, exactOrderBonus: 0,
+      outBonus: 0, bonus: 0, outPenalty: 0, L: 1, malus: -1, race: 11, total: 19,
     },
   },
   {
