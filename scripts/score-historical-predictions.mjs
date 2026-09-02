@@ -16,6 +16,7 @@
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const SOURCE =
   'attached_assets/Pasted-GP-Utente-Pole-position-tempo-pole-1-sprint-2-sprint-3-_1788342259417.txt';
@@ -325,6 +326,7 @@ function buildEntryAudit(items, entriesByPrediction, coverageByGp, ridersById) {
     const missing = missingEntryTypes(counts);
     if (missing.length) {
       incomplete.push({
+        predictionId: item.prediction.id,
         gp: item.gp.short_name,
         email: item.email,
         entries: entries.length,
@@ -344,10 +346,10 @@ function buildEntryAudit(items, entriesByPrediction, coverageByGp, ridersById) {
     }
 
     const resultSets = {
-      POLE: coverage?.qualifying?.results ?? [],
-      SPRINT: coverage?.sprint?.results ?? [],
-      RACE: coverage?.race?.results ?? [],
-      RACE_OUT: coverage?.race?.results ?? [],
+      POLE: coverage?.qualifying?.results ?? null,
+      SPRINT: coverage?.sprint?.results ?? null,
+      RACE: coverage?.race?.results ?? null,
+      RACE_OUT: coverage?.race?.results ?? null,
     };
     const missingByType = {};
     for (const entry of entries) {
@@ -359,6 +361,7 @@ function buildEntryAudit(items, entriesByPrediction, coverageByGp, ridersById) {
     }
     if (Object.keys(missingByType).length) {
       missingResults.push({
+        predictionId: item.prediction.id,
         gp: item.gp.short_name,
         email: item.email,
         riders: Object.entries(missingByType).map(([type, count]) => ({
@@ -366,7 +369,8 @@ function buildEntryAudit(items, entriesByPrediction, coverageByGp, ridersById) {
           count,
           names: entries
             .filter((entry) => entry.prediction_type === type && entry.rider_id
-              && !(resultSets[type] ?? []).some((result) => result.rider_id === entry.rider_id))
+              && resultSets[type]
+              && !resultSets[type].some((result) => result.rider_id === entry.rider_id))
             .map((entry) => ridersById.get(entry.rider_id) ?? entry.rider_id),
         })),
       });
@@ -378,6 +382,51 @@ function buildEntryAudit(items, entriesByPrediction, coverageByGp, ridersById) {
     rpcUnsupportedIds: new Set(rpcUnsupported.map((item) => item.predictionId)),
     missingResults,
   };
+}
+
+function buildScoringPlan(items, coverageByGp, audit) {
+  const evaluableGpIds = new Set(
+    [...coverageByGp.entries()]
+      .filter(([, coverage]) => Boolean(
+        coverage?.qualifying && coverage?.sprint && coverage?.race,
+      ))
+      .map(([gpId]) => gpId),
+  );
+  const blockedIds = audit.rpcUnsupportedIds;
+  const blocked = items.filter((item) => blockedIds.has(item.prediction.id));
+  const toScore = items.filter(
+    (item) => item.prediction.scored_at === null
+      && evaluableGpIds.has(item.gp.id)
+      && !blockedIds.has(item.prediction.id),
+  );
+
+  return {
+    evaluableGpIds,
+    blocked,
+    toScore,
+    writeCandidates: toScore.map((item) => item.prediction.id),
+  };
+}
+
+function getScoringTargets(plan, apply) {
+  return apply ? plan.toScore : [];
+}
+
+async function executeScoring(client, plan, apply) {
+  const rpcResults = [];
+  for (const item of getScoringTargets(plan, apply)) {
+    try {
+      await client.rpc('score_prediction', { p_prediction_id: item.prediction.id });
+      rpcResults.push({ id: item.prediction.id, ok: true });
+    } catch (error) {
+      rpcResults.push({
+        id: item.prediction.id,
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  return rpcResults;
 }
 
 function coverageRows(items, coverageByGp) {
@@ -445,21 +494,15 @@ function markdownReport({
   rpcResults,
   afterPredictions,
   selectionErrors,
+  scoringPlan,
 }) {
   const uniquePredictions = new Map(items.map((item) => [item.prediction.id, item]));
   const deterministic = items.filter((item) => item.prediction.id === item.deterministicId).length;
   const legacy = items.length - deterministic;
   const alreadyScored = items.filter((item) => item.prediction.scored_at !== null).length;
-  const evaluableGpIds = new Set(
-    coverage.filter((row) => row.evaluable).map((row) => context.grandPrix.find((gp) => gp.short_name === row.gp)?.id),
-  );
-  const needsScoring = items.filter(
-    (item) => item.prediction.scored_at === null
-      && evaluableGpIds.has(item.gp.id)
-      && !audit.rpcUnsupportedIds.has(item.prediction.id),
-  );
+  const needsScoring = scoringPlan.toScore;
   const notEvaluable = items.filter(
-    (item) => !evaluableGpIds.has(item.gp.id)
+    (item) => !scoringPlan.evaluableGpIds.has(item.gp.id)
       || audit.rpcUnsupportedIds.has(item.prediction.id),
   );
   const resultErrors = rpcResults.filter((result) => !result.ok);
@@ -512,7 +555,7 @@ function markdownReport({
     ...(
       audit.incomplete.length
         ? audit.incomplete.map((item) =>
-          `- ${item.gp} / ${item.email}: ${item.entries} entry; mancanti ${item.missing.join(', ')}`)
+          `- ${item.gp} / ${item.email} (${item.predictionId}): ${item.entries} entry; mancanti ${item.missing.join(', ')}`)
         : ['- Nessuna']
     ),
     '',
@@ -520,7 +563,8 @@ function markdownReport({
     '',
     ...(
       audit.rpcUnsupported.length
-        ? audit.rpcUnsupported.map((item) => `- ${item.gp} / ${item.email}: ${item.reason}`)
+        ? audit.rpcUnsupported.map((item) =>
+          `- ${item.gp} / ${item.email} (${item.predictionId}): ${item.reason}`)
         : ['- Nessuno']
     ),
     '',
@@ -531,7 +575,7 @@ function markdownReport({
     ...(
       audit.missingResults.length
         ? audit.missingResults.map((item) =>
-          `- ${item.gp} / ${item.email}: ${item.riders.map((group) => `${group.type}=${group.count}`).join(', ')}`)
+          `- ${item.gp} / ${item.email} (${item.predictionId}): ${item.riders.map((group) => `${group.type}=${group.count}`).join(', ')}`)
         : ['- Nessuna']
     ),
     '',
@@ -642,31 +686,8 @@ async function main() {
     ridersById,
   );
   const coverage = coverageRows(selection.items, coverageByGp);
-  const evaluableGpIds = new Set(
-    coverage.filter((row) => row.evaluable)
-      .map((row) => grandPrix.find((gp) => gp.short_name === row.gp)?.id),
-  );
-  const toScore = selection.items.filter(
-    (item) => item.prediction.scored_at === null
-      && evaluableGpIds.has(item.gp.id)
-      && !audit.rpcUnsupportedIds.has(item.prediction.id),
-  );
-  const rpcResults = [];
-
-  if (args.apply) {
-    for (const item of toScore) {
-      try {
-        await client.rpc('score_prediction', { p_prediction_id: item.prediction.id });
-        rpcResults.push({ id: item.prediction.id, ok: true });
-      } catch (error) {
-        rpcResults.push({
-          id: item.prediction.id,
-          ok: false,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-  }
+  const scoringPlan = buildScoringPlan(selection.items, coverageByGp, audit);
+  const rpcResults = await executeScoring(client, scoringPlan, args.apply);
 
   const afterPredictions = args.apply
     ? await client.get('/predictions?league_id=eq.'
@@ -680,6 +701,7 @@ async function main() {
     entries,
     audit,
     coverage,
+    scoringPlan,
     rpcResults,
     afterPredictions,
     selectionErrors: selection.errors,
@@ -688,13 +710,22 @@ async function main() {
 
   console.log(args.apply ? 'SCORING STORICO COMPLETATO' : 'DRY-RUN SCORING COMPLETATO');
   console.log(`Prediction storiche: ${selection.items.length}`);
-  console.log(`Prediction valutabili: ${toScore.length}`);
+  console.log(`Prediction valutabili: ${scoringPlan.toScore.length}`);
   console.log(`RPC invocate: ${rpcResults.length}`);
   console.log(`Errori selezione: ${selection.errors.length}`);
   console.log(`Report: ${args.report}`);
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+export {
+  buildEntryAudit,
+  buildScoringPlan,
+  executeScoring,
+  getScoringTargets,
+};
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}
