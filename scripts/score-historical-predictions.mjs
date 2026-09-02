@@ -336,6 +336,7 @@ function buildEntryAudit(items, entriesByPrediction, coverageByGp, ridersById) {
       && coverage?.sprint
       && coverage?.race) {
       rpcUnsupported.push({
+        predictionId: item.prediction.id,
         gp: item.gp.short_name,
         email: item.email,
         reason: 'QUALIFYING_TIME assente: score_prediction produce qualifying_points NULL',
@@ -371,7 +372,12 @@ function buildEntryAudit(items, entriesByPrediction, coverageByGp, ridersById) {
       });
     }
   }
-  return { incomplete, rpcUnsupported, missingResults };
+  return {
+    incomplete,
+    rpcUnsupported,
+    rpcUnsupportedIds: new Set(rpcUnsupported.map((item) => item.predictionId)),
+    missingResults,
+  };
 }
 
 function coverageRows(items, coverageByGp) {
@@ -450,10 +456,12 @@ function markdownReport({
   const needsScoring = items.filter(
     (item) => item.prediction.scored_at === null
       && evaluableGpIds.has(item.gp.id)
-      && !audit.rpcUnsupported.some((unsupported) =>
-        unsupported.gp === item.gp.short_name && unsupported.email === item.email),
+      && !audit.rpcUnsupportedIds.has(item.prediction.id),
   );
-  const notEvaluable = items.filter((item) => !evaluableGpIds.has(item.gp.id));
+  const notEvaluable = items.filter(
+    (item) => !evaluableGpIds.has(item.gp.id)
+      || audit.rpcUnsupportedIds.has(item.prediction.id),
+  );
   const resultErrors = rpcResults.filter((result) => !result.ok);
   const after = afterPredictions.length ? new Map(
     afterPredictions.map((prediction) => [prediction.id, prediction]),
@@ -483,6 +491,13 @@ function markdownReport({
     '',
     '- `public.score_prediction(p_prediction_id uuid)`',
     '- Nessun carry-over, INSERT, UPDATE o DELETE diretto eseguito dallo script; gli aggiornamenti score sono demandati alla RPC.',
+    '',
+    '## Correzione sicura dei pronostici parziali',
+    '',
+    '- Decisione applicata: **non valutare le prediction prive di `QUALIFYING_TIME` e non modificarle**.',
+    '- Non viene inventato un tempo, non viene creata una entry sostitutiva, non viene usato il carry-over e non viene scritto un punteggio parziale diretto.',
+    '- Un eventuale trattamento regolamentare del campo mancante deve essere implementato nella RPC autorizzativa, ad esempio mappando esplicitamente il contributo Qualifica assente a zero, lasciando immutate `prediction_entries`; questa attività non lo applica perché il corpo SQL reale non è disponibile in questo workspace.',
+    '- Prima di un’eventuale manutenzione RPC servono test su prediction complete e parziali, verifica di idempotenza e una nuova esecuzione mirata sui soli ID bloccati.',
     '',
     '## Copertura risultati ufficiali',
     '',
@@ -634,8 +649,7 @@ async function main() {
   const toScore = selection.items.filter(
     (item) => item.prediction.scored_at === null
       && evaluableGpIds.has(item.gp.id)
-      && !audit.rpcUnsupported.some((unsupported) =>
-        unsupported.gp === item.gp.short_name && unsupported.email === item.email),
+      && !audit.rpcUnsupportedIds.has(item.prediction.id),
   );
   const rpcResults = [];
 
