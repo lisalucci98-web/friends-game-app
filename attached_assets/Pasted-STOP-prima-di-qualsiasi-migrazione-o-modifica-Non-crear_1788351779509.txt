@@ -1,0 +1,63 @@
+STOP prima di qualsiasi migrazione o modifica.
+
+Non creare una nuova funzione di scoring e non modificare quella esistente.
+
+Il problema che dobbiamo risolvere è capire esattamente quale scoring viene attualmente utilizzato per nikyturets e perché produce risultati diversi dai punteggi storici di riferimento.
+
+Procedi esclusivamente in READ-ONLY.
+
+1. Cerca nel repository del progetto tutte le occorrenze di:
+
+   * score_prediction
+   * scoring
+   * calculate_score
+   * qualifying
+   * QUALIFYING_TIME
+   * RACE_OUT
+   * bonus
+   * malus
+   * prediction_entries
+   * nikyturets
+
+2. Analizza il codice frontend/backend che richiama le RPC di scoring e identifica:
+
+   * nome della RPC;
+   * parametri;
+   * quando viene chiamata;
+   * quali dati legge;
+   * quali dati aggiorna.
+
+3. Analizza le eventuali migration SQL presenti nel repository.
+   Cerca in particolare CREATE FUNCTION / CREATE OR REPLACE FUNCTION relative allo scoring.
+   NON eseguirle e NON modificarle.
+
+4. Se trovi nel repository la definizione della RPC/funzione di scoring, riportami il codice completo della funzione e spiegami la logica.
+
+5. Se la definizione della funzione NON è presente nel repository e il proxy REST non permette pg_proc, NON tentare workaround, migrazioni o nuove funzioni.
+
+In quel caso fermati e dimmi esattamente:
+
+* quale informazione manca;
+* perché non è possibile recuperarla con gli strumenti disponibili;
+* quale singola operazione dovrei eseguire manualmente nel Supabase SQL Editor per leggere la definizione della funzione esistente.
+
+IMPORTANTE:
+Non utilizzare DATABASE_URL locale/heliumdb.
+Non creare database alternativi.
+Non creare una nuova RPC.
+Non eseguire score_prediction.
+Non eseguire UPDATE/INSERT/DELETE.
+Non applicare migration.
+
+OBIETTIVO FINALE:
+Prima dobbiamo ottenere la definizione della funzione di scoring ESISTENTE.
+Solo dopo confronteremo la funzione con:
+
+* il regolamento;
+* i punteggi storici verificati;
+* il caso THA/Nikyturets = 21;
+* BRA/Nikyturets = 25;
+* FRA/Nikyturets = 18;
+* Aragon/Nikyturets = 24.
+
+Non fare nessuna modifica finché questo confronto non è completato.
