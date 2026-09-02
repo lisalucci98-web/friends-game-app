@@ -1,0 +1,87 @@
+Ora dobbiamo completare l'import storico calcolando i punteggi e rendendoli visibili nella lega FantaTest (codice TEST01), nello stesso modo in cui vengono visualizzati per l'utente nikyturets.
+
+IMPORTANTE:
+
+* NON modificare lo schema del database.
+* NON modificare le RLS.
+* NON modificare o ricreare le funzioni/RPC di scoring esistenti.
+* NON modificare le regole di scoring.
+* NON modificare i pronostici già inseriti.
+* NON modificare le prediction_entries.
+* NON cancellare nulla.
+* Usa esclusivamente il sistema di scoring già presente nell'app/database.
+* Non creare un secondo sistema di scoring.
+* Non fare modifiche strutturali al database.
+
+OBIETTIVO:
+Calcolare i punteggi delle prediction storiche appena importate e fare in modo che siano visualizzati nella lega FantaTest esattamente come avviene per nikyturets.
+
+PRIMA DI MODIFICARE QUALSIASI COSA:
+
+1. Analizza come vengono calcolati attualmente i punteggi per nikyturets.
+2. Identifica esattamente quale RPC/funzione/query viene utilizzata.
+3. Identifica dove vengono memorizzati i punteggi.
+4. Identifica come la pagina della lega recupera e visualizza:
+
+   * punteggio qualifiche
+   * punteggio sprint
+   * punteggio gara
+   * bonus
+   * malus
+   * totale GP
+   * totale stagione
+5. Verifica che il sistema attuale sia compatibile con le prediction_entries importate.
+
+Poi esegui un DRY-RUN/read-only e produci un report con:
+
+* numero di prediction storiche da valutare;
+* numero di prediction già valutate;
+* numero di prediction che necessitano scoring;
+* GP coinvolti;
+* eventuali errori;
+* eventuali prediction incomplete;
+* eventuali rider/risultati mancanti;
+* eventuali problemi con POLE, QUALIFYING_TIME, SPRINT, RACE e RACE_OUT.
+
+IMPORTANTE:
+Non usare il carry-over del pronostico precedente.
+I dati storici devono essere valutati esclusivamente sulla base delle prediction_entries effettivamente presenti.
+
+DOPO il dry-run:
+Esegui lo scoring utilizzando ESCLUSIVAMENTE la RPC/funzione di scoring già esistente.
+
+Lo scoring deve essere applicato alle prediction storiche importate, senza modificare le prediction o le prediction_entries.
+
+Dopo lo scoring esegui una verifica read-only.
+
+VERIFICA FINALE:
+Confronta almeno:
+
+* nikyturets
+* [alessandro.cavasso.1995@gmail.com](mailto:alessandro.cavasso.1995@gmail.com)
+* tutti gli altri utenti della lega FantaTest con prediction storiche
+
+Per ogni utente verifica:
+
+* numero GP con prediction;
+* punti qualifiche;
+* punti sprint;
+* punti gara;
+* bonus;
+* malus;
+* totale GP;
+* totale stagione.
+
+Poi verifica che la pagina della lega FantaTest mostri gli stessi dati correttamente.
+
+NON correggere eventuali problemi modificando lo schema o creando nuove colonne senza prima fermarti e riportarmi il problema.
+
+Alla fine restituisci:
+
+1. RPC/funzione di scoring utilizzata;
+2. numero prediction valutate;
+3. numero prediction con punteggio aggiornato;
+4. eventuali prediction non valutabili e motivo;
+5. totale punti per utente;
+6. verifica che la classifica della lega sia aggiornata;
+7. conferma che schema, RLS e scoring system non siano stati modificati.
