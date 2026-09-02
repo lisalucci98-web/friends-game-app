@@ -244,7 +244,7 @@ async function loadServerExpectations(session) {
     ),
   ]);
 
-  const season = seasons[0];
+  const season = seasons.find((candidate) => candidate.year === 2026) ?? seasons[0];
   assert(season, 'Nessuna stagione disponibile.');
   const leagueId = memberships[0]?.league_id ?? '';
   assert(leagueId, 'L’account di verifica non appartiene a una lega.');
@@ -412,9 +412,36 @@ async function verifyLeaderboard(cdp, expected) {
   await verifyLeaderboardPage(cdp, expected);
 }
 
-async function verifyOfficialResults(cdp, expected) {
-  await navigate(cdp, '/risultati', 'Risultati MotoGP');
+async function selectOfficialSeason(cdp, season, expected) {
+  const selected = await evaluate(
+    cdp,
+    `(() => {
+      const element = document.querySelector('[data-testid="select-season"]');
+      if (!element) return false;
+      element.value = ${JSON.stringify(season.id)};
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+      return element.value === ${JSON.stringify(season.id)};
+    })()`,
+  );
+  assert(selected, `Selettore campionato ufficiale non disponibile per ${season.year}.`);
   const firstGrandPrix = expected.seasonGrandPrix[0];
+  const firstGrandPrixLabel = firstGrandPrix?.name ?? firstGrandPrix?.short_name;
+  await waitForBody(
+    cdp,
+    (body) =>
+      body.includes(`MotoGP ${season.year}`) &&
+      (!firstGrandPrixLabel || body.includes(firstGrandPrixLabel)),
+  );
+  await sleep(300);
+}
+
+async function verifyOfficialResultsForSeason(cdp, expected) {
+  const firstGrandPrix = expected.seasonGrandPrix[0];
+  assert(firstGrandPrix, `Nessun GP disponibile per la stagione ${expected.season.year}.`);
+  await waitForBody(
+    cdp,
+    (body) => body.includes(firstGrandPrix.name ?? firstGrandPrix.short_name ?? ''),
+  );
   const resultSessions = expected.sessions.filter(
     (session) => session.grand_prix_id === firstGrandPrix.id && ['Q', 'SPR', 'RAC'].includes(session.type),
   );
@@ -446,6 +473,37 @@ async function verifyOfficialResults(cdp, expected) {
     );
     assert(actual.heading === label, `Tab ${label} non attiva.`);
     assert(actual.count === `${count} classificati`, `Classifica ${label}: UI ${actual.count} != server ${count} classificati.`);
+  }
+}
+
+async function verifyOfficialResults(cdp, baseExpectations, expected) {
+  await navigate(cdp, '/risultati', 'Risultati MotoGP');
+  const actualSelector = await evaluate(
+    cdp,
+    `(() => ({
+      value: document.querySelector('[data-testid="select-season"]')?.value ?? '',
+      options: [...document.querySelectorAll('[data-testid="select-season"] option')].map((option) => ({
+        value: option.value,
+        label: option.textContent?.trim() ?? '',
+      })),
+    }))()`,
+  );
+  assert(actualSelector.value === expected.season.id, `Campionato ufficiale di default ${actualSelector.value} != ${expected.season.id}.`);
+  for (const season of baseExpectations.seasons) {
+    assert(
+      actualSelector.options.some((option) => option.value === season.id && option.label === `MotoGP ${season.year}`),
+      `Stagione ${season.year} assente dal selettore ufficiale.`,
+    );
+  }
+
+  await verifyOfficialResultsForSeason(cdp, expected);
+
+  for (const season of baseExpectations.seasons) {
+    if (season.id === expected.season.id) continue;
+    const historicalExpected = expectationsForSeason(baseExpectations, season);
+    if (!historicalExpected.seasonGrandPrix.length) continue;
+    await selectOfficialSeason(cdp, season, historicalExpected);
+    await verifyOfficialResultsForSeason(cdp, historicalExpected);
   }
 }
 
@@ -493,7 +551,7 @@ async function main() {
       await selectSeason(cdp, '[data-testid="task21-league-season-select"]', historicalSeason);
       await verifyLeaderboardPage(cdp, historicalExpected);
     }
-    await verifyOfficialResults(cdp, expected);
+    await verifyOfficialResults(cdp, baseExpectations, expected);
     console.log(
       `Verifica autenticata superata: ${expected.seasonGrandPrix.length} GP, ${expected.leaderboard.length} partecipanti, Qualifiche/Sprint/Gara coerenti.`,
     );

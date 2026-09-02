@@ -1199,6 +1199,8 @@ function ResultsRows({
 
 function ResultsPage() {
   const { user, isAuthLoading } = useAuth();
+  const [seasons, setSeasons] = useState<ResultsSeason[]>([]);
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
   const [season, setSeason] = useState<ResultsSeason | null>(null);
   const [grandPrix, setGrandPrix] = useState<GrandPrix[]>([]);
   const [sessions, setSessions] = useState<RaceSession[]>([]);
@@ -1215,26 +1217,64 @@ function ResultsPage() {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadResults() {
+    async function loadSeasons() {
       if (isAuthLoading || !user) return;
       setIsLoading(true);
       setErrorMessage(null);
 
-      const seasonResponse = await supabase
+      const seasonsResponse = await supabase
         .from('seasons')
         .select('id, year')
-        .eq('year', 2026)
-        .maybeSingle();
+        .order('year', { ascending: false });
 
-      if (seasonResponse.error || !seasonResponse.data) {
+      if (seasonsResponse.error || !seasonsResponse.data?.length) {
         if (isMounted) {
-          setErrorMessage('La stagione 2026 non è disponibile nel database.');
+          setErrorMessage('Non è stato possibile caricare le stagioni del campionato.');
           setIsLoading(false);
         }
         return;
       }
 
-      const seasonRow = seasonResponse.data as ResultsSeason;
+      const seasonRows = seasonsResponse.data as ResultsSeason[];
+      const defaultSeason =
+        seasonRows.find((item) => item.year === 2026) ?? seasonRows[0];
+
+      if (isMounted) {
+        setSeasons(seasonRows);
+        setSelectedSeasonId((current) =>
+          current && seasonRows.some((item) => item.id === current)
+            ? current
+            : defaultSeason.id,
+        );
+      }
+    }
+
+    void loadSeasons();
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthLoading, user]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadResults() {
+      if (isAuthLoading || !user || !selectedSeasonId) return;
+
+      const seasonRow = seasons.find((item) => item.id === selectedSeasonId);
+      if (!seasonRow) return;
+
+      setIsLoading(true);
+      setErrorMessage(null);
+      setSeason(null);
+      setGrandPrix([]);
+      setSessions([]);
+      setResults([]);
+      setRiders([]);
+      setRiderSeasons([]);
+      setTeams([]);
+      setSelectedGrandPrixId(null);
+
       const grandPrixResponse = await supabase
         .from('grand_prix')
         .select('id, name, short_name, country, circuit, date_start, date_end')
@@ -1244,7 +1284,7 @@ function ResultsPage() {
 
       if (grandPrixResponse.error) {
         if (isMounted) {
-          setErrorMessage('Non è stato possibile caricare il calendario MotoGP.');
+          setErrorMessage(`Non è stato possibile caricare il calendario MotoGP ${seasonRow.year}.`);
           setIsLoading(false);
         }
         return;
@@ -1263,7 +1303,7 @@ function ResultsPage() {
 
       if (sessionsResponse.error) {
         if (isMounted) {
-          setErrorMessage('Non è stato possibile caricare le sessioni del campionato.');
+          setErrorMessage(`Non è stato possibile caricare le sessioni del campionato ${seasonRow.year}.`);
           setIsLoading(false);
         }
         return;
@@ -1282,7 +1322,7 @@ function ResultsPage() {
 
       if (resultResponse.error) {
         if (isMounted) {
-          setErrorMessage('Non è stato possibile caricare i risultati ufficiali.');
+          setErrorMessage(`Non è stato possibile caricare i risultati ufficiali ${seasonRow.year}.`);
           setIsLoading(false);
         }
         return;
@@ -1307,7 +1347,7 @@ function ResultsPage() {
 
       if (riderResponse.error || riderSeasonResponse.error || teamResponse.error) {
         if (isMounted) {
-          setErrorMessage('Non è stato possibile completare i dati dei piloti.');
+          setErrorMessage(`Non è stato possibile completare i dati dei piloti ${seasonRow.year}.`);
           setIsLoading(false);
         }
         return;
@@ -1334,7 +1374,7 @@ function ResultsPage() {
     return () => {
       isMounted = false;
     };
-  }, [isAuthLoading, reloadToken, user]);
+  }, [isAuthLoading, reloadToken, seasons, selectedSeasonId, user]);
 
   const selectedGrandPrix = grandPrix.find((item) => item.id === selectedGrandPrixId) ?? null;
   const selectedGrandPrixSessions = sessions.filter(
@@ -1391,11 +1431,26 @@ function ResultsPage() {
     >
       <div className="results-shell" data-testid="results-viewer">
         <div className="results-toolbar">
-          <label className="results-select-control" htmlFor="results-season">
+           <label className="results-select-control" htmlFor="results-season">
             <span>Campionato</span>
             <span className="results-select-wrap">
-              <select id="results-season" value={season?.id ?? ''} disabled data-testid="select-season">
-                <option value={season?.id ?? ''}>MotoGP {season?.year ?? 2026}</option>
+               <select
+                 id="results-season"
+                 value={season?.id ?? selectedSeasonId ?? ''}
+                 onChange={(event) => {
+                   const nextSeason = seasons.find((item) => item.id === event.target.value);
+                   if (nextSeason) {
+                     setSelectedSeasonId(nextSeason.id);
+                   }
+                 }}
+                 disabled={isLoading || seasons.length < 2}
+                 data-testid="select-season"
+               >
+                 {seasons.map((item) => (
+                   <option value={item.id} key={item.id}>
+                     MotoGP {item.year}
+                   </option>
+                 ))}
               </select>
               <ChevronDown size={16} aria-hidden="true" />
             </span>
@@ -1478,7 +1533,7 @@ function ResultsPage() {
           <div className="results-state" data-testid="empty-grand-prix">
             <span className="results-state-icon"><Flag size={20} aria-hidden="true" /></span>
             <strong>Nessun Gran Premio in calendario</strong>
-            <p>La stagione 2026 non contiene ancora eventi pubblicati.</p>
+             <p>La stagione {season?.year ?? selectedSeasonId ?? ''} non contiene ancora eventi pubblicati.</p>
           </div>
         ) : !selectedGrandPrix ? (
           <div className="results-state" data-testid="empty-selected-grand-prix">
