@@ -7,4 +7,4 @@ I totali GP provenienti da uno storico approvato non sono sufficienti per ricost
 
 **Why:** il metodo storico può avere prodotto un totale con regole o componenti diverse da quelle della RPC attuale; inoltre un import può conservare il tempo Qualifica nell’entry ma lasciare nullo il campo aggregato letto dal percorso di scoring. Senza il corpo SQL della RPC non si deve attribuire la causa interna a una formula precisa.
 
-**How to apply:** durante audit read-only, confrontare separatamente entry, campi aggregati, risultati ufficiali e tabella storica; dichiarare come ipotesi le differenze di Qualifica/OUT/bonus/malus e non inventare punti individuali mancanti.
+**How to apply:** durante audit read-only, confrontare separatamente entry, campi aggregati, risultati ufficiali e tabella storica; dichiarare come ipotesi le differenze di Qualifica/OUT/bonus/malus e non inventare punti individuali mancanti. Un fallback del tempo Qualifica è necessario ma non basta: servono anche componenti storiche per i casi non riconciliati.
