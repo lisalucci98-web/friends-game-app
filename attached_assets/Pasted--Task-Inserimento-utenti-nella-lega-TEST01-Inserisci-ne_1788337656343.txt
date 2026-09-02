@@ -1,0 +1,54 @@
+## Task — Inserimento utenti nella lega TEST01
+
+Inserisci nella lega esistente con codice invito **`TEST01`** i seguenti utenti:
+
+* [marty.bria1996@gmail.com](mailto:marty.bria1996@gmail.com)
+* [simo.salva92@gmail.com](mailto:simo.salva92@gmail.com)
+* [alandellosbel8@gmail.com](mailto:alandellosbel8@gmail.com)
+* [ivan23dell@gmail.com](mailto:ivan23dell@gmail.com)
+* [marino.dilorenzo@gmail.com](mailto:marino.dilorenzo@gmail.com)
+* [lucifero1966@gmail.com](mailto:lucifero1966@gmail.com)
+* [dalla.pozza.silvia@gmail.com](mailto:dalla.pozza.silvia@gmail.com)
+* [tommaso.strada95@gmail.com](mailto:tommaso.strada95@gmail.com)
+
+### Regole
+
+1. Gli utenti esistono già: **NON creare nuovi account**.
+2. **NON modificare password, profili o dati degli utenti**.
+3. Individua la lega esistente `TEST01`.
+4. Per ogni utente:
+
+   * verifica che l'account esista;
+   * verifica se è già membro di `TEST01`;
+   * se non è membro, aggiungilo;
+   * se è già membro, non fare nulla.
+5. L'operazione deve essere **idempotente**: nessuna membership duplicata se il task viene eseguito nuovamente.
+6. **NON creare una nuova lega**.
+7. **NON creare o modificare prediction, prediction_entries o punteggi**.
+8. Non modificare altri utenti o altre leghe.
+9. Non modificare RLS, RPC, scoring o schema del database.
+10. Non stampare password, token o credenziali nei log.
+
+### Verifica finale
+
+Restituisci una tabella:
+
+| Email                                                               | Account            | TEST01                         |
+| ------------------------------------------------------------------- | ------------------ | ------------------------------ |
+| [marty.bria1996@gmail.com](mailto:marty.bria1996@gmail.com)         | EXISTS / NOT_FOUND | ADDED / ALREADY_MEMBER / ERROR |
+| [simo.salva92@gmail.com](mailto:simo.salva92@gmail.com)             | ...                | ...                            |
+| [alandellosbel8@gmail.com](mailto:alandellosbel8@gmail.com)         | ...                | ...                            |
+| [ivan23dell@gmail.com](mailto:ivan23dell@gmail.com)                 | ...                | ...                            |
+| [marino.dilorenzo@gmail.com](mailto:marino.dilorenzo@gmail.com)     | ...                | ...                            |
+| [lucifero1966@gmail.com](mailto:lucifero1966@gmail.com)             | ...                | ...                            |
+| [dalla.pozza.silvia@gmail.com](mailto:dalla.pozza.silvia@gmail.com) | ...                | ...                            |
+| [tommaso.strada95@gmail.com](mailto:tommaso.strada95@gmail.com)     | ...                | ...                            |
+
+Verifica inoltre che:
+
+* tutti gli utenti risultino membri di `TEST01`;
+* non ci siano membership duplicate;
+* il numero di prediction degli 8 utenti sia rimasto invariato;
+* nessun altro utente sia stato modificato.
+
+Esegui infine TypeScript check, build e `git diff --check`.
