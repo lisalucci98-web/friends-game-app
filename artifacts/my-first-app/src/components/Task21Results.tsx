@@ -1303,7 +1303,7 @@ export function LeagueResultsContent({
                 value={selectedGpId}
                 onChange={(event) => setSelectedGpId(event.target.value)}
               >
-                {grandPrix.map((item, index) => (
+                 {seasonGrandPrix.map((item, index) => (
                   <option key={item.id} value={item.id}>
                     GP {String(index + 1).padStart(2, '0')} · {gpLabel(item)}
                   </option>

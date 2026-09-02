@@ -26,6 +26,7 @@ const email = process.env.RESULTS_TEST_EMAIL ?? '';
 const password = process.env.RESULTS_TEST_PASSWORD ?? '';
 const appUrl = (process.env.RESULTS_APP_URL ?? 'http://127.0.0.1:21367').replace(/\/$/, '');
 const chromiumPath = process.env.CHROMIUM_PATH ?? 'chromium';
+let navigationCounter = 0;
 
 if (!supabaseUrl || !anonKey || !email || !password) {
   console.error(
@@ -131,6 +132,7 @@ async function waitForDevToolsPage(port) {
 function createCdpClient(endpoint) {
   const socket = new WebSocket(endpoint);
   const pending = new Map();
+  const eventWaiters = new Map();
   let nextId = 1;
 
   const connected = new Promise((resolve, reject) => {
@@ -140,6 +142,14 @@ function createCdpClient(endpoint) {
 
   socket.onmessage = (event) => {
     const message = JSON.parse(event.data);
+    if (message.method) {
+      const waiters = eventWaiters.get(message.method);
+      if (waiters?.length) {
+        eventWaiters.delete(message.method);
+        for (const resolve of waiters) resolve(message.params);
+      }
+      return;
+    }
     const request = pending.get(message.id);
     if (!request) return;
     pending.delete(message.id);
@@ -162,7 +172,15 @@ function createCdpClient(endpoint) {
     socket.close();
   }
 
-  return { send, close };
+  function waitForEvent(method) {
+    return new Promise((resolve) => {
+      const waiters = eventWaiters.get(method) ?? [];
+      waiters.push(resolve);
+      eventWaiters.set(method, waiters);
+    });
+  }
+
+  return { send, close, waitForEvent };
 }
 
 async function evaluate(cdp, expression) {
@@ -172,7 +190,13 @@ async function evaluate(cdp, expression) {
     awaitPromise: true,
   });
   if (result.exceptionDetails) {
-    throw new Error('Browser evaluation non riuscita.');
+    const description =
+      result.exceptionDetails.exception?.description ??
+      result.exceptionDetails.text ??
+      'errore sconosciuto';
+    throw new Error(
+      `Browser evaluation non riuscita: ${description} (${expression.slice(0, 180)})`,
+    );
   }
   return result.result?.value;
 }
@@ -189,7 +213,12 @@ async function waitForBody(cdp, predicate, timeout = 25000) {
 }
 
 async function navigate(cdp, path, readyText) {
-  await cdp.send('Page.navigate', { url: `${appUrl}${path}` });
+  const loadEvent = cdp.waitForEvent('Page.loadEventFired');
+  const separator = path.includes('?') ? '&' : '?';
+  await cdp.send('Page.navigate', {
+    url: `${appUrl}${path}${separator}resultsVerification=${++navigationCounter}`,
+  });
+  await Promise.race([loadEvent, sleep(5000)]);
   const normalizedReadyText = readyText.toLocaleLowerCase();
   await waitForBody(cdp, (body) =>
     body.toLocaleLowerCase().includes(normalizedReadyText),
@@ -222,6 +251,30 @@ function isClassified(result) {
   );
 }
 
+const closedStatuses = new Set([
+  'FINISHED',
+  'COMPLETED',
+  'CLASSIFIED',
+  'CLOSED',
+]);
+
+function isGpClosed(grandPrixId, sessions) {
+  const relevantSessions = sessions.filter(
+    (session) =>
+      session.grand_prix_id === grandPrixId &&
+      ['Q', 'SPR', 'RAC'].includes(String(session.type ?? '').toUpperCase()),
+  );
+  const types = new Set(
+    relevantSessions.map((session) => String(session.type ?? '').toUpperCase()),
+  );
+  return (
+    ['Q', 'SPR', 'RAC'].every((type) => types.has(type)) &&
+    relevantSessions.every((session) =>
+      closedStatuses.has(String(session.status ?? '').toUpperCase()),
+    )
+  );
+}
+
 async function loadServerExpectations(session) {
   const token = session.access_token;
   const [seasons, grandPrix, sessions, predictions, memberships] = await Promise.all([
@@ -246,6 +299,13 @@ async function loadServerExpectations(session) {
 
   const season = seasons.find((candidate) => candidate.year === 2026) ?? seasons[0];
   assert(season, 'Nessuna stagione disponibile.');
+  const populatedSeasons = seasons.filter((candidate) =>
+    grandPrix.some((item) => item.season_id === candidate.id),
+  );
+  assert(
+    populatedSeasons.length >= 2,
+    'Verifica storica impossibile: servono almeno due stagioni con GP valorizzati.',
+  );
   const leagueId = memberships[0]?.league_id ?? '';
   assert(leagueId, 'L’account di verifica non appartiene a una lega.');
 
@@ -312,22 +372,174 @@ function expectationsForSeason(base, season) {
   };
 }
 
+function leaderboardFingerprint(leaderboard) {
+  return leaderboard
+    .map((row) => `${row.userId}:${row.total}`)
+    .join('|');
+}
+
 async function selectSeason(cdp, selector, season) {
   const selected = await evaluate(
     cdp,
     `(() => {
       const element = document.querySelector(${JSON.stringify(selector)});
       if (!element) return false;
-      element.value = ${JSON.stringify(season.id)};
+       const setter = Object.getOwnPropertyDescriptor(
+         HTMLSelectElement.prototype,
+         'value',
+       )?.set;
+       if (!setter) return false;
+       setter.call(element, ${JSON.stringify(season.id)});
+       element.dispatchEvent(new Event('input', { bubbles: true }));
       element.dispatchEvent(new Event('change', { bubbles: true }));
-      return element.value === ${JSON.stringify(season.id)};
+       return true;
     })()`,
   );
-  assert(selected, `Selettore stagione ${selector} non disponibile.`);
+  if (!selected) {
+    const state = await evaluate(
+      cdp,
+      `(() => ({
+        url: window.location.href,
+        selectors: [...document.querySelectorAll('select')].map((element) => element.getAttribute('data-testid') ?? element.id),
+        body: document.body?.innerText?.slice(0, 360) ?? '',
+      }))()`,
+    );
+    throw new Error(
+      `Selettore stagione ${selector} non disponibile. Stato pagina: ${JSON.stringify(state)}.`,
+    );
+  }
+  await waitForSelectValue(cdp, selector, season.id);
+  try {
+    await waitForBody(cdp, (body) =>
+      body.toLocaleLowerCase().includes(`stagione ${season.year}`),
+    );
+  } catch (error) {
+    const state = await evaluate(
+      cdp,
+      `(() => {
+        const element = document.querySelector(${JSON.stringify(selector)});
+        return {
+          value: element?.value ?? '',
+          options: [...(element?.options ?? [])].map((option) => option.value),
+          seasonText: document.querySelector('.task21-kicker')?.textContent?.trim() ?? '',
+        };
+      })()`,
+    );
+    throw new Error(
+      `${error instanceof Error ? error.message : error} Stato selettore: ${JSON.stringify(state)}.`,
+    );
+  }
+  await sleep(300);
+}
+
+async function waitForSelectValue(cdp, selector, expectedValue, timeout = 25000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const selected = await evaluate(
+      cdp,
+      `document.querySelector(${JSON.stringify(selector)})?.value === ${JSON.stringify(expectedValue)}`,
+    );
+    if (selected) return;
+    await sleep(100);
+  }
+  throw new Error(`Selettore ${selector} non ha raggiunto il valore atteso.`);
+}
+
+async function selectParticipantGp(cdp, grandPrix) {
+  const selected = await evaluate(
+    cdp,
+    `(() => {
+      const element = document.querySelector('#task21-participant-gp');
+      if (!element) return false;
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLSelectElement.prototype,
+        'value',
+      )?.set;
+      if (!setter) return false;
+      setter.call(element, ${JSON.stringify(grandPrix.id)});
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    })()`,
+  );
+  assert(selected, 'Selettore GP del partecipante non disponibile.');
+  await waitForSelectValue(cdp, '#task21-participant-gp', grandPrix.id);
   await waitForBody(cdp, (body) =>
-    body.includes(`Stagione ${season.year}`),
+    body.includes(grandPrix.name ?? grandPrix.short_name ?? ''),
   );
   await sleep(300);
+}
+
+async function verifyParticipantDetail(cdp, expected, { requireOpen = true } = {}) {
+  const openGrandPrix = expected.seasonGrandPrix.find(
+    (grandPrix) => !isGpClosed(grandPrix.id, expected.sessions),
+  );
+  assert(
+    openGrandPrix || !requireOpen,
+    `Nessun GP aperto disponibile per verificare il dettaglio protetto della stagione ${expected.season.year}.`,
+  );
+  if (openGrandPrix) {
+    await selectParticipantGp(cdp, openGrandPrix);
+    console.log(`  · Dettaglio protetto selezionato: ${openGrandPrix.short_name ?? openGrandPrix.name}.`);
+    const lockedDetail = await evaluate(
+      cdp,
+      `(() => ({
+        locked: Boolean(document.querySelector('.task21-locked-detail')),
+        detail: Boolean(document.querySelector('.task21-prediction-detail')),
+        text: document.querySelector('.task21-locked-detail')?.textContent?.trim() ?? '',
+        options: [...document.querySelectorAll('#task21-participant-gp option')].map((option) => option.value),
+      }))()`,
+    );
+    assert(lockedDetail.locked, `Il dettaglio del GP aperto ${openGrandPrix.short_name ?? openGrandPrix.name} non è protetto.`);
+    assert(!lockedDetail.detail, 'Il dettaglio di un GP aperto è visibile prima della chiusura.');
+    assert(
+      lockedDetail.text.toLocaleLowerCase().includes('nascosto fino alla chiusura'),
+      'Il messaggio di protezione del dettaglio non è coerente.',
+    );
+    assert(
+      lockedDetail.options.length === expected.seasonGrandPrix.length &&
+        lockedDetail.options.every((id, index) => id === expected.seasonGrandPrix[index].id),
+      'Il selettore GP del partecipante contiene eventi di un’altra stagione.',
+    );
+  }
+
+  const closedGrandPrix = expected.seasonGrandPrix.find(
+    (grandPrix) =>
+      isGpClosed(grandPrix.id, expected.sessions) &&
+      expected.predictions.some((prediction) => prediction.grand_prix_id === grandPrix.id),
+  );
+  if (!closedGrandPrix) return;
+
+  const prediction = expected.predictions.find(
+    (candidate) => candidate.grand_prix_id === closedGrandPrix.id,
+  );
+  await selectParticipantGp(cdp, closedGrandPrix);
+  console.log(`  · Dettaglio chiuso selezionato: ${closedGrandPrix.short_name ?? closedGrandPrix.name}.`);
+  try {
+    await waitForBody(
+      cdp,
+      (body) =>
+        body.toLocaleLowerCase().includes('qualifica') &&
+        body.toLocaleLowerCase().includes('punteggio disponibile'),
+    );
+  } catch (error) {
+    const body = await evaluate(cdp, 'document.body?.innerText ?? ""');
+    throw new Error(
+      `${error instanceof Error ? error.message : error} Corpo dopo selezione: ${body.slice(-800)}`,
+    );
+  }
+  const actual = await evaluate(
+    cdp,
+    `(() => ({
+      locked: Boolean(document.querySelector('.task21-locked-detail')),
+      detail: Boolean(document.querySelector('.task21-prediction-detail')),
+      total: document.querySelector('.task21-prediction-detail .task21-score-item--total strong')?.textContent?.trim() ?? '',
+      options: [...document.querySelectorAll('#task21-participant-gp option')].map((option) => option.value),
+    }))()`,
+  );
+  assert(!actual.locked, 'Il dettaglio di un GP chiuso è ancora bloccato.');
+  assert(actual.detail, 'Il dettaglio del partecipante non è visibile per un GP chiuso.');
+  assert(actual.total === formatTotal(prediction.total_points), `Dettaglio partecipante ${actual.total} != server ${formatTotal(prediction.total_points)}.`);
 }
 
 async function verifyMyResultsPage(cdp, expected) {
@@ -396,7 +608,7 @@ async function verifyLeaderboardPage(cdp, expected) {
   );
   const selectedSeason = await evaluate(
     cdp,
-    'document.querySelector("[data-testid=\"task21-league-season-select\"]")?.value ?? ""',
+    `document.querySelector('[data-testid="task21-league-season-select"]')?.value ?? ''`,
   );
   assert(selectedSeason === expected.season.id, `Stagione classifica UI ${selectedSeason} != ${expected.season.id}.`);
   assert(actual.length === expected.leaderboard.length, 'Numero partecipanti UI diverso dal server.');
@@ -413,17 +625,42 @@ async function verifyLeaderboard(cdp, expected) {
 }
 
 async function selectOfficialSeason(cdp, season, expected) {
+  await waitForBody(
+    cdp,
+    (body) =>
+      body.includes('Campionato') &&
+      body.includes(`MotoGP ${season.year}`),
+  );
   const selected = await evaluate(
     cdp,
     `(() => {
       const element = document.querySelector('[data-testid="select-season"]');
       if (!element) return false;
-      element.value = ${JSON.stringify(season.id)};
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLSelectElement.prototype,
+        'value',
+      )?.set;
+      if (!setter) return false;
+      setter.call(element, ${JSON.stringify(season.id)});
+      element.dispatchEvent(new Event('input', { bubbles: true }));
       element.dispatchEvent(new Event('change', { bubbles: true }));
-      return element.value === ${JSON.stringify(season.id)};
+       return true;
     })()`,
   );
-  assert(selected, `Selettore campionato ufficiale non disponibile per ${season.year}.`);
+  if (!selected) {
+    const state = await evaluate(
+      cdp,
+      `(() => ({
+        url: window.location.href,
+        selectors: [...document.querySelectorAll('select')].map((element) => element.getAttribute('data-testid') ?? element.id),
+        body: document.body?.innerText?.slice(0, 360) ?? '',
+      }))()`,
+    );
+    throw new Error(
+      `Selettore campionato ufficiale non disponibile per ${season.year}. Stato pagina: ${JSON.stringify(state)}.`,
+    );
+  }
+  await waitForSelectValue(cdp, '[data-testid="select-season"]', season.id);
   const firstGrandPrix = expected.seasonGrandPrix[0];
   const firstGrandPrixLabel = firstGrandPrix?.name ?? firstGrandPrix?.short_name;
   await waitForBody(
@@ -536,8 +773,13 @@ async function main() {
     await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
       source: `localStorage.setItem(${JSON.stringify(storageKey)}, ${JSON.stringify(storageValue)});`,
     });
+    console.log('  ✓ Account autenticato caricato nel browser.');
     await verifyMyResults(cdp, expected);
+    console.log(`  ✓ I miei risultati: stagione ${expected.season.year}.`);
     await verifyLeaderboard(cdp, expected);
+    console.log(`  ✓ Classifica: stagione ${expected.season.year}.`);
+    await verifyParticipantDetail(cdp, expected);
+    console.log(`  ✓ Dettaglio partecipante: stagione ${expected.season.year}.`);
     const historicalSeason = baseExpectations.seasons.find(
       (candidate) =>
         candidate.id !== expected.season.id &&
@@ -545,11 +787,29 @@ async function main() {
     );
     if (historicalSeason) {
       const historicalExpected = expectationsForSeason(baseExpectations, historicalSeason);
+      assert(
+        historicalExpected.seasonGrandPrix.length !== expected.seasonGrandPrix.length,
+        'Il cambio stagione non modifica il numero di GP visualizzati.',
+      );
+      assert(
+        historicalExpected.seasonTotal !== expected.seasonTotal,
+        'Il cambio stagione non modifica il totale personale.',
+      );
+      assert(
+        leaderboardFingerprint(historicalExpected.leaderboard) !== leaderboardFingerprint(expected.leaderboard),
+        'Il cambio stagione non modifica la classifica della lega.',
+      );
+      await navigate(cdp, '/miei-risultati', 'Punteggio stagione');
       await selectSeason(cdp, '[data-testid="task21-season-select"]', historicalSeason);
       await verifyMyResultsPage(cdp, historicalExpected);
+      console.log(`  ✓ I miei risultati: stagione ${historicalSeason.year}.`);
       await navigate(cdp, `/leghe/${expected.leagueId}`, 'Classifica lega');
       await selectSeason(cdp, '[data-testid="task21-league-season-select"]', historicalSeason);
       await verifyLeaderboardPage(cdp, historicalExpected);
+      console.log(`  ✓ Classifica: stagione ${historicalSeason.year}.`);
+      await verifyParticipantDetail(cdp, historicalExpected, { requireOpen: false });
+    } else {
+      throw new Error('Nessuna stagione storica con GP valorizzati disponibile.');
     }
     await verifyOfficialResults(cdp, baseExpectations, expected);
     console.log(
