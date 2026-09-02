@@ -1126,15 +1126,6 @@ export function LeagueResultsContent({
     });
   }, [members, seasonPredictions]);
 
-  const selectedMember = members.find((member) => member.user_id === selectedMemberId);
-  const selectedMemberPredictions = useMemo(
-    () =>
-      seasonPredictions.filter(
-        (prediction) => prediction.user_id === selectedMemberId,
-      ),
-    [seasonPredictions, selectedMemberId],
-  );
-
   useEffect(() => {
     let isMounted = true;
 
@@ -1143,7 +1134,7 @@ export function LeagueResultsContent({
       setMemberDetailRiders([]);
       setMemberDetailError(null);
 
-      const predictionIds = selectedMemberPredictions
+      const predictionIds = seasonPredictions
         .filter((prediction) => isGpClosed(prediction.grand_prix_id, sessions))
         .map((prediction) => prediction.id);
       if (!predictionIds.length) {
@@ -1184,7 +1175,7 @@ export function LeagueResultsContent({
     return () => {
       isMounted = false;
     };
-  }, [selectedMemberPredictions, sessions]);
+  }, [seasonPredictions, sessions]);
 
   async function handleCopyCode() {
     if (!league) return;
@@ -1268,7 +1259,8 @@ export function LeagueResultsContent({
       {members.length === 0 ? (
         <ResultsState kind="empty" message="Nessun partecipante nella lega" />
       ) : (
-        <div className="task21-league-grid">
+        <>
+          <div className="task21-league-grid">
           <section className="task21-panel" aria-labelledby="task21-leaderboard-title">
             <div className="task21-panel-heading">
               <div>
@@ -1286,8 +1278,14 @@ export function LeagueResultsContent({
                     className={`task21-leader-row${isCurrentUser ? ' is-current' : ''}${isSelected ? ' is-selected' : ''}`}
                     type="button"
                     key={row.member.user_id}
-                    onClick={() => setSelectedMemberId(row.member.user_id)}
+                    onClick={() => {
+                      setSelectedMemberId(row.member.user_id);
+                      document
+                        .getElementById(`task21-member-detail-${row.member.user_id}`)
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
                     aria-pressed={isSelected}
+                    aria-label={`Apri il dettaglio di ${row.member.name || 'Utente senza nome'}`}
                     role="listitem"
                   >
                     <span className="task21-rank">{row.rank}</span>
@@ -1309,34 +1307,77 @@ export function LeagueResultsContent({
               A parità di punti viene mantenuta la parità; non è disponibile un criterio di spareggio nei dati attuali.
             </p>
           </section>
-
-          <section className="task21-panel task21-participant-panel" aria-labelledby="task21-participant-title">
+          </div>
+          <section className="task21-panel task21-all-members-panel" aria-labelledby="task21-all-members-title">
             <div className="task21-panel-heading">
               <div>
-                <span className="task21-kicker">Dettaglio partecipante</span>
-                <h2 id="task21-participant-title">{selectedMember?.name || 'Partecipante'}</h2>
-                <p className="task35-panel-subtitle">Seleziona un GP per aprire il dettaglio dei punti.</p>
+                <span className="task21-kicker">Punteggi della lega</span>
+                <h2 id="task21-all-members-title">Pronostici di tutti</h2>
+                <p className="task35-panel-subtitle">Apri un partecipante e poi un GP per vedere il dettaglio completo.</p>
               </div>
               <Users size={24} aria-hidden="true" className="task21-panel-icon" />
             </div>
-            <div className="task35-history-list">
-              {seasonGrandPrix.map((item, index) => (
-                <PredictionHistoryCard
-                  key={item.id}
-                  grandPrix={item}
-                  round={index + 1}
-                  prediction={predictionForGp(selectedMemberPredictions, item.id)}
-                  entries={memberDetailEntries}
-                  riders={memberDetailRiders}
-                  allGrandPrix={grandPrix}
-                  sessions={sessions}
-                  isLoading={isMemberDetailLoading}
-                  errorMessage={memberDetailError}
-                />
-              ))}
+            <div className="task21-all-members" aria-label="Punteggi e pronostici di tutti i partecipanti">
+              {leaderboard.map((row) => {
+                const memberPredictions = seasonPredictions.filter(
+                  (prediction) => prediction.user_id === row.member.user_id,
+                );
+                const memberScoredCount = memberPredictions.filter(hasScore).length;
+                const isCurrentUser = row.member.user_id === user?.id;
+
+                return (
+                  <details
+                    className={`task21-member-detail${isCurrentUser ? ' is-current' : ''}`}
+                    id={`task21-member-detail-${row.member.user_id}`}
+                    key={row.member.user_id}
+                    open={isCurrentUser}
+                  >
+                    <summary className="task21-member-detail-summary">
+                      <span className="task21-rank">{row.rank}</span>
+                      <span className="task21-member-avatar" aria-hidden="true"><UserRound size={17} /></span>
+                      <span className="task21-member-name">
+                        <strong>{row.member.name || 'Utente senza nome'}</strong>
+                        {isCurrentUser && <small>Tu</small>}
+                      </span>
+                      <span className="task21-member-meta">
+                        <small>{memberScoredCount} GP disponibili</small>
+                        <strong>{row.total} pt</strong>
+                      </span>
+                      <ChevronRight size={17} aria-hidden="true" className="task21-row-chevron" />
+                    </summary>
+                    <div className="task21-member-detail-content">
+                      {memberDetailError ? (
+                        <div className="task21-detail-empty task21-detail-empty--error" role="alert">
+                          <AlertCircle size={18} aria-hidden="true" />
+                          <strong>{memberDetailError}</strong>
+                        </div>
+                      ) : (
+                        <div className="task35-history-list">
+                          {seasonGrandPrix.map((item, index) => (
+                            <PredictionHistoryCard
+                              key={item.id}
+                              grandPrix={item}
+                              round={index + 1}
+                              prediction={predictionForGp(memberPredictions, item.id)}
+                              entries={memberDetailEntries}
+                              riders={memberDetailRiders}
+                              allGrandPrix={grandPrix}
+                              sessions={sessions}
+                              isLoading={isMemberDetailLoading}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </details>
+                );
+              })}
             </div>
+            <p className="task21-note">
+              I punteggi sono mostrati come restituiti dal sistema. Il dettaglio dei pronostici resta nascosto fino alla chiusura del GP.
+            </p>
           </section>
-        </div>
+        </>
       )}
 
       <div className="task21-league-actions">
