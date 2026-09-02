@@ -7,4 +7,4 @@ When a Supabase connector returns HTTP 200 with empty arrays for known rows, do 
 
 **Why:** The connector context may use a different credential, RLS visibility, project binding, or account context. An empty 200 response does not identify which of these caused the discrepancy.
 
-**How to apply:** Query a known season ID and a small explicit-column sample, never print credentials, and use only the path that demonstrably exposes the project data for verification. Keep `DATABASE_URL` separate because it points to the workspace database.
+**How to apply:** Query a known season ID and a small explicit-column sample, never print credentials, and use only the path that demonstrably exposes the project data for verification. Paginate REST reads explicitly because responses can stop at 1000 rows. Keep `DATABASE_URL` separate because it points to the workspace database.

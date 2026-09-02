@@ -416,13 +416,15 @@ function buildPlan(rows, context, existingPredictions) {
       continue;
     }
     const predictionId = deterministicUuid(`historical-table|${naturalKey}`);
-    if (existing.length === 1 && existing[0].id !== predictionId) {
+    const isRecovery = existing.length === 1
+      && existing[0].id === predictionId
+      && (existing[0].entries?.length ?? 0) === 0;
+    if (existing.length === 1 && !isRecovery) {
       plan.skippedExisting.push({ line: row.line, gp: gpName, email, predictionId });
       decision.status = 'SKIPPED - prediction already exists';
       decision.reason = 'prediction già esistente';
       continue;
     }
-    const isRecovery = existing.length === 1 && existing[0].id === predictionId;
     if (isRecovery) {
       plan.repairedPartial.push({ line: row.line, gp: gpName, email, predictionId });
       plan.recoveryPredictionIds.push(predictionId);
@@ -534,11 +536,21 @@ async function loadExistingPredictions(client, leagueId) {
 
 async function loadExistingEntries(client, predictionIds) {
   if (!predictionIds.length) return [];
-  const { json } = await client.rest(
-    `/prediction_entries?prediction_id=in.(${predictionIds.join(',')})`
-      + '&select=id,prediction_id,prediction_type,position,rider_id',
-  );
-  return Array.isArray(json) ? json : [];
+  const entries = [];
+  const pageSize = 1000;
+  let offset = 0;
+  while (true) {
+    const { json } = await client.rest(
+      `/prediction_entries?prediction_id=in.(${predictionIds.join(',')})`
+        + `&select=id,prediction_id,prediction_type,position,rider_id&limit=${pageSize}&offset=${offset}`,
+      { headers: { Prefer: 'count=exact' } },
+    );
+    const page = Array.isArray(json) ? json : [];
+    entries.push(...page);
+    if (page.length < pageSize) break;
+    offset += page.length;
+  }
+  return entries;
 }
 
 async function postRows(client, table, rows) {
@@ -666,17 +678,17 @@ async function main() {
     throw new Error('Rilevati duplicati sulla chiave user + GP + lega; import interrotto senza scritture.');
   }
 
-  const importIds = plan.predictions.map((row) => row.id);
   const before = await verifyImportedRows(client, plan);
   if (args.importMode) {
     await postRows(client, 'predictions', plan.predictions);
     await postRows(client, 'prediction_entries', plan.entries);
   }
   const after = args.importMode ? await verifyImportedRows(client, plan) : before;
-  if (args.importMode && (after.predictions !== plan.predictions.length || after.entries !== plan.entries.length)) {
+  const expectedPredictionCount = plan.predictions.length + plan.recoveryPredictionIds.length;
+  if (args.importMode && (after.predictions !== expectedPredictionCount || after.entries < plan.entries.length)) {
     throw new Error(
-      `Verifica post-import fallita: attese ${plan.predictions.length}/${plan.entries.length}, `
-        + `ottenute ${after.predictions}/${after.entries.length}.`,
+      `Verifica post-import fallita: attese almeno ${expectedPredictionCount}/${plan.entries.length}, `
+        + `ottenute ${after.predictions}/${after.entries}.`,
     );
   }
 
@@ -702,7 +714,6 @@ async function main() {
   console.log(`Entries nuove: ${plan.entries.length}`);
   console.log(`Valori esclusi: ${plan.invalidValues.length}`);
   console.log(`Report: ${args.report}`);
-  void importIds;
 }
 
 main().catch((error) => {
