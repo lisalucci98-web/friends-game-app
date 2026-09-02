@@ -18,3 +18,4 @@
 - [Historical score audit](historical-score-audit.md) — i totali storici non bastano per validare lo scoring corrente; il tempo Qualifica può restare nell’entry ma non nell’aggregato.
 - [Excel historical scoring](excel-historical-scoring.md) — gli export GP contengono formule e valori in cache; la formula XML di L conta gli OUT trovati.
 - [Authenticated results verification](authenticated-results-verification.md) — confronta i valori visibili con REST usando un account temporaneo isolato, senza impersonare utenti o persistere credenziali.
+- [PostgREST read-filter syntax](postgrest-read-filter-syntax.md) — i filtri scalari REST devono usare operatori espliciti come `eq`, anche nelle query di audit read-only.
