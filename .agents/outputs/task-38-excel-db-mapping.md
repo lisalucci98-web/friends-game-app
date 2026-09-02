@@ -7,6 +7,13 @@
 - RPC `score_prediction`: **0**
 - Database, workbook, workflow, schema e RLS: **invariati**
 
+## Scoring live / RPC
+
+- L’applicazione non calcola il malus localmente: invia i pronostici e legge i punteggi server-side.
+- `public.score_prediction(p_prediction_id uuid)` è una funzione remota Supabase; il suo corpo SQL non è presente nel repository.
+- Il collegamento disponibile espone solo PostgREST REST e non consente di leggere `pg_get_functiondef`; la RPC non è stata invocata.
+- Di conseguenza nessuna migration o sostituzione SQL è stata inventata: l’allineamento della RPC live richiede il corpo SQL o un canale SQL autorizzato.
+
 ## Esito sintetico
 
 - Prediction complete analizzate: **81**
@@ -253,6 +260,46 @@ La certezza della mappatura deriva dalla corrispondenza email/utente, GP/file e 
 |tommaso.strada95|BRA|6fe907e4-ef7b-5743-938c-af9d35dd5cb6|15|15|0|POLE:—=0, QUALIFYING_TIME:—=0, RACE:1=0, RACE:2=0, RACE:3=0, RACE:4=0, RACE:5=0, RACE_OUT:—=0, SPRINT:1=0, SPRINT:2=0, SPRINT:3=0|POLE:—=0, QUALIFYING_TIME:—=0, RACE:1=5, RACE:2=1, RACE:3=5, RACE:4=0, RACE:5=0, RACE_OUT:—=2, SPRINT:1=0, SPRINT:2=1, SPRINT:3=1|DIFF|
 |marino.dilorenzo|BRA|c1f0c3da-0faa-50b3-9ccc-99a0e6c3c835|15|15|0|POLE:—=0, QUALIFYING_TIME:—=0, RACE:1=0, RACE:2=0, RACE:3=0, RACE:4=0, RACE:5=0, RACE_OUT:—=0, SPRINT:1=0, SPRINT:2=0, SPRINT:3=0|POLE:—=0, QUALIFYING_TIME:—=0, RACE:1=1, RACE:2=3, RACE:3=3, RACE:4=3, RACE:5=0, RACE_OUT:—=2, SPRINT:1=3, SPRINT:2=0, SPRINT:3=1|DIFF|
 |ivan23dell|BRA|88254d4e-677f-5cce-ab97-1f2be28a4805|10|10|0|POLE:—=0, QUALIFYING_TIME:—=0, RACE:1=0, RACE:2=0, RACE:3=0, RACE:4=0, RACE:5=0, RACE_OUT:—=0, SPRINT:1=0, SPRINT:2=0, SPRINT:3=0|POLE:—=0, QUALIFYING_TIME:—=0, RACE:1=5, RACE:2=1, RACE:3=0, RACE:4=1, RACE:5=0, RACE_OUT:—=0, SPRINT:1=3, SPRINT:2=0, SPRINT:3=0|DIFF|
+
+## Dry-run aggiornamento Malus Gara NC
+
+- Prediction storiche complete valutate: **81**
+- Prediction il cui malus cambierebbe: **31**
+- Il confronto usa NC = intersezione tra i 5 piloti Gara pronosticati e la lista ufficiale Out/NC del workbook. Prediction partial, extra e dati ufficiali incompleti restano escluse.
+
+|Utente|GP|Prediction ID|NC pronosticati|Malus attuale|Malus corretto|Δ Totale|
+|---|---|---|---|---|---|---|
+|Nicholas|CAT|7830cb54-8d02-5618-9d96-0e7756a5b1a0|2|-10|-1|9|
+|Nicholas|HUN|722b8ed5-c501-5d02-8f50-92a2ed3a1127|2|0|-1|-1|
+|Nicholas|GER|04eedd26-a8e1-5365-bcb8-2a77a6d5309b|2|0|-1|-1|
+|alessandro.cavasso.1995|CAT|143313aa-fe16-533b-9ba9-d0e477618007|3|-10|-5|5|
+|lucifero1966|SPA|e2df7316-a5aa-566e-ae95-4491ea4e70b9|2|0|-1|-1|
+|dalla.pozza.silvia|SPA|45921e31-65c3-51d2-abcd-1785c59d8e70|2|0|-1|-1|
+|marino.dilorenzo|FRA|8ba5e5cf-560b-5e92-96ea-d5fb6d37b38f|1|0|-1|-1|
+|tommaso.strada95|FRA|66320ba5-f9c3-593b-8a70-ff1b0c923753|0|-5|0|5|
+|alandellosbel8|FRA|2d169a63-1f23-5ef7-aee0-85cb39e4d5f8|1|0|-1|-1|
+|tommaso.strada95|CAT|bbc97158-67e6-5bc2-95f1-38d847ce6438|0|-10|0|10|
+|dalla.pozza.silvia|CAT|a80d6fac-140e-532b-9e1e-e6b75afea429|0|-10|0|10|
+|marino.dilorenzo|CAT|3c763d2d-7544-5a60-a020-b43041031190|3|-10|-5|5|
+|ivan23dell|CAT|508e4bf7-a0b4-5d90-a2be-b17297d9ee34|1|-10|-1|9|
+|marty.bria1996|CAT|7469b845-a82b-536e-8383-813076fecadc|3|-10|-5|5|
+|simo.salva92|CAT|714a658f-8444-5349-8652-0926d97752e5|3|-10|-5|5|
+|marino.dilorenzo|HUN|0014ec76-bca0-549a-96c0-a29e19de94d1|2|0|-1|-1|
+|alandellosbel8|HUN|e0ec1ef5-b6a5-5eb0-af61-a4fef358a379|2|0|-1|-1|
+|tommaso.strada95|HUN|5712b709-a7bd-59b6-90f9-755f8fa74867|2|0|-1|-1|
+|ivan23dell|HUN|17096295-2e54-5f4e-a6b8-1a88d3294407|4|0|-5|-5|
+|ivan23dell|CZE|53c8ee16-dd4d-5d27-a426-5c298fa39c12|1|0|-1|-1|
+|ivan23dell|FRA|fa025129-9fb7-57d6-a42c-a8db79a8b260|2|0|-1|-1|
+|simo.salva92|NED|24f6473a-1e64-5faf-94f7-a931e8d043b1|2|0|-1|-1|
+|marty.bria1996|NED|697368a0-0652-57c0-a2e9-bb028efe3520|2|0|-1|-1|
+|marino.dilorenzo|GER|4dc0b9f8-a5b7-5e6c-a2e1-17c7f5d31d8b|2|0|-1|-1|
+|alessandro.cavasso.1995|GER|15a33dc8-050f-5e2f-8906-8bb0c39a7d3a|2|0|-1|-1|
+|simo.salva92|GER|321fb3ac-a5c1-570f-8f34-63b374869cac|2|0|-1|-1|
+|marty.bria1996|GER|3370161c-d8df-5297-a081-626a50d7bbd2|2|0|-1|-1|
+|ivan23dell|ARA|394de24c-79cb-587e-981b-e73ddd1d42a9|0|-1|0|1|
+|ivan23dell|THA|144011fd-73f4-590a-a201-8056b2f9ade0|2|0|-1|-1|
+|lucifero1966|THA|526db0a3-d08c-5c4d-a148-08d38cb9828c|1|0|-1|-1|
+|Nicholas|THA|fab3b75d-4409-5cf8-a481-9778219f96c6|2|0|-1|-1|
 
 - Fixture obbligatorio: **Niky / Thailandia: 8 + 3 + 10 = 21**
 - Le componenti bonus/malus restano nel calcolo aggregato canonico; non vengono attribuite artificialmente a una singola entry.

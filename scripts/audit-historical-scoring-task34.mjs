@@ -364,7 +364,7 @@ function formatExcelBreakdown(score) {
     `Race[${score.raceSlots.join(',')}] = ${score.racePosition}`,
     `OUT bonus=${score.outBonus}`,
     `OUT penalty=${score.outPenalty}`,
-    `L=${score.L}`,
+    `NC=${score.ncCount}`,
     `Bonus=${score.bonus}`,
     `Malus=${score.malus}`,
     `Race total=${score.race}`,

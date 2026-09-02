@@ -582,7 +582,7 @@ function buildReport({
     '',
     'I punti delle entry sono assegnati solo alla relativa previsione: Pole, tempo '
       + 'Qualifica, Sprint P1–P3, Gara P1–P5 e bonus OUT. Bonus top-five/exact-order, '
-      + 'penalty OUT e malus L restano componenti aggregate della Gara e non vengono '
+      + 'penalty OUT e malus NC restano componenti aggregate della Gara e non vengono '
       + 'attribuiti artificialmente a un’altra entry.',
     '',
     candidateEntries.length

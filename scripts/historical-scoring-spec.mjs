@@ -56,6 +56,19 @@ function riderPresent(value) {
   return value !== '' && value !== null && value !== undefined;
 }
 
+export function isNonClassifiedStatus(status) {
+  return [
+    'NC',
+    'NOT CLASSIFIED',
+    'NOT_CLASSIFIED',
+    'DNF',
+    'DNS',
+    'DSQ',
+    'RETIRED',
+    'WITHDRAWN',
+  ].includes(String(status ?? '').trim().toUpperCase());
+}
+
 /**
  * SEARCH è case-insensitive e lavora per sottostringa. SEARCH("", text)
  * restituisce una posizione valida in Excel, quindi includes("") è voluto.
@@ -86,11 +99,33 @@ function exactBonus(exactPositions) {
   return 0;
 }
 
-export function malusFromL(L) {
-  if (L === 5) return -10;
-  if (L >= 3) return -5;
-  if (L >= 1) return -1;
+/**
+ * Conta gli NC solo tra i cinque piloti pronosticati per la Gara.
+ *
+ * Con una Set il chiamante fornisce gli identificativi ufficiali degli Out;
+ * con una stringa si mantiene la semantica SEARCH degli export Excel storici.
+ */
+export function countPredictedNc(raceTopFive, officialOut) {
+  const officialOutSet = officialOut instanceof Set
+    ? officialOut
+    : Array.isArray(officialOut) ? new Set(officialOut) : null;
+  return raceTopFive.slice(0, 5).filter((rider) => riderPresent(rider) && (
+    officialOutSet
+      ? officialOutSet.has(rider)
+      : excelSearch(rider, officialOut)
+  )).length;
+}
+
+export function malusFromNcCount(ncCount) {
+  if (ncCount >= 5) return -10;
+  if (ncCount >= 3) return -5;
+  if (ncCount >= 1) return -1;
   return 0;
+}
+
+// Alias mantenuto per compatibilità con i report storici che chiamavano NC "L".
+export function malusFromL(L) {
+  return malusFromNcCount(L);
 }
 
 export function scorePrediction(prediction, officialResults) {
@@ -132,11 +167,8 @@ export function scorePrediction(prediction, officialResults) {
   const bonus = topFiveBonus + exactOrderBonus + outBonus;
   const outPenalty = raceTopFive.some((rider) => rider === prediction.out) ? -2 : 0;
 
-  // Formula Excel: IF(ISERROR(SEARCH(rider, Out)), 0, 1).
-  // L è quindi il conteggio dei pronostici Gara trovati nella stringa Out.
-  const L = raceTopFive.reduce((total, rider) =>
-    total + (excelSearch(rider, officialResults.outText) ? 1 : 0), 0);
-  const malus = malusFromL(L);
+  const ncCount = countPredictedNc(raceTopFive, officialResults.outText);
+  const malus = malusFromNcCount(ncCount);
   const noOpFormulaTerm = 0;
   const race = racePosition + outPenalty + bonus + malus + noOpFormulaTerm;
 
@@ -152,7 +184,9 @@ export function scorePrediction(prediction, officialResults) {
     outBonus,
     bonus,
     outPenalty,
-    L,
+    ncCount,
+    // L è il nome storico della stessa componente NC nei workbook Excel.
+    L: ncCount,
     malus,
     noOpFormulaTerm,
     race,

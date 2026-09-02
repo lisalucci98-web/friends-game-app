@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 
 import {
   REQUIRED_CASES,
+  countPredictedNc,
   parseExcelTime,
   qualifyingTimePoints,
+  malusFromNcCount,
   malusFromL,
   scorePrediction,
 } from './historical-scoring-spec.mjs';
@@ -35,6 +37,11 @@ for (const fixture of REQUIRED_CASES) {
       `${fixture.user}/${fixture.gp}: ${key} Excel=${fixture.excel[key]} Calc=${actual[key]}`,
     );
   }
+  assert.equal(
+    actual.ncCount,
+    fixture.excel.L,
+    `${fixture.user}/${fixture.gp}: NC non coincide`,
+  );
   assert.equal(
     actual.total,
     fixture.excel.total,
@@ -76,7 +83,7 @@ assert.throws(
 );
 
 // Sprint mancante e prediction parziale: i blank nelle posizioni sono zero
-// per le matrici; la semantica SEARCH vuota resta quella della formula Excel.
+// per le matrici e non sono piloti pronosticati ai fini del malus NC.
 const partial = scorePrediction(
   { pole: '', qualifyingTime: '', sprint: ['P1', '', ''], raceTopFive: ['P1', '', '', '', ''], out: '' },
   {
@@ -89,15 +96,23 @@ assert.equal(partial.qualifying, 0);
 assert.equal(partial.sprint, 3);
 assert.equal(partial.racePosition, 5);
 assert.equal(partial.outBonus, 2); // SEARCH("", Out)
-assert.equal(partial.L, 4); // P1 + quattro blank trovati
-assert.equal(partial.malus, -5);
+assert.equal(partial.ncCount, 0);
+assert.equal(partial.L, 0);
+assert.equal(partial.malus, 0);
 
-assert.equal(malusFromL(0), 0);
-assert.equal(malusFromL(1), -1);
-assert.equal(malusFromL(2), -1);
-assert.equal(malusFromL(3), -5);
-assert.equal(malusFromL(4), -5);
-assert.equal(malusFromL(5), -10);
+for (const [nc, expected] of [[0, 0], [1, -1], [2, -1], [3, -5], [4, -5], [5, -10]]) {
+  assert.equal(malusFromNcCount(nc), expected, `${nc} NC`);
+  assert.equal(malusFromL(nc), expected, `alias L con ${nc} NC`);
+}
+
+// La gara può avere più NC ufficiali, ma conta solo l'intersezione con la
+// Top 5 pronosticata: 2 NC tra i 5 pick restano -1 anche con 7 NC ufficiali.
+const predictedNc = countPredictedNc(
+  ['A', 'B', 'X', 'Y', 'Z'],
+  new Set(['A', 'B', 'R1', 'R2', 'R3', 'R4', 'R5']),
+);
+assert.equal(predictedNc, 2);
+assert.equal(malusFromNcCount(predictedNc), -1);
 
 console.log(`PASS | casi obbligatori: ${REQUIRED_CASES.length}/10`);
-console.log('PASS | casi speciali Qualifying Time, blank, #N/A e malus');
+console.log('PASS | casi speciali Qualifying Time, blank, #N/A, NC pronosticati e malus');

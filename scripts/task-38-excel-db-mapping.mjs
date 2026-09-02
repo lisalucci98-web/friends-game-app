@@ -612,6 +612,20 @@ function aggregate(prediction) {
   };
 }
 
+function malusDryRunRows(rows) {
+  return rows
+    .filter((row) => row.status === 'VERIFIED' && row.score && row.current && row.proposed)
+    .map((row) => ({
+      user: row.userLabel,
+      gp: row.gp?.short_name ?? '—',
+      predictionId: row.prediction.id,
+      ncCount: row.score.ncCount,
+      currentMalus: row.current.malus,
+      correctedMalus: row.proposed.malus,
+      deltaTotal: row.proposed.malus - row.current.malus,
+    }));
+}
+
 function proposedAggregate(score) {
   return {
     qualifying: score.qualifying,
@@ -798,6 +812,8 @@ function buildReport({ args, context, sourcesByGp, rows, usersById, ridersById }
   const comparison = comparisons.map((row) => [
     row.user, row.gp, row.predictionId, row.dbTotal, row.excelTotal, row.delta, row.entryDb, row.entryProposed, row.state,
   ]);
+  const malusRows = malusDryRunRows(rows);
+  const changedMalusRows = malusRows.filter((row) => row.currentMalus !== row.correctedMalus);
   const details = rows
     .filter((row) => row.status === 'VERIFIED' && row.score)
     .map((row) => verifiedDetail(row, ridersById))
@@ -825,6 +841,13 @@ function buildReport({ args, context, sourcesByGp, rows, usersById, ridersById }
     '- INSERT/UPDATE/DELETE/UPSERT: **0**',
     '- RPC `score_prediction`: **0**',
     '- Database, workbook, workflow, schema e RLS: **invariati**',
+    '',
+    '## Scoring live / RPC',
+    '',
+    '- L’applicazione non calcola il malus localmente: invia i pronostici e legge i punteggi server-side.',
+    '- `public.score_prediction(p_prediction_id uuid)` è una funzione remota Supabase; il suo corpo SQL non è presente nel repository.',
+    '- Il collegamento disponibile espone solo PostgREST REST e non consente di leggere `pg_get_functiondef`; la RPC non è stata invocata.',
+    '- Di conseguenza nessuna migration o sostituzione SQL è stata inventata: l’allineamento della RPC live richiede il corpo SQL o un canale SQL autorizzato.',
     '',
     '## Esito sintetico',
     '',
@@ -866,6 +889,28 @@ function buildReport({ args, context, sourcesByGp, rows, usersById, ridersById }
       ['Utente', 'GP', 'Prediction ID', 'DB Total', 'Excel Total', 'Δ', 'Entry DB points', 'Entry proposed points', 'Stato'],
       comparison,
     ),
+    '',
+    '## Dry-run aggiornamento Malus Gara NC',
+    '',
+    `- Prediction storiche complete valutate: **${malusRows.length}**`,
+    `- Prediction il cui malus cambierebbe: **${changedMalusRows.length}**`,
+    '- Il confronto usa NC = intersezione tra i 5 piloti Gara pronosticati e la lista ufficiale Out/NC del workbook. '
+      + 'Prediction partial, extra e dati ufficiali incompleti restano escluse.',
+    '',
+    changedMalusRows.length
+      ? mdTable(
+      ['Utente', 'GP', 'Prediction ID', 'NC pronosticati', 'Malus attuale', 'Malus corretto', 'Δ Totale'],
+        changedMalusRows.map((row) => [
+          row.user,
+          row.gp,
+          row.predictionId,
+          row.ncCount,
+          row.currentMalus,
+          row.correctedMalus,
+          row.deltaTotal,
+        ]),
+      )
+      : 'Nessuna prediction storica cambierebbe.',
     '',
     `- Fixture obbligatorio: **${fixtureLine}**`,
     '- Le componenti bonus/malus restano nel calcolo aggregato canonico; non vengono attribuite artificialmente a una singola entry.',

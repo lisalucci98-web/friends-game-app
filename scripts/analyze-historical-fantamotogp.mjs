@@ -8,6 +8,12 @@
 
 import { readFile } from 'node:fs/promises';
 
+import {
+  countPredictedNc,
+  isNonClassifiedStatus,
+  malusFromNcCount,
+} from './historical-scoring-spec.mjs';
+
 const SOURCE = process.env.HISTORICAL_DATASET ??
   'attached_assets/Pasted-Certo-A-questo-punto-userei-i-dati-storici-come-dataset_1787240203484.txt';
 
@@ -198,8 +204,11 @@ function scoreRace(item, official) {
   const allInTopFive = topFive.every((rider) => (positions.get(rider) ?? 99) <= 5);
   const out = item.picks[5];
   const outPoints = statuses.get(out) !== 'CLASSIFIED' ? 2 : 0;
-  const unfinished = topFive.filter((rider) => statuses.get(rider) !== 'CLASSIFIED').length;
-  const malus = unfinished === 1 ? -1 : unfinished === 3 ? -5 : unfinished === 5 ? -10 : 0;
+  const officialOut = new Set([...statuses.entries()]
+    .filter(([, status]) => isNonClassifiedStatus(status))
+    .map(([rider]) => rider));
+  const ncCount = countPredictedNc(topFive, officialOut);
+  const malus = malusFromNcCount(ncCount);
   const exactOrder = exact === 5 ? 5 : exact === 4 ? 3 : exact === 3 ? 1 : 0;
   const topFiveBonus = allInTopFive ? 2 : 0;
   return {
@@ -207,6 +216,7 @@ function scoreRace(item, official) {
     out: outPoints,
     outRider: out,
     outStatus: statuses.get(out) ?? 'NOT_IN_RESULT',
+    ncCount,
     positionDetails,
     exactOrder,
     topFiveBonus,
@@ -220,10 +230,7 @@ function scoreRace(item, official) {
  * Le evidenze consentono di ricostruire:
  * - punti posizione solo quando il risultato ufficiale è nella Top 5;
  * - OUT osservato come +1 per un selezionato NOT_CLASSIFIED.
- *
- * Il malus non viene inventato: i dati disponibili espongono
- * NOT_CLASSIFIED, non distinguono DNF/DNS/DSQ e non permettono di dedurre
- * una funzione unica per i casi GP3/P10 e GP3/P07.
+ * - malus calcolato sulle sole Top 5 pronosticate presenti negli Out ufficiali.
  */
 function calculateHistoricalRaceScore(item, official) {
   const current = scoreRace(item, official);
@@ -234,10 +241,12 @@ function calculateHistoricalRaceScore(item, official) {
   const historicalOut = current.outStatus === 'NOT_CLASSIFIED' ? 1 : 0;
   return {
     knownWithoutMalus: historicalPosition + historicalOut,
-    unresolvedMalus: true,
-    score: null,
+    unresolvedMalus: false,
+    malus: current.malus,
+    score: historicalPosition + historicalOut + current.malus,
     position: historicalPosition,
     out: historicalOut,
+    ncCount: current.ncCount,
   };
 }
 
