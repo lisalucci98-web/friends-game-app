@@ -1,0 +1,474 @@
+# Task 37 — Correzione controllata dello scoring storico FantaMotoGP
+
+## Obiettivo
+
+Correggere i punteggi storici della lega `TEST01` dopo la diagnosi del Task 36.
+
+La diagnosi ha dimostrato che:
+
+* 113 prediction TEST01 analizzate;
+* 1116 `prediction_entries`;
+* 1116/1116 `prediction_entries.points = 0`;
+* i totali aggregati in `predictions` sono invece valorizzati;
+* alcuni aggregati `predictions.total_points` non coincidono con i valori storici Excel;
+* 30 prediction sono incomplete;
+* il caso Marino / Aragon non ha una prediction DB;
+* Qatar non dispone di dati ufficiali sufficienti.
+
+Lo scoring storico corretto è quello ricostruito e validato nei Task 31 e 32 tramite le formule Excel storiche.
+
+---
+
+# 1. REGOLA FONDAMENTALE
+
+Questo task deve essere eseguito in DUE FASI:
+
+## FASE A — DRY-RUN OBBLIGATORIO
+
+Prima di qualsiasi modifica al database:
+
+* calcolare offline tutti i punteggi;
+* mostrare cosa verrebbe modificato;
+* confrontare DB vs Excel;
+* verificare tutte le condizioni di sicurezza.
+
+NON effettuare nessuna scrittura durante la Fase A.
+
+## FASE B — APPLY
+
+La Fase B può essere eseguita SOLO se il dry-run è completamente coerente e verificato.
+
+Non saltare il dry-run.
+
+---
+
+# 2. SORGENTE DI VERITÀ
+
+Per lo storico utilizzare come riferimento:
+
+**le regole e i valori storici ricostruiti dagli Excel analizzati nei Task 31/32.**
+
+NON usare semplicemente i risultati live attuali per decidere quale fosse il punteggio storico corretto quando questo produrrebbe una situazione `HISTORICAL_UNCERTAIN`.
+
+Il Task 32 scorer è la logica di riferimento.
+
+Non creare una nuova interpretazione delle formule.
+
+---
+
+# 3. Prediction complete
+
+Per ogni prediction storica COMPLETE:
+
+calcolare:
+
+### Qualifica
+
+* Pole
+* Qualifying Time
+* Qualifica totale
+
+### Sprint
+
+* P1
+* P2
+* P3
+* Sprint totale
+
+### Gara
+
+* P1
+* P2
+* P3
+* P4
+* P5
+* OUT
+* Race position
+* Bonus
+* Malus
+* Race totale
+
+### Totale
+
+* Qualifica
+* Sprint
+* Gara
+* Bonus
+* Malus
+* Totale GP
+
+---
+
+# 4. PUNTI DEI SINGOLI PRONOSTICI
+
+Questa è la correzione principale.
+
+Attualmente:
+
+`1116/1116 prediction_entries.points = 0`
+
+Per ogni prediction completa, valorizzare `prediction_entries.points` con il punteggio corretto relativo a QUEL SINGOLO PRONOSTICO.
+
+Esempio concettuale:
+
+| prediction_type | position | rider   | points |
+| --------------- | -------: | ------- | -----: |
+| POLE            |        1 | Rider A |      5 |
+| QUALIFYING_TIME |        — | —       |      3 |
+| SPRINT          |        1 | Rider B |      3 |
+| SPRINT          |        2 | Rider C |      1 |
+| SPRINT          |        3 | Rider D |      0 |
+| RACE            |        1 | Rider B |      5 |
+| ...             |      ... | ...     |    ... |
+| RACE_OUT        |        — | Rider X |      2 |
+
+NON inserire un punteggio aggregato dentro una singola entry.
+
+Ogni entry deve contenere esclusivamente i punti relativi a quella specifica entry.
+
+---
+
+# 5. Aggregati `predictions`
+
+Dopo aver determinato i singoli punti, correggere gli aggregati di `predictions` SOLO per le prediction che possono essere ricostruite con certezza.
+
+Verificare i nomi reali delle colonne prima di effettuare qualsiasi UPDATE.
+
+Gli aggregati devono essere coerenti con:
+
+* Qualifica
+* Sprint
+* Gara
+* Bonus
+* Malus
+* Totale
+
+e con la struttura effettivamente esistente nel database.
+
+NON inventare colonne.
+
+---
+
+# 6. PRINCIPIO DI CONSERVAZIONE DELLO STORICO
+
+Per le prediction COMPLETE e ricostruibili con certezza:
+
+**Excel storico → fonte di verità.**
+
+Per le prediction per cui non è possibile determinare con certezza il valore storico:
+
+**NON modificare.**
+
+Classificarle come:
+
+`HISTORICAL_UNCERTAIN`
+
+e lasciarle inalterate.
+
+---
+
+# 7. Prediction PARTIAL
+
+Le 30 prediction incomplete devono rimanere inalterate.
+
+NON:
+
+* completare automaticamente entry mancanti;
+* creare entry;
+* assegnare punti mancanti;
+* modificare il totale.
+
+Devono rimanere bloccate come già fatto nei task precedenti.
+
+---
+
+# 8. Extra prediction
+
+Le due prediction extra:
+
+* Nicholas / RSM
+* Nicholas / ARA
+
+NON devono essere modificate come parte della correzione dello storico Excel.
+
+Lasciarle inalterate.
+
+---
+
+# 9. Marino / Aragon
+
+Il caso Marino / Aragon non ha una prediction nel DB.
+
+NON creare una prediction.
+
+NON creare prediction_entries.
+
+NON inventare dati.
+
+Segnalare semplicemente:
+
+`MISSING_DB_PREDICTION`
+
+---
+
+# 10. Qatar
+
+Non modificare Qatar se non esistono dati ufficiali sufficienti per una ricostruzione affidabile.
+
+NON inventare risultati.
+
+NON assegnare automaticamente 0.
+
+Lasciare i dati esistenti invariati.
+
+---
+
+# 11. Nikiturets / Thailandia
+
+Questo caso è obbligatorio.
+
+Valore storico atteso:
+
+**21 punti**
+
+Composizione:
+
+**8 + 3 + 10 = 21**
+
+Il DB attualmente mostra:
+
+**19**
+
+e le singole entry hanno tutte:
+
+`points = 0`
+
+Dopo l'apply deve risultare:
+
+* entry points valorizzati correttamente;
+* aggregati coerenti;
+* totale storico = **21**.
+
+Nel dry-run mostrare esattamente quali record verrebbero modificati.
+
+---
+
+# 12. Altri casi obbligatori
+
+Verificare esplicitamente:
+
+* Niky / Brasile
+* Niky / Francia
+* Niky / Aragon
+* Marty / Catalogna
+* Marty / Italia
+* Simo / Thailandia
+* Alessandro / Spagna
+* Alessandro / UK
+* Marino / Aragon
+
+I primi casi devono essere confrontati con i valori validati dal Task 32.
+
+Marino / Aragon deve essere trattato come `MISSING_DB_PREDICTION` se la prediction continua a non esistere.
+
+---
+
+# 13. DRY-RUN REPORT
+
+Prima di qualsiasi UPDATE creare:
+
+`.agents/outputs/task-37-scoring-apply-dry-run.md`
+
+Il report deve contenere almeno:
+
+| Utente | GP | Prediction ID | DB totale | Storico atteso |  Δ | Entry da aggiornare | Stato |
+| ------ | -- | ------------- | --------: | -------------: | -: | ------------------: | ----- |
+
+Inoltre mostrare:
+
+* numero prediction complete ricostruibili;
+* numero prediction complete uncertain;
+* numero partial;
+* numero extra;
+* numero entry che verrebbero aggiornate;
+* numero aggregati che verrebbero aggiornati;
+* eventuali casi bloccanti.
+
+---
+
+# 14. BLOCCO AUTOMATICO
+
+NON eseguire l'apply se il dry-run presenta:
+
+* prediction senza rider risolvibile;
+* GP non risolvibile;
+* scoring non determinabile;
+* discrepanze non spiegate nei 10 casi obbligatori;
+* valori Excel non disponibili;
+* rischio di sovrascrivere una prediction non storica;
+* rischio di creare entry duplicate.
+
+In caso di problema, fermarsi e riportarlo.
+
+---
+
+# 15. APPLY
+
+SOLO se il dry-run è PASS:
+
+Aggiornare esclusivamente i record storici sicuri.
+
+Per ogni entry storica sicura:
+
+`prediction_entries.points`
+
+deve essere aggiornato con il punteggio corretto.
+
+Per ogni prediction storica sicura:
+
+aggiornare gli aggregati di scoring necessari.
+
+NON modificare:
+
+* prediction data;
+* prediction_type;
+* position;
+* rider_id;
+* GP;
+* user_id;
+* created_at;
+* risultati ufficiali.
+
+---
+
+# 16. Transazione / sicurezza
+
+Se tecnicamente possibile, eseguire gli aggiornamenti in una transazione atomica.
+
+Se una parte dell'apply fallisce:
+
+NON lasciare il database in uno stato parzialmente aggiornato.
+
+Preferire rollback completo.
+
+---
+
+# 17. Idempotenza
+
+Dopo l'apply eseguire nuovamente il dry-run.
+
+Il secondo dry-run deve risultare:
+
+* nessuna nuova modifica necessaria;
+* nessuna entry da aggiornare nuovamente;
+* aggregati già coerenti.
+
+---
+
+# 18. Verifica finale
+
+Dopo l'apply verificare:
+
+### prediction_entries
+
+* quante entry hanno `points > 0`;
+* quante hanno `points = 0`;
+* quante hanno `points NULL`.
+
+### predictions
+
+verificare coerenza tra:
+
+* componenti;
+* totale;
+* entry points.
+
+### TEST01
+
+Verificare la classifica storica.
+
+---
+
+# 19. Verifica specifica Nikiturets
+
+Dopo l'apply:
+
+Niky / Thailandia deve risultare:
+
+**21**
+
+e non più 19.
+
+Verificare inoltre almeno:
+
+* Brasile
+* Francia
+* Aragon
+
+contro i valori storici validati.
+
+---
+
+# 20. NON modificare lo scorer di produzione
+
+Non modificare la funzione/RPC `score_prediction` durante questo task, salvo che sia strettamente necessario e solo dopo averlo esplicitamente documentato.
+
+Lo scorer storico Task 32 deve essere mantenuto come riferimento.
+
+La correzione dello storico deve essere un processo separato.
+
+---
+
+# 21. Test finali
+
+Obbligatori:
+
+* Task 32 scorer tests → PASS
+* Task 33 replay → PASS
+* Task 34 audit → PASS
+* Task 36 diagnosis → PASS
+* Task 37 dry-run → PASS
+* typecheck → PASS
+* build → PASS
+* `git diff --check` → PASS
+
+Dopo l'apply:
+
+* secondo dry-run → PASS / 0 modifiche necessarie.
+
+---
+
+# 22. Output finale
+
+Creare:
+
+`.agents/outputs/task-37-historical-scoring-apply.md`
+
+con:
+
+1. dry-run iniziale;
+2. decisione apply;
+3. record modificati;
+4. entry aggiornate;
+5. aggregati aggiornati;
+6. prediction escluse;
+7. casi uncertain;
+8. casi partial;
+9. extra;
+10. verifica Nikiturets;
+11. verifica idempotenza;
+12. test finali.
+
+## Obiettivo finale
+
+Alla fine di questo task:
+
+* le prediction storiche sicuramente ricostruibili devono avere i corretti `prediction_entries.points`;
+* i loro aggregati devono essere coerenti;
+* Nikiturets / Thailandia deve essere **21 punti**;
+* le prediction incomplete o non ricostruibili non devono essere inventate o modificate;
+* nessun risultato ufficiale deve essere modificato;
+* nessuna prediction deve essere ricreata;
+* nessuna informazione storica incerta deve essere forzata.
+
+Prima DRY-RUN, poi APPLY solo se completamente sicuro.
