@@ -3,6 +3,7 @@
  *
  * Default: dry-run, nessuna scrittura.
  * Import reale: node scripts/import-motogp-results-2026.mjs --import
+ * Import mirato di un GP: node scripts/import-motogp-results-2026.mjs --gp ARA [--import]
  *
  * L'API MotoGP viene usata per eventi, sessioni e PDF. Gli ID delle
  * sessioni da scrivere sono sempre quelli già presenti in Supabase.
@@ -19,6 +20,10 @@ const SEASON_YEAR = 2026;
 const RESULTS_CATEGORY_ID = 'e8c110ad-64aa-4e8e-8a86-f2f152f6a942';
 const MOTOGP_CONTENT_CATEGORY_ID = '737ab122-76e1-4081-bedb-334caaa18c70';
 const IMPORT_MODE = process.argv.includes('--import');
+const GP_FILTER = (() => {
+  const index = process.argv.indexOf('--gp');
+  return index === -1 ? null : String(process.argv[index + 1] ?? '').trim().toUpperCase();
+})();
 const TMP_DIR = join(tmpdir(), 'motogp-results-2026');
 const SUPABASE_URL = (
   process.env.SUPABASE_URL ??
@@ -382,10 +387,12 @@ function validateRows(rows, expectedSessionIds) {
 
 function criticalErrors(expected) {
   const errors = [];
-  if (expected.gpCount !== 22) errors.push(`GP elaborati ${expected.gpCount}/22.`);
+  if (expected.gpCount !== expected.expectedGpCount) {
+    errors.push(`GP elaborati ${expected.gpCount}/${expected.expectedGpCount}.`);
+  }
   for (const type of ['Q', 'SPR', 'RAC']) {
-    if (expected.sessionCounts[type] !== 22) {
-      errors.push(`${type}: ${expected.sessionCounts[type]}/22 sessioni elaborate.`);
+    if (expected.sessionCounts[type] !== expected.expectedGpCount) {
+      errors.push(`${type}: ${expected.sessionCounts[type]}/${expected.expectedGpCount} sessioni elaborate.`);
     }
   }
   if (counters.missingPdfFuture) errors.push(`PDF mancanti: ${counters.missingPdfFuture}.`);
@@ -426,6 +433,16 @@ async function verifyStoredRows(rows) {
   return { stored, missing };
 }
 
+async function markSessionsFinished(sessionIds) {
+  if (sessionIds.length === 0) return;
+  const ids = sessionIds.map(id => encodeURIComponent(id)).join(',');
+  await supabaseRequest(`/sessions?id=in.(${ids})`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({ status: 'FINISHED' }),
+  });
+}
+
 try {
   console.log(IMPORT_MODE
     ? '\nModalità import: verranno scritti solo dati dopo tutte le validazioni.'
@@ -439,12 +456,21 @@ try {
     ),
     [],
   );
+  if (GP_FILTER && !/^[A-Z0-9_-]+$/.test(GP_FILTER)) {
+    throw new Error(`Codice GP non valido: ${GP_FILTER}`);
+  }
+  const selectedGrandPrixRows = GP_FILTER
+    ? grandPrixRows.filter(row => row.short_name === GP_FILTER)
+    : grandPrixRows;
+  if (GP_FILTER && selectedGrandPrixRows.length !== 1) {
+    throw new Error(`GP ${GP_FILTER} non trovato in Supabase.`);
+  }
   const dbSessions = listFrom(
     await supabaseRequest(
       `/sessions?select=id,grand_prix_id,type,status,session_date,number&order=session_date.asc`,
     ),
     [],
-  ).filter(row => grandPrixRows.some(gp => gp.id === row.grand_prix_id));
+  ).filter(row => selectedGrandPrixRows.some(gp => gp.id === row.grand_prix_id));
   const riders = listFrom(
     await supabaseRequest('/riders?select=id,name,surname,nickname'),
     [],
@@ -487,7 +513,7 @@ try {
       }`,
     );
   }
-  console.log(`GP reali in Supabase: ${grandPrixRows.length}`);
+  console.log(`GP reali in Supabase: ${selectedGrandPrixRows.length}${GP_FILTER ? ` (filtro ${GP_FILTER})` : ''}`);
   console.log(`Sessioni candidate: ${dbSessions.length}`);
   console.log(`Piloti disponibili per matching: ${seasonRiders.length}`);
 
@@ -515,7 +541,7 @@ try {
   const disputedGps = [];
   const now = new Date();
 
-  for (const [gpIndex, gp] of grandPrixRows.entries()) {
+  for (const [gpIndex, gp] of selectedGrandPrixRows.entries()) {
     const event = eventMap.get(gp.id);
     const dbForGp = dbSessions.filter(row => row.grand_prix_id === gp.id);
     const apiSessions = event
@@ -632,19 +658,20 @@ try {
 
   validateRows(allResults, dbSessions.map(row => row.id));
   const expected = {
-    gpCount: grandPrixRows.length,
+    gpCount: selectedGrandPrixRows.length,
+    expectedGpCount: selectedGrandPrixRows.length,
     sessionCounts,
   };
   const errors = criticalErrors(expected);
   counters.criticalErrors = errors.length;
 
   section('IMPORT RISULTATI MOTOGP 2026');
-  console.log(`GP elaborati: ${grandPrixRows.length} / 22`);
+  console.log(`GP elaborati: ${selectedGrandPrixRows.length}${GP_FILTER ? ` (filtro ${GP_FILTER})` : ' / 22'}`);
   console.log(`GP disputati: ${disputedGps.length}`);
   console.log(`GP futuri: ${grandPrixRows.length - disputedGps.length}`);
   for (const type of ['Q', 'SPR', 'RAC']) {
     console.log(`${type === 'Q' ? 'QUALIFICHE' : type === 'SPR' ? 'SPRINT' : 'GARA'}`);
-    console.log(`sessioni: ${sessionCounts[type]} / 22`);
+    console.log(`sessioni: ${sessionCounts[type]} / ${selectedGrandPrixRows.length}`);
     console.log(`risultati: ${resultCounts[type]}`);
   }
   section('VALIDAZIONI');
@@ -695,6 +722,12 @@ try {
       throw new Error(`Verifica post-import fallita: ${verification.missing.length} risultati mancanti.`);
     }
     console.log(`Verifica post-import: ${verification.stored.length} righe rileggibili.`);
+    await markSessionsFinished(
+      dbSessions
+        .filter(row => ['Q', 'SPR', 'RAC'].includes(row.type))
+        .map(row => row.id),
+    );
+    console.log('Stato sessioni Q/SPR/RAC: FINISHED.');
     console.log('Import risultati completato senza cancellazioni.');
   }
 } catch (error) {

@@ -1,6 +1,6 @@
 # Scoring pronostici storici
 
-- Modalità: **APPLY — RPC eseguite**
+- Modalità: **DRY-RUN — NESSUNA SCRITTURA**
 - Lega: **FantaTest** (TEST01)
 - Stagione: **2026**
 
@@ -11,9 +11,9 @@
 - Prediction con UUID deterministico dell’import: **94**
 - Prediction preesistenti risolte per chiave naturale: **17**
 - Prediction già valutate (scored_at valorizzato): **91**
-- Prediction che necessitano scoring e hanno risultati completi: **3**
-- Prediction non valutabili in questa esecuzione: **0**
-- Prediction non supportate dalla RPC per entry QUALIFYING_TIME assente: **17**
+- Prediction che necessitano scoring e hanno risultati completi: **0**
+- Prediction non valutabili in questa esecuzione: **6**
+- Prediction non supportate dalla RPC per entry QUALIFYING_TIME assente: **14**
 - Entry storiche effettivamente presenti: **1094**
 
 ## RPC utilizzata
@@ -37,7 +37,7 @@
 | NED | 7 | 22 risultati / FINISHED | 22 risultati / FINISHED | 22 risultati / FINISHED | Sì |
 | GER | 7 | 21 risultati / FINISHED | 20 risultati / FINISHED | 20 risultati / FINISHED | Sì |
 | GBR | 9 | 23 risultati / FINISHED | 23 risultati / FINISHED | 23 risultati / FINISHED | Sì |
-| ARA | 6 | 22 risultati / FINISHED | 22 risultati / FINISHED | 22 risultati / FINISHED | Sì |
+| ARA | 6 | nessun risultato | nessun risultato | nessun risultato | No |
 
 ## Incompletezze delle prediction
 
@@ -89,14 +89,11 @@
 - GER / alandellosbel8@gmail.com: QUALIFYING_TIME assente: score_prediction produce qualifying_points NULL
 - GBR / alandellosbel8@gmail.com: QUALIFYING_TIME assente: score_prediction produce qualifying_points NULL
 - GBR / marino.dilorenzo@gmail.com: QUALIFYING_TIME assente: score_prediction produce qualifying_points NULL
-- ARA / tommaso.strada95@gmail.com: QUALIFYING_TIME assente: score_prediction produce qualifying_points NULL
-- ARA / alessandro.cavasso.1995@gmail.com: QUALIFYING_TIME assente: score_prediction produce qualifying_points NULL
-- ARA / marty.bria1996@gmail.com: QUALIFYING_TIME assente: score_prediction produce qualifying_points NULL
 
 ## Rider non presenti nei risultati ufficiali
 
 - Sono riferimenti presenti nelle prediction_entries ma assenti dal risultato della sessione selezionata; la RPC esistente li gestisce senza inventare risultati.
-- Prediction coinvolte: **14**
+- Prediction coinvolte: **19**
 - THA / marino.dilorenzo@gmail.com: POLE=1
 - THA / lucifero1966@gmail.com: RACE=1
 - SPA / dalla.pozza.silvia@gmail.com: RACE_OUT=1
@@ -110,36 +107,30 @@
 - ITA / simo.salva92@gmail.com: SPRINT=1
 - HUN / dalla.pozza.silvia@gmail.com: RACE=1
 - CZE / ivan23dell@gmail.com: RACE=1
-- ARA / ivan23dell@gmail.com: RACE=1
+- ARA / lucifero1966@gmail.com: POLE=1, SPRINT=3, RACE=5, RACE_OUT=1
+- ARA / ivan23dell@gmail.com: POLE=1, SPRINT=3, RACE=5, RACE_OUT=1
+- ARA / tommaso.strada95@gmail.com: RACE=5, RACE_OUT=1
+- ARA / simo.salva92@gmail.com: POLE=1, SPRINT=3
+- ARA / alessandro.cavasso.1995@gmail.com: SPRINT=2
+- ARA / marty.bria1996@gmail.com: SPRINT=3
 
 ## Esecuzione
 
-- RPC invocate: **3**
-- RPC riuscite: **3**
+- RPC invocate: **0**
+- RPC riuscite: **0**
 - RPC con errore: **0**
-- Prediction con `scored_at` aggiornato dopo la verifica: **94**
+- Prediction con `scored_at` che verrebbe aggiornato: **0**
 - Nessun errore RPC
 
 ## Totali storici per utente
 
-| Utente | GP | Qualifica | Sprint | Gara | Bonus | Malus | Totale stagione |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| nikyturets@gmail.com | 12 | 12 | 30 | 132 | 16 | -15 | 175 |
-| simo.salva92@gmail.com | 13 | 19 | 31 | 102 | 12 | -18 | 146 |
-| marty.bria1996@gmail.com | 13 | 21 | 36 | 92 | 9 | -19 | 139 |
-| marino.dilorenzo@gmail.com | 11 | 7 | 23 | 103 | 5 | -14 | 124 |
-| alessandro.cavasso.1995@gmail.com | 13 | 25 | 34 | 71 | 12 | -18 | 124 |
-| ivan23dell@gmail.com | 11 | 15 | 17 | 67 | 2 | -13 | 88 |
-| lucifero1966@gmail.com | 12 | 9 | 19 | 53 | 2 | -12 | 71 |
-| dalla.pozza.silvia@gmail.com | 8 | 4 | 10 | 62 | 4 | -16 | 64 |
-| alandellosbel8@gmail.com | 9 | 7 | 6 | 40 | 11 | 0 | 64 |
-| tommaso.strada95@gmail.com | 9 | 12 | 12 | 33 | 6 | -16 | 47 |
+- Disponibili nella verifica post-apply.
 
 ## Verifica finale
 
 - Prediction selezionate ancora nel perimetro: **111**
 - Errori di selezione: **0**
-- Database modificato: **Sì, esclusivamente tramite score_prediction**
+- Database modificato: **No**
 - Schema, RLS, risultati ufficiali e funzioni di scoring non sono stati modificati dallo script; le prediction_entries sono state solo rilevate.
 - La classifica e il totale stagione leggono i campi aggregati delle prediction; dopo l’apply vengono riletti dal database.
 

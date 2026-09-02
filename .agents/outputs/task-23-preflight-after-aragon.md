@@ -1,6 +1,6 @@
 # Scoring pronostici storici
 
-- Modalità: **APPLY — RPC eseguite**
+- Modalità: **DRY-RUN — NESSUNA SCRITTURA**
 - Lega: **FantaTest** (TEST01)
 - Stagione: **2026**
 
@@ -114,32 +114,21 @@
 
 ## Esecuzione
 
-- RPC invocate: **3**
-- RPC riuscite: **3**
+- RPC invocate: **0**
+- RPC riuscite: **0**
 - RPC con errore: **0**
-- Prediction con `scored_at` aggiornato dopo la verifica: **94**
+- Prediction con `scored_at` che verrebbe aggiornato: **3**
 - Nessun errore RPC
 
 ## Totali storici per utente
 
-| Utente | GP | Qualifica | Sprint | Gara | Bonus | Malus | Totale stagione |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| nikyturets@gmail.com | 12 | 12 | 30 | 132 | 16 | -15 | 175 |
-| simo.salva92@gmail.com | 13 | 19 | 31 | 102 | 12 | -18 | 146 |
-| marty.bria1996@gmail.com | 13 | 21 | 36 | 92 | 9 | -19 | 139 |
-| marino.dilorenzo@gmail.com | 11 | 7 | 23 | 103 | 5 | -14 | 124 |
-| alessandro.cavasso.1995@gmail.com | 13 | 25 | 34 | 71 | 12 | -18 | 124 |
-| ivan23dell@gmail.com | 11 | 15 | 17 | 67 | 2 | -13 | 88 |
-| lucifero1966@gmail.com | 12 | 9 | 19 | 53 | 2 | -12 | 71 |
-| dalla.pozza.silvia@gmail.com | 8 | 4 | 10 | 62 | 4 | -16 | 64 |
-| alandellosbel8@gmail.com | 9 | 7 | 6 | 40 | 11 | 0 | 64 |
-| tommaso.strada95@gmail.com | 9 | 12 | 12 | 33 | 6 | -16 | 47 |
+- Disponibili nella verifica post-apply.
 
 ## Verifica finale
 
 - Prediction selezionate ancora nel perimetro: **111**
 - Errori di selezione: **0**
-- Database modificato: **Sì, esclusivamente tramite score_prediction**
+- Database modificato: **No**
 - Schema, RLS, risultati ufficiali e funzioni di scoring non sono stati modificati dallo script; le prediction_entries sono state solo rilevate.
 - La classifica e il totale stagione leggono i campi aggregati delle prediction; dopo l’apply vengono riletti dal database.
 
