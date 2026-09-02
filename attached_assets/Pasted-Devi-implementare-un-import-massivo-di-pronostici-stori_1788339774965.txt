@@ -1,0 +1,100 @@
+Devi implementare un import massivo di pronostici storici nel progetto FantaMotoGP.
+
+IMPORTANTE:
+
+* NON modificare lo schema del database.
+* NON modificare le funzioni/RPC di scoring.
+* NON modificare le RLS policy.
+* NON modificare o cancellare dati già presenti.
+* NON ricalcolare alcun punteggio.
+* L'operazione deve essere completamente IDEMPOTENTE: se viene eseguita due volte, la seconda esecuzione non deve creare duplicati né modificare dati esistenti.
+
+OBIETTIVO:
+Inserire nel database i pronostici storici contenuti nella tabella che ti fornirò dopo questo prompt.
+
+STRUTTURA:
+La tabella contiene:
+
+* GP
+* Utente
+* Pole position
+* tempo pole
+* 1 sprint
+* 2 sprint
+* 3 sprint
+* 1gp
+* 2gp
+* 3gp
+* 4gp
+* 5gp
+* out
+
+MAPPATURA:
+
+* Pole position → prediction_entries con prediction_type = 'POLE'
+* tempo pole → prediction_entries con prediction_type = 'QUALIFYING_TIME'
+* 1 sprint / 2 sprint / 3 sprint → prediction_entries con prediction_type = 'SPRINT' e position = 1/2/3
+* 1gp / 2gp / 3gp / 4gp / 5gp → prediction_entries con prediction_type = 'RACE' e position = 1/2/3/4/5
+* out → prediction_entries con prediction_type = 'RACE_OUT'
+
+REGOLE:
+
+1. Cerca l'utente tramite email.
+2. Cerca il GP nella tabella grand_prix usando la stagione 2026 e il nome/corrispondenza del GP.
+3. Cerca il rider nella tabella riders.
+4. Prima di inserire una prediction, verifica se esiste già una prediction per la stessa combinazione user_id + grand_prix_id.
+5. Se la prediction esiste già:
+
+   * NON modificarla.
+   * NON aggiungere/modificare entries appartenenti a quella prediction.
+   * registrala nel report come "SKIPPED - prediction already exists".
+6. Se non esiste:
+
+   * crea la prediction;
+   * inserisci esclusivamente le prediction_entries per le celle che contengono valori validi.
+7. Se una riga GP/utente è completamente vuota o contiene solo valori non validi, NON creare una prediction.
+8. Le celle vuote devono essere ignorate.
+9. Il valore "#N/A" deve essere ignorato.
+10. Non inventare mai rider, tempi o posizioni mancanti.
+11. Se un rider non viene trovato con certezza, NON inserire l'entry e segnalarlo nel report.
+12. Se il GP non viene trovato con certezza, NON inserire la prediction e segnalarlo nel report.
+13. Se l'utente non viene trovato, NON creare utenti e segnalarlo nel report.
+14. I tempi devono essere normalizzati:
+
+* "01:28:459" deve diventare "01:28.459"
+* "01:20:000" deve diventare "01:20.000"
+* in generale, se il formato è MM:SS:MMM, convertirlo in MM:SS.MMM.
+
+15. Non applicare la regola del "pronostico precedente" durante questo import. Questa è una regola di gioco per i pronostici mancanti, non una regola per modificare i dati storici importati.
+
+PRIMA DI ESEGUIRE:
+Crea una modalità DRY RUN che:
+
+* non scrive nulla nel database;
+* analizza tutte le righe;
+* mostra quanti utenti sono stati trovati;
+* quanti GP sono stati trovati;
+* quanti rider sono stati trovati;
+* quante prediction verrebbero create;
+* quante verrebbero saltate perché già esistenti;
+* quante entries verrebbero create;
+* evidenzia eventuali errori/mancanze.
+
+SOLO DOPO il dry-run, esegui l'import reale.
+
+REPORT FINALE:
+Produci un report con:
+
+* prediction create
+* prediction skipped
+* entries create
+* entries skipped
+* utenti non trovati
+* GP non trovati
+* rider non trovati
+* valori non validi
+* eventuali duplicati rilevati
+
+Non eseguire nessuna operazione distruttiva.
+
+La tabella completa dei dati storici da importare è quella che ti fornirò nel messaggio successivo.
