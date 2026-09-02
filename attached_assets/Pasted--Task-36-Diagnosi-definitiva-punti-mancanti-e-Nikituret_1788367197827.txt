@@ -1,0 +1,362 @@
+# Task 36 — Diagnosi definitiva punti mancanti e Nikiturets
+
+## Obiettivo
+
+Risolvere definitivamente il problema per cui:
+
+1. nella pagina `/leghe/:leagueId` non riesco a vedere correttamente i punteggi storici degli utenti;
+2. nella pagina `/miei-risultati` non riesco a vedere correttamente i punteggi storici;
+3. i punteggi storici di Nikiturets non sono ancora stati aggiornati secondo lo scoring storico verificato tramite Excel.
+
+Questa task deve iniziare con una diagnosi completa e **NON deve modificare il database fino a quando non viene identificata con certezza la causa**.
+
+---
+
+# 1. Prima cosa: NON modificare nulla
+
+Fino alla conclusione della diagnosi:
+
+* nessun INSERT
+* nessun UPDATE
+* nessun DELETE
+* nessun UPSERT
+* nessuna chiamata a `score_prediction`
+* nessuna modifica a `predictions`
+* nessuna modifica a `prediction_entries`
+* nessuna modifica a `session_results`
+* nessuna modifica allo schema
+* nessuna modifica RLS
+* nessuna modifica RPC.
+
+---
+
+# 2. Verificare direttamente il database
+
+Non limitarsi a verificare il frontend.
+
+Utilizzare SELECT dirette su Supabase per controllare realmente cosa contiene il DB.
+
+Per almeno questi utenti:
+
+* `nikyturets@gmail.com`
+* `marty.bria1996@gmail.com`
+* `simo.salva92@gmail.com`
+* `alandellosbel8@gmail.com`
+* `alessandro.cavasso.1995@gmail.com`
+* `ivan23dell@gmail.com`
+* `marino.dilorenzo@gmail.com`
+* `lucifero1966@gmail.com`
+* `dalla.pozza.silvia@gmail.com`
+* `tommaso.strada95@gmail.com`
+
+verificare tutte le prediction storiche di `TEST01`.
+
+---
+
+# 3. Verificare prediction_entries.points
+
+Per ogni prediction completa verificare direttamente:
+
+* `prediction_entries.id`
+* `prediction_id`
+* `prediction_type`
+* `position`
+* `rider_id`
+* `points`
+* eventuali altri campi relativi al punteggio.
+
+Creare un output diagnostico del tipo:
+
+| Utente | GP | Tipo | Posizione | Rider | Points |
+| ------ | -- | ---- | --------: | ----- | -----: |
+
+Questo è fondamentale.
+
+Voglio sapere se i punti:
+
+A. esistono nel DB ma il frontend non li legge;
+
+B. esistono ma sono NULL;
+
+C. sono 0;
+
+D. sono valorizzati ma con valori sbagliati;
+
+E. mancano completamente.
+
+---
+
+# 4. Verificare il record predictions
+
+Per ogni prediction verificare anche:
+
+* `id`
+* `user_id`
+* `grand_prix_id`
+* `created_at`
+* `updated_at`
+* `scored_at`
+* eventuali campi relativi a:
+
+  * qualifying score
+  * sprint score
+  * race score
+  * bonus
+  * malus
+  * total score.
+
+NON assumere i nomi delle colonne: leggere prima lo schema effettivo.
+
+Produrre una tabella diagnostica:
+
+| Utente | GP | Prediction ID | Scored at |  Q |  S |  R | Bonus | Malus | Total |
+| ------ | -- | ------------- | --------- | -: | -: | -: | ----: | ----: | ----: |
+
+---
+
+# 5. Verificare la relazione frontend → database
+
+Controllare esattamente quale query utilizza:
+
+`/leghe/:leagueId`
+
+per recuperare:
+
+* prediction
+* prediction_entries
+* points
+* total score.
+
+Poi verificare quale query utilizza:
+
+`/miei-risultati`
+
+per gli stessi dati.
+
+Confrontare le query con i dati ottenuti direttamente da Supabase.
+
+Se il DB contiene i punti ma la pagina non li mostra, correggere SOLO la query/frontend.
+
+Se invece il DB non contiene i punti, NON correggere il frontend fingendo che siano presenti.
+
+---
+
+# 6. Caso specifico: Nikiturets
+
+Questo caso deve essere analizzato in modo prioritario.
+
+Utente:
+
+`nikyturets@gmail.com`
+
+Lega:
+
+`TEST01`
+
+Per ogni GP storico di Nikiturets confrontare:
+
+### DB attuale
+
+* Qualifica
+* Sprint
+* Gara
+* Bonus
+* Malus
+* Totale
+
+### Excel / Task 32
+
+* Qualifica
+* Sprint
+* Gara
+* Bonus
+* Malus
+* Totale storico atteso
+
+Creare una tabella:
+
+| GP | DB Q | Excel Q | DB S | Excel S | DB R | Excel R | DB Bonus | Excel Bonus | DB Malus | Excel Malus | DB Totale | Excel Totale |
+| -- | ---: | ------: | ---: | ------: | ---: | ------: | -------: | ----------: | -------: | ----------: | --------: | -----------: |
+
+NON modificare ancora nulla.
+
+---
+
+# 7. Verificare esplicitamente Thailandia
+
+Per Nikiturets / Thailandia verificare direttamente:
+
+* prediction
+* prediction_entries
+* points
+* total score.
+
+Il risultato atteso secondo Task 31/32 è:
+
+**21 punti**
+
+La ricostruzione già validata era:
+
+**8 + 3 + 10 = 21**
+
+Se il DB contiene ancora 22, mostrare esattamente dove nasce la differenza.
+
+NON correggere ancora.
+
+---
+
+# 8. Verificare tutti i 10 casi obbligatori
+
+Riutilizzare i casi validati nel Task 32:
+
+* Niky / Thailandia
+* Niky / Brasile
+* Niky / Francia
+* Niky / Aragon
+* Marty / Catalogna
+* Marty / Italia
+* Simo / Thailandia
+* Alessandro / Spagna
+* Alessandro / UK
+* Marino / Aragon
+
+Per ciascuno mostrare:
+
+* DB
+* scoring Excel ricostruito
+* differenza
+* stato dei `prediction_entries.points`.
+
+---
+
+# 9. Determinare la causa
+
+Alla fine della diagnosi classificare il problema.
+
+Possibili cause:
+
+### CAUSA A — Frontend
+
+I punti sono correttamente memorizzati nel DB ma la UI non li recupera/mostra.
+
+### CAUSA B — Dati incompleti
+
+Le prediction esistono ma `prediction_entries.points` non sono stati popolati.
+
+### CAUSA C — Scoring storico errato
+
+I punti esistono ma sono stati calcolati con una logica precedente/differente.
+
+### CAUSA D — Cache aggregata errata
+
+I singoli `prediction_entries.points` sono corretti ma i totali memorizzati nella prediction sono errati.
+
+### CAUSA E — Più cause
+
+Indicare precisamente quali.
+
+NON scegliere una causa senza evidenza.
+
+---
+
+# 10. IMPORTANTE: distinguere storico da nuovo scoring
+
+Non modificare lo scorer di produzione in questa task.
+
+Lo scoring Excel storico è già stato validato.
+
+La decisione su come aggiornare lo storico verrà presa dopo aver visto il risultato di questa diagnosi.
+
+---
+
+# 11. Se i punti sono assenti
+
+Se la diagnosi dimostra che:
+
+`prediction_entries.points` sono NULL/0/non presenti
+
+e che quindi la UI non può mostrare i punteggi perché non esistono realmente nel DB:
+
+NON inventare valori.
+
+NON usare automaticamente lo scorer.
+
+Segnalare esattamente quali record sono privi di punti e quanti sono.
+
+---
+
+# 12. Se i punti sono presenti
+
+Se i punti sono presenti nel DB:
+
+verificare perché `/leghe/:leagueId` e `/miei-risultati` non li mostrano.
+
+Correggere esclusivamente il frontend/query necessaria.
+
+Non modificare i dati.
+
+---
+
+# 13. Output obbligatorio
+
+Creare:
+
+`.agents/outputs/task-36-scoring-diagnosis.md`
+
+Il report deve contenere:
+
+1. Problema riscontrato
+2. Stato reale del DB
+3. Stato di `prediction_entries.points`
+4. Stato dei totali in `predictions`
+5. Query frontend della pagina Lega
+6. Query frontend della pagina Miei Risultati
+7. Confronto DB vs Excel
+8. Analisi Nikiturets
+9. Analisi dei 10 casi obbligatori
+10. Causa identificata
+11. Azione consigliata per il prossimo task
+
+---
+
+# 14. Test obbligatori
+
+Devono risultare:
+
+* Task 32 scorer test: PASS
+* Task 33 replay: PASS
+* Task 34 audit: PASS
+* query DB diagnostiche: PASS
+* typecheck: PASS
+* build: PASS
+* `git diff --check`: PASS
+
+E soprattutto:
+
+* RPC `score_prediction`: **0**
+* INSERT: **0**
+* UPDATE: **0**
+* DELETE: **0**
+* UPSERT: **0**
+* prediction modificate: **0**
+* prediction_entries modificate: **0**
+* session_results modificate: **0**
+* schema modificato: NO
+* RLS modificato: NO
+* scoring modificato: NO.
+
+## Risultato desiderato
+
+Alla fine NON voglio ancora una correzione automatica.
+
+Voglio una risposta inequivocabile a queste due domande:
+
+### 1.
+
+**I punti dei singoli pronostici sono realmente presenti nel database?**
+
+### 2.
+
+**Perché Nikiturets continua ad avere punteggi diversi da quelli storici Excel già validati?**
+
+Solo dopo questa diagnosi decideremo cosa modificare.
