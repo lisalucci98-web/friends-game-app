@@ -7,7 +7,8 @@
     "hello": "tsx ./src/hello.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:carry-over": "node ./test-prediction-carry-over.mjs",
-    "import:historical-table": "node ./import-historical-predictions-table.mjs"
+    "import:historical-table": "node ./import-historical-predictions-table.mjs",
+    "verify:authenticated-results": "node ./verify-authenticated-results.mjs"
   },
   "devDependencies": {
     "@types/node": "catalog:",

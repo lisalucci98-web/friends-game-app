@@ -16,3 +16,4 @@
 - [Prediction UI schema mismatch](prediction-ui-schema-mismatch.md) — pole e OUT sono nelle entry live, ma il select UI richiede colonne prediction assenti e può bloccare i risultati autenticati.
 - [Partial prediction scoring RPC](scoring-rpc-partial-predictions.md) — la RPC live fallisce con 23502 se manca QUALIFYING_TIME; non riempire le entry senza approvazione.
 - [Historical score audit](historical-score-audit.md) — i totali storici non bastano per validare lo scoring corrente; il tempo Qualifica può restare nell’entry ma non nell’aggregato.
+- [Authenticated results verification](authenticated-results-verification.md) — confronta i valori visibili con REST usando un account temporaneo isolato, senza impersonare utenti o persistere credenziali.
