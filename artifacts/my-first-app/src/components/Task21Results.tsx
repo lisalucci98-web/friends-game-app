@@ -111,6 +111,7 @@ const leaderboardSelect = [
   'user_id',
   'grand_prix_id',
   'league_id',
+  'qualifying_pole_time',
   'qualifying_points',
   'sprint_points',
   'race_points',
@@ -211,13 +212,16 @@ function formatTotal(value: number | string | null | undefined) {
   return parsed === null ? '—' : `${parsed}`;
 }
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return 'Data non disponibile';
-  return new Intl.DateTimeFormat('it-IT', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value));
+function formatPredictedTime(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === '') return '—';
+  const text = String(value).trim();
+  if (text.includes(':')) return text;
+
+  const seconds = toNumber(value);
+  if (seconds === null) return text || '—';
+  const minutes = Math.floor(seconds / 60);
+  const remainder = (seconds - minutes * 60).toFixed(3).padStart(6, '0');
+  return `${minutes}:${remainder}`;
 }
 
 function formatShortDate(value: string | null | undefined) {
@@ -236,46 +240,11 @@ function gpName(grandPrix: GrandPrix) {
   return grandPrix.name || grandPrix.short_name || 'Gran Premio';
 }
 
-function sessionLabel(type: string | null) {
-  if (type === 'Q') return 'Qualifica';
-  if (type === 'SPR') return 'Sprint';
-  if (type === 'RAC') return 'Gara';
-  return type || 'Sessione';
-}
-
 const carryOverEntryTypes: Record<string, string[]> = {
   Q: ['POLE', 'QUALIFYING_TIME'],
   SPR: ['SPRINT'],
   RAC: ['RACE', 'RACE_OUT'],
 };
-
-function carryOverSessionsForPrediction(
-  prediction: PredictionScore | undefined,
-  entries: PredictionEntry[],
-  grandPrix: GrandPrix[],
-) {
-  if (!prediction) return [];
-
-  const sourceBySession = new Map<string, string>();
-  for (const [sessionType, entryTypes] of Object.entries(carryOverEntryTypes)) {
-    const sourceEntry = entries.find(
-      (entry) =>
-        entry.prediction_id === prediction.id &&
-        entry.source === 'CARRY_OVER' &&
-        entry.prediction_type !== null &&
-        entryTypes.includes(entry.prediction_type),
-    );
-    if (sourceEntry?.carried_from_grand_prix_id) {
-      sourceBySession.set(sessionType, sourceEntry.carried_from_grand_prix_id);
-    }
-  }
-
-  return [...sourceBySession.entries()].map(([sessionType, sourceGrandPrixId]) => ({
-    sessionType,
-    sourceGrandPrix:
-      grandPrix.find((item) => item.id === sourceGrandPrixId) ?? null,
-  }));
-}
 
 function isClosedSession(session: RaceSession) {
   return closedStatuses.has((session.status || '').toUpperCase());
@@ -418,35 +387,19 @@ function ResultsState({
   );
 }
 
-function ScoreBreakdown({
-  prediction,
-  compact = false,
-}: {
-  prediction?: PredictionScore;
-  compact?: boolean;
-}) {
-  const fields = [
-    ['Qualifica', prediction?.qualifying_points],
-    ['Sprint', prediction?.sprint_points],
-    ['Gara', prediction?.race_points],
-    ['Bonus', prediction?.bonus_points],
-    ['Malus', prediction?.malus_points],
-  ] as const;
+function scoreComponentsMatchTotal(prediction: PredictionScore) {
+  const values = [
+    prediction.qualifying_points,
+    prediction.sprint_points,
+    prediction.race_points,
+    prediction.bonus_points,
+    prediction.malus_points,
+    prediction.total_points,
+  ].map(toNumber);
 
-  return (
-    <div className={`task21-score-breakdown${compact ? ' is-compact' : ''}`}>
-      {fields.map(([label, value]) => (
-        <div className="task21-score-item" key={label}>
-          <span>{label}</span>
-          <strong>{formatPoints(value)}</strong>
-        </div>
-      ))}
-      <div className="task21-score-item task21-score-item--total">
-        <span>Totale</span>
-        <strong>{formatTotal(prediction?.total_points)}</strong>
-      </div>
-    </div>
-  );
+  if (values.some((value) => value === null)) return null;
+  const [qualifying, sprint, race, bonus, malus, total] = values as number[];
+  return qualifying + sprint + race + bonus + malus === total;
 }
 
 function StatusBadge({
@@ -599,11 +552,6 @@ export function MyResultsContent({
       ),
     [seasonGrandPrixIds, visiblePredictions],
   );
-  const predictionRiderMap = useMemo(
-    () => new Map(predictionRiders.map((rider) => [rider.id, rider])),
-    [predictionRiders],
-  );
-
   const rows = useMemo(
     () =>
       seasonGrandPrix.map((grandPrixItem, index) => ({
@@ -724,74 +672,18 @@ export function MyResultsContent({
         </div>
 
         <div className="task21-gp-list">
-          {rows.map(({ grandPrix: item, round, prediction }) => {
-            const status = statusForPrediction(
-              prediction,
-              isGpClosed(item.id, sessions),
-            );
-            const StatusIcon = status.icon;
-            const carryOvers = carryOverSessionsForPrediction(
-              prediction,
-              predictionEntries,
-              grandPrix,
-            );
-            return (
-              <article className="task21-gp-row" key={item.id}>
-                <div className="task21-gp-identity">
-                  <span className="task21-round">GP {String(round).padStart(2, '0')}</span>
-                  <strong>{gpName(item)}</strong>
-                  <small>{formatShortDate(item.date_start)} — {formatShortDate(item.date_end)}</small>
-                </div>
-                <div className={`task21-row-status ${status.className}`}>
-                  <StatusIcon size={14} aria-hidden="true" />
-                  <span>{status.label}</span>
-                </div>
-                <div className="task21-gp-points">
-                  <span>Punteggio</span>
-                  <strong>{formatTotal(prediction?.total_points)}</strong>
-                </div>
-                <div className="task21-gp-out">
-                  <span>OUT</span>
-                  <strong>
-                    {prediction
-                      ? riderName(
-                        predictionRiderMap.get(
-                          predictionEntries.find(
-                            (entry) =>
-                              entry.prediction_id === prediction.id &&
-                              entry.prediction_type === 'RACE_OUT',
-                          )?.rider_id || '',
-                        ),
-                        predictionEntries.find(
-                          (entry) =>
-                            entry.prediction_id === prediction.id &&
-                            entry.prediction_type === 'RACE_OUT',
-                        )?.rider_id,
-                      )
-                      : '—'}
-                  </strong>
-                </div>
-                {carryOvers.length > 0 && (
-                  <div className="task21-carry-over-note" role="status">
-                    <RefreshCw size={13} aria-hidden="true" />
-                    <span>
-                      {carryOvers.map(({ sessionType, sourceGrandPrix }, index) => (
-                        <span key={sessionType}>
-                          {index > 0 ? ' · ' : ''}
-                          {sessionLabel(sessionType)} — ereditato dal{' '}
-                          {sourceGrandPrix ? gpName(sourceGrandPrix) : 'GP precedente'}
-                        </span>
-                      ))}
-                    </span>
-                  </div>
-                )}
-                <details className="task21-breakdown-details">
-                  <summary>Dettaglio</summary>
-                  <ScoreBreakdown prediction={prediction} compact />
-                </details>
-              </article>
-            );
-          })}
+          {rows.map(({ grandPrix: item, round, prediction }) => (
+            <PredictionHistoryCard
+              key={item.id}
+              grandPrix={item}
+              round={round}
+              prediction={prediction}
+              entries={predictionEntries}
+              riders={predictionRiders}
+              allGrandPrix={grandPrix}
+              sessions={sessions}
+            />
+          ))}
         </div>
         <p className="task21-note">
           I punteggi sono mostrati come restituiti dal sistema. La posizione media in lega non è disponibile nei dati attuali.
@@ -802,9 +694,33 @@ export function MyResultsContent({
 }
 
 function riderName(rider: Rider | undefined, riderId: string | null | undefined) {
-  if (!riderId) return 'Non indicato';
+  if (!riderId) return '—';
   if (!rider) return 'Pilota non disponibile';
   return rider.nickname || [rider.name, rider.surname].filter(Boolean).join(' ') || 'Pilota';
+}
+
+function EntryLine({
+  label,
+  entry,
+  rider,
+  time = false,
+}: {
+  label: string;
+  entry?: PredictionEntry;
+  rider?: Rider;
+  time?: boolean;
+}) {
+  const value = time
+    ? formatPredictedTime(entry?.predicted_time)
+    : riderName(rider, entry?.rider_id);
+
+  return (
+    <p className="task35-entry-line">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <b>{formatPoints(entry?.points)}</b>
+    </p>
+  );
 }
 
 function PredictionDetail({
@@ -828,6 +744,7 @@ function PredictionDetail({
   const sprint = byType('SPRINT');
   const race = byType('RACE');
   const out = byType('RACE_OUT')[0];
+  const scoreConsistency = prediction ? scoreComponentsMatchTotal(prediction) : null;
   const sourceForType = (types: string[]) => {
     const entry = entries.find(
       (candidate) =>
@@ -863,9 +780,31 @@ function PredictionDetail({
         {sourceLabel(carryOverEntryTypes.Q) && (
           <p className="task21-source-note">{sourceLabel(carryOverEntryTypes.Q)}</p>
         )}
-        <div className="task21-detail-values">
-          <p><span>Pole</span><strong>{riderName(riderMap.get(qualifying[0]?.rider_id || ''), qualifying[0]?.rider_id)}</strong></p>
-          <p><span>Tempo pole</span><strong>{toNumber(qualifyingTime[0]?.predicted_time ?? prediction.qualifying_pole_time)?.toFixed(3) || '—'} s</strong></p>
+        <div className="task35-entry-list">
+          <EntryLine
+            label="Pole"
+            entry={qualifying[0]}
+            rider={riderMap.get(qualifying[0]?.rider_id || '')}
+          />
+          <EntryLine
+            label="Tempo pole"
+            entry={qualifyingTime[0] || {
+              id: '',
+              prediction_id: prediction.id,
+              prediction_type: 'QUALIFYING_TIME',
+              position: 1,
+              rider_id: null,
+              predicted_time: prediction.qualifying_pole_time,
+              points: null,
+              source: null,
+              carried_from_grand_prix_id: null,
+            }}
+            time
+          />
+          <div className="task35-section-total">
+            <span>Totale Qualifica</span>
+            <strong>{formatPoints(prediction.qualifying_points)}</strong>
+          </div>
         </div>
       </div>
       <div className="task21-detail-section">
@@ -876,14 +815,23 @@ function PredictionDetail({
         {sourceLabel(carryOverEntryTypes.SPR) && (
           <p className="task21-source-note">{sourceLabel(carryOverEntryTypes.SPR)}</p>
         )}
-        <ol className="task21-rider-list">
-          {sprint.length > 0 ? sprint.map((entry) => (
-            <li key={entry.id}>
-              <span>{entry.position || '—'}</span>
-              <strong>{riderName(riderMap.get(entry.rider_id || ''), entry.rider_id)}</strong>
-            </li>
-          )) : <li className="is-muted">Nessun dettaglio disponibile</li>}
-        </ol>
+        <div className="task35-entry-list">
+          {[1, 2, 3].map((position) => {
+            const entry = sprint.find((item) => toNumber(item.position) === position);
+            return (
+              <EntryLine
+                key={position}
+                label={`P${position}`}
+                entry={entry}
+                rider={riderMap.get(entry?.rider_id || '')}
+              />
+            );
+          })}
+          <div className="task35-section-total">
+            <span>Totale Sprint</span>
+            <strong>{formatPoints(prediction.sprint_points)}</strong>
+          </div>
+        </div>
       </div>
       <div className="task21-detail-section">
         <div className="task21-detail-title">
@@ -893,21 +841,133 @@ function PredictionDetail({
         {sourceLabel(carryOverEntryTypes.RAC) && (
           <p className="task21-source-note">{sourceLabel(carryOverEntryTypes.RAC)}</p>
         )}
-        <ol className="task21-rider-list">
-          {race.length > 0 ? race.map((entry) => (
-            <li key={entry.id}>
-              <span>{entry.position || '—'}</span>
-              <strong>{riderName(riderMap.get(entry.rider_id || ''), entry.rider_id)}</strong>
-            </li>
-          )) : <li className="is-muted">Nessun dettaglio disponibile</li>}
-        </ol>
-        <p className="task21-out-value">
-          <span>OUT</span>
-          <strong>{riderName(riderMap.get(out?.rider_id || ''), out?.rider_id)}</strong>
-        </p>
+        <div className="task35-entry-list">
+          {[1, 2, 3, 4, 5].map((position) => {
+            const entry = race.find((item) => toNumber(item.position) === position);
+            return (
+              <EntryLine
+                key={position}
+                label={`P${position}`}
+                entry={entry}
+                rider={riderMap.get(entry?.rider_id || '')}
+              />
+            );
+          })}
+          <EntryLine
+            label="OUT"
+            entry={out}
+            rider={riderMap.get(out?.rider_id || '')}
+          />
+          <div className="task35-detail-points">
+            <p><span>Bonus</span><strong>{formatPoints(prediction.bonus_points)}</strong></p>
+            <p><span>Malus</span><strong>{formatPoints(prediction.malus_points)}</strong></p>
+          </div>
+          <div className="task35-section-total">
+            <span>Totale Gara</span>
+            <strong>{formatPoints(prediction.race_points)}</strong>
+          </div>
+        </div>
       </div>
-      <ScoreBreakdown prediction={prediction} />
+      <div className="task35-total-block">
+        <div>
+          <span>Totale GP</span>
+          <strong>{formatTotal(prediction.total_points)} punti</strong>
+        </div>
+        <small>Qualifica + Sprint + Gara + Bonus + Malus</small>
+        {scoreConsistency === false && (
+          <p className="task35-inconsistency" role="status">
+            Le componenti visualizzate non coincidono con il totale memorizzato. Il valore ufficiale resta quello del database.
+          </p>
+        )}
+      </div>
     </div>
+  );
+}
+
+function PredictionHistoryCard({
+  grandPrix,
+  round,
+  prediction,
+  entries,
+  riders,
+  allGrandPrix,
+  sessions,
+  isLoading = false,
+  errorMessage,
+}: {
+  grandPrix: GrandPrix;
+  round: number;
+  prediction?: PredictionScore;
+  entries: PredictionEntry[];
+  riders: Rider[];
+  allGrandPrix: GrandPrix[];
+  sessions: RaceSession[];
+  isLoading?: boolean;
+  errorMessage?: string | null;
+}) {
+  const gpClosed = isGpClosed(grandPrix.id, sessions);
+  const predictionEntries = prediction
+    ? entries.filter((entry) => entry.prediction_id === prediction.id)
+    : [];
+  const status = statusForPrediction(prediction, gpClosed);
+  const StatusIcon = status.icon;
+
+  return (
+    <details className="task35-gp-card">
+      <summary className="task35-gp-summary">
+        <span className="task35-gp-summary-identity">
+          <span className="task21-round">GP {String(round).padStart(2, '0')}</span>
+          <strong>{gpName(grandPrix)}</strong>
+          <small>{formatShortDate(grandPrix.date_start)} — {formatShortDate(grandPrix.date_end)}</small>
+        </span>
+        <span className={`task21-row-status ${status.className}`}>
+          <StatusIcon size={14} aria-hidden="true" />
+          {status.label}
+        </span>
+        <span className="task35-summary-scores">
+          {[
+            ['Qualifica', prediction?.qualifying_points],
+            ['Sprint', prediction?.sprint_points],
+            ['Gara', prediction?.race_points],
+            ['Bonus', prediction?.bonus_points],
+            ['Malus', prediction?.malus_points],
+          ].map(([label, value]) => (
+            <span key={label}>
+              <small>{label}</small>
+              <strong>{formatPoints(value)}</strong>
+            </span>
+          ))}
+        </span>
+        <span className="task35-summary-total">
+          <small>Totale</small>
+          <strong>{formatTotal(prediction?.total_points)}</strong>
+        </span>
+        <ChevronRight size={17} aria-hidden="true" className="task35-summary-chevron" />
+      </summary>
+      <div className="task35-gp-card-content">
+        {!gpClosed ? (
+          <div className="task21-locked-detail" role="status">
+            <LockKeyhole size={23} aria-hidden="true" />
+            <strong>Dettaglio nascosto fino alla chiusura del GP</strong>
+            <span>Il pronostico e i punti per singola posizione saranno visibili quando il GP sarà chiuso.</span>
+          </div>
+        ) : isLoading ? (
+          <div className="task21-detail-loading" role="status">Caricamento dettaglio...</div>
+        ) : errorMessage ? (
+          <div className="task21-detail-empty task21-detail-empty--error" role="alert">
+            <AlertCircle size={18} aria-hidden="true" />
+            <strong>{errorMessage}</strong>
+          </div>
+        ) : (
+          <PredictionDetail
+            prediction={prediction}
+            entries={predictionEntries}
+            riders={riders}
+            grandPrix={allGrandPrix}
+          />
+        )}
+      </div>
+    </details>
   );
 }
 
@@ -928,12 +988,10 @@ export function LeagueResultsContent({
   const [sessions, setSessions] = useState<RaceSession[]>([]);
   const [predictions, setPredictions] = useState<PredictionScore[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState('');
-  const [selectedGpId, setSelectedGpId] = useState('');
-  const [detailPrediction, setDetailPrediction] = useState<PredictionScore | undefined>();
-  const [detailEntries, setDetailEntries] = useState<PredictionEntry[]>([]);
-  const [detailRiders, setDetailRiders] = useState<Rider[]>([]);
-  const [isDetailLoading, setIsDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
+  const [memberDetailEntries, setMemberDetailEntries] = useState<PredictionEntry[]>([]);
+  const [memberDetailRiders, setMemberDetailRiders] = useState<Rider[]>([]);
+  const [isMemberDetailLoading, setIsMemberDetailLoading] = useState(false);
+  const [memberDetailError, setMemberDetailError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
@@ -1003,7 +1061,6 @@ export function LeagueResultsContent({
       setSelectedMemberId((current) =>
         current && memberIds.includes(current) ? current : user.id,
       );
-      setSelectedGpId('');
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -1035,14 +1092,6 @@ export function LeagueResultsContent({
       ),
     [predictions, seasonGrandPrixIds],
   );
-
-  useEffect(() => {
-    setSelectedGpId((current) =>
-      current && seasonGrandPrix.some((item) => item.id === current)
-        ? current
-        : seasonGrandPrix[seasonGrandPrix.length - 1]?.id || '',
-    );
-  }, [seasonGrandPrix]);
 
   const leaderboard = useMemo(() => {
     const rows = members.map((member, index) => {
@@ -1078,62 +1127,36 @@ export function LeagueResultsContent({
   }, [members, seasonPredictions]);
 
   const selectedMember = members.find((member) => member.user_id === selectedMemberId);
-  const selectedGp = grandPrix.find((item) => item.id === selectedGpId);
-  const selectedPrediction = seasonPredictions.find(
-    (prediction) =>
-      prediction.user_id === selectedMemberId &&
-      prediction.grand_prix_id === selectedGpId,
+  const selectedMemberPredictions = useMemo(
+    () =>
+      seasonPredictions.filter(
+        (prediction) => prediction.user_id === selectedMemberId,
+      ),
+    [seasonPredictions, selectedMemberId],
   );
-  const selectedGpIsClosed = selectedGp ? isGpClosed(selectedGp.id, sessions) : false;
 
   useEffect(() => {
     let isMounted = true;
 
-    async function loadDetails() {
-      setDetailPrediction(undefined);
-      setDetailEntries([]);
-      setDetailRiders([]);
-      setDetailError(null);
+    async function loadMemberDetails() {
+      setMemberDetailEntries([]);
+      setMemberDetailRiders([]);
+      setMemberDetailError(null);
 
-      if (!selectedPrediction || !selectedGpIsClosed) {
+      const predictionIds = selectedMemberPredictions
+        .filter((prediction) => isGpClosed(prediction.grand_prix_id, sessions))
+        .map((prediction) => prediction.id);
+      if (!predictionIds.length) {
+        setIsMemberDetailLoading(false);
         return;
       }
 
-      setIsDetailLoading(true);
-      const predictionResponse = await supabase
-        .from('predictions')
-        .select(scoreSelect)
-        .eq('id', selectedPrediction.id)
-        .maybeSingle();
-
-      if (!isMounted) return;
-      if (predictionResponse.error || !predictionResponse.data) {
-        setDetailError('Il pronostico è chiuso, ma il dettaglio non è disponibile.');
-        setIsDetailLoading(false);
-        return;
-      }
-
-      const prediction = predictionResponse.data as unknown as PredictionScore;
-      let entriesResponse = await supabase
-        .from('prediction_entries')
-        .select(predictionEntrySelect)
-        .eq('prediction_id', prediction.id)
-        .order('prediction_type', { ascending: true })
-        .order('position', { ascending: true });
-
-      if (entriesResponse.error && isMissingCarryOverColumns(entriesResponse.error)) {
-        entriesResponse = await supabase
-          .from('prediction_entries')
-          .select(legacyPredictionEntrySelect)
-          .eq('prediction_id', prediction.id)
-          .order('prediction_type', { ascending: true })
-          .order('position', { ascending: true });
-      }
-
+      setIsMemberDetailLoading(true);
+      const entriesResponse = await loadPredictionEntries(predictionIds);
       if (!isMounted) return;
       if (entriesResponse.error) {
-        setDetailError('Il pronostico è chiuso, ma il dettaglio non è disponibile.');
-        setIsDetailLoading(false);
+        setMemberDetailError('I pronostici sono chiusi, ma il dettaglio non è disponibile.');
+        setIsMemberDetailLoading(false);
         return;
       }
 
@@ -1149,20 +1172,19 @@ export function LeagueResultsContent({
 
       if (!isMounted) return;
       if (ridersResponse.error) {
-        setDetailError('Il pronostico è chiuso, ma i nomi dei piloti non sono disponibili.');
+        setMemberDetailError('I nomi dei piloti non sono disponibili.');
       } else {
-        setDetailPrediction(prediction);
-        setDetailEntries(entries);
-        setDetailRiders((ridersResponse.data || []) as Rider[]);
+        setMemberDetailEntries(entries);
+        setMemberDetailRiders((ridersResponse.data || []) as Rider[]);
       }
-      setIsDetailLoading(false);
+      setIsMemberDetailLoading(false);
     }
 
-    void loadDetails();
+    void loadMemberDetails();
     return () => {
       isMounted = false;
     };
-  }, [selectedGpIsClosed, selectedPrediction]);
+  }, [selectedMemberPredictions, sessions]);
 
   async function handleCopyCode() {
     if (!league) return;
@@ -1293,55 +1315,26 @@ export function LeagueResultsContent({
               <div>
                 <span className="task21-kicker">Dettaglio partecipante</span>
                 <h2 id="task21-participant-title">{selectedMember?.name || 'Partecipante'}</h2>
+                <p className="task35-panel-subtitle">Seleziona un GP per aprire il dettaglio dei punti.</p>
               </div>
               <Users size={24} aria-hidden="true" className="task21-panel-icon" />
             </div>
-            <label className="task21-select-label" htmlFor="task21-participant-gp">
-              <span>Gran Premio</span>
-              <select
-                id="task21-participant-gp"
-                value={selectedGpId}
-                onChange={(event) => setSelectedGpId(event.target.value)}
-              >
-                 {seasonGrandPrix.map((item, index) => (
-                  <option key={item.id} value={item.id}>
-                    GP {String(index + 1).padStart(2, '0')} · {gpLabel(item)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {selectedGp && (
-              <div className="task21-detail-gp-heading">
-                <div>
-                  <span>{gpName(selectedGp)}</span>
-                  <small>{formatDate(selectedGp.date_start)}</small>
-                </div>
-                <StatusBadge prediction={selectedPrediction} gpClosed={selectedGpIsClosed} />
-              </div>
-            )}
-
-            {!selectedGpIsClosed ? (
-              <div className="task21-locked-detail" role="status">
-                <LockKeyhole size={23} aria-hidden="true" />
-                <strong>Pronostico nascosto fino alla chiusura del GP</strong>
-                <span>Qualifica, Sprint, Gara e OUT saranno visibili quando tutte le sessioni rilevanti saranno chiuse.</span>
-              </div>
-            ) : isDetailLoading ? (
-              <div className="task21-detail-loading" role="status">Caricamento dettaglio...</div>
-            ) : detailError ? (
-              <div className="task21-detail-empty task21-detail-empty--error" role="alert">
-                <AlertCircle size={18} aria-hidden="true" />
-                <strong>{detailError}</strong>
-              </div>
-            ) : (
-              <PredictionDetail
-                prediction={detailPrediction}
-                entries={detailEntries}
-                riders={detailRiders}
-                grandPrix={grandPrix}
-              />
-            )}
+            <div className="task35-history-list">
+              {seasonGrandPrix.map((item, index) => (
+                <PredictionHistoryCard
+                  key={item.id}
+                  grandPrix={item}
+                  round={index + 1}
+                  prediction={predictionForGp(selectedMemberPredictions, item.id)}
+                  entries={memberDetailEntries}
+                  riders={memberDetailRiders}
+                  allGrandPrix={grandPrix}
+                  sessions={sessions}
+                  isLoading={isMemberDetailLoading}
+                  errorMessage={memberDetailError}
+                />
+              ))}
+            </div>
           </section>
         </div>
       )}

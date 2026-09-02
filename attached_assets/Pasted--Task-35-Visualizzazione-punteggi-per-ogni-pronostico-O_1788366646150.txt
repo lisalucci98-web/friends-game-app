@@ -1,0 +1,391 @@
+# Task 35 — Visualizzazione punteggi per ogni pronostico
+
+## Obiettivo
+
+Modificare le pagine esistenti dell'app FantaMotoGP per permettere agli utenti di **visualizzare chiaramente i punteggi ottenuti per ogni singolo pronostico storico**.
+
+Le pagine da modificare sono esclusivamente:
+
+1. **Pagina della Lega**
+2. **“I miei risultati”**
+
+NON creare una nuova pagina di audit.
+
+---
+
+# REGOLA FONDAMENTALE — READ ONLY
+
+Questo task è esclusivamente di visualizzazione.
+
+NON modificare alcun dato del database.
+
+NON eseguire:
+
+* INSERT
+* UPDATE
+* DELETE
+* UPSERT
+* RPC `score_prediction`
+* modifica di `predictions`
+* modifica di `prediction_entries`
+* modifica di `session_results`
+* modifica di `leagues`
+* modifica di `league_members`
+* modifica schema
+* modifica RLS
+* modifica RPC
+* modifica scoring.
+
+Utilizzare esclusivamente i dati già presenti nel database.
+
+NON ricalcolare i punteggi.
+
+---
+
+# 1. Pagina della LEGA
+
+Individuare la pagina esistente della lega:
+
+`/leghe/:leagueId`
+
+Non creare una nuova route.
+
+La pagina deve continuare a mostrare la classifica della lega, ma deve diventare possibile vedere **il dettaglio dei punteggi ottenuti da ciascun partecipante per ogni GP**.
+
+## Classifica principale
+
+Mantenere la classifica attuale:
+
+| Pos. | Utente | Punti |
+| ---: | ------ | ----: |
+
+oppure l'attuale layout equivalente.
+
+NON cambiare la logica della classifica.
+
+---
+
+# 2. Dettaglio di un partecipante
+
+Rendete cliccabile/selezionabile ogni partecipante della classifica.
+
+Quando seleziono un utente, mostrare lo storico dei suoi GP.
+
+Per ogni GP:
+
+| GP | Qualifica | Sprint | Gara | Bonus | Malus | Totale |
+| -- | --------: | -----: | ---: | ----: | ----: | -----: |
+
+I valori devono essere quelli **già memorizzati nel database**.
+
+NON ricalcolare.
+
+Se il database non contiene una componente, mostrare `—`.
+
+Se il GP non ha una prediction per quell'utente, mostrare `—`.
+
+Non trasformare automaticamente un dato mancante in `0`.
+
+---
+
+# 3. Dettaglio di ogni pronostico
+
+Per ogni GP deve essere possibile espandere il dettaglio e vedere:
+
+## QUALIFICA
+
+* Pole position pronosticata
+* Tempo pole pronosticato
+* Punti Pole ottenuti
+* Punti tempo ottenuti
+* Totale Qualifica
+
+## SPRINT
+
+* P1 pronosticato
+* P2 pronosticato
+* P3 pronosticato
+* punti ottenuti per ciascuna posizione
+* Totale Sprint
+
+## GARA
+
+* P1 pronosticato
+* P2 pronosticato
+* P3 pronosticato
+* P4 pronosticato
+* P5 pronosticato
+* OUT pronosticato
+* punti ottenuti per ciascuna posizione
+* eventuali punti OUT
+* Bonus
+* Malus
+* Totale Gara
+
+## TOTALE GP
+
+Mostrare chiaramente:
+
+**Totale GP = Qualifica + Sprint + Gara + Bonus + Malus**
+
+ATTENZIONE: questa formula deve essere utilizzata solamente per rappresentare i dati già presenti.
+
+Il valore ufficiale da mostrare deve essere il totale già memorizzato nel database.
+
+Se le componenti non sommano al totale memorizzato, NON correggere nulla: evidenziare semplicemente l'incongruenza.
+
+---
+
+# 4. Pagina "I MIEI RISULTATI"
+
+Individuare la pagina esistente:
+
+`/miei-risultati`
+
+Questa deve diventare la pagina principale dove l'utente può verificare **come ha ottenuto i propri punti**.
+
+Per ogni GP mostrare una card.
+
+Esempio:
+
+### 🇹🇭 Thailandia
+
+**Totale: 21 punti**
+
+| Categoria  |  Punti |
+| ---------- | -----: |
+| Qualifica  |      8 |
+| Sprint     |      3 |
+| Gara       |     10 |
+| Bonus      |      0 |
+| Malus      |      0 |
+| **Totale** | **21** |
+
+La card deve essere espandibile.
+
+---
+
+# 5. Dettaglio pronostico in "I miei risultati"
+
+Quando l'utente espande un GP, mostrare il confronto tra:
+
+**MIO PRONOSTICO → PUNTI OTTENUTI**
+
+Esempio:
+
+### Qualifica
+
+* Pole: Marc Marquez → **5 punti**
+* Tempo: 1:29.123 → **3 punti**
+* Totale: **8**
+
+### Sprint
+
+* P1: Marc Marquez → **3 punti**
+* P2: Bagnaia → **0 punti**
+* P3: Martin → **0 punti**
+* Totale: **3**
+
+### Gara
+
+* P1: ...
+* P2: ...
+* P3: ...
+* P4: ...
+* P5: ...
+* OUT: ...
+* Totale Gara: **10**
+
+### Bonus / Malus
+
+* Bonus: **0**
+* Malus: **0**
+
+### Totale GP
+
+**21 punti**
+
+---
+
+# 6. IMPORTANTE — utilizzare le colonne corrette
+
+Prima di modificare il frontend, verificare lo schema reale.
+
+È già stato verificato nei task precedenti che:
+
+* `predictions` NON contiene `qualifying_pole_rider_id`
+* `predictions` NON contiene `race_out_rider_id`
+
+Pole e OUT sono memorizzati tramite:
+
+`prediction_entries`
+
+con `prediction_type`:
+
+* `POLE`
+* `QUALIFYING_TIME`
+* `SPRINT`
+* `RACE`
+* `RACE_OUT`
+
+NON tentare di leggere colonne inesistenti da `predictions`.
+
+Questo è importante perché in passato aveva causato un errore HTTP 400.
+
+---
+
+# 7. Punteggi
+
+Utilizzare i valori di scoring **già memorizzati nel database**.
+
+NON utilizzare in questa task:
+
+* scorer Task 32
+* replay Task 33
+* audit Task 34
+* formule Excel
+* `score_prediction`
+
+Questa task NON deve decidere se un punteggio storico è corretto.
+
+Deve solamente permettermi di vedere cosa è attualmente memorizzato.
+
+---
+
+# 8. Lega: confronto tra utenti
+
+Nella pagina della lega voglio poter selezionare ogni partecipante e vedere:
+
+**Utente → GP → pronostici → punti**
+
+In questo modo posso controllare manualmente tutti i profili senza uscire dalla pagina della lega.
+
+La classifica generale deve continuare a funzionare esattamente come prima.
+
+---
+
+# 9. Storico completo
+
+Devono essere visualizzabili tutti i GP storici presenti nel database, inclusi quelli per cui il punteggio è 0.
+
+Distinguere:
+
+* prediction presente con 0 punti → `0`
+* prediction assente → `—`
+
+Non confondere i due casi.
+
+---
+
+# 10. Responsive
+
+La visualizzazione deve funzionare sia desktop che mobile, ma NON fare ancora il redesign generale dell'app.
+
+Desktop:
+
+* classifica leggibile
+* dettaglio espandibile
+* colonne allineate.
+
+Mobile:
+
+* utilizzare card/accordion
+* evitare tabelle troppo larghe
+* mostrare chiaramente:
+
+  * GP
+  * punti Qualifica
+  * punti Sprint
+  * punti Gara
+  * Bonus
+  * Malus
+  * Totale.
+
+---
+
+# 11. Test
+
+Verificare almeno:
+
+### `/leghe/:leagueId`
+
+* classifica caricata
+* tutti i partecipanti presenti
+* selezione partecipante
+* GP caricati
+* punteggi caricati
+* dettaglio pronostici
+* punti per singolo pronostico
+* totale GP
+* totale storico.
+
+### `/miei-risultati`
+
+* GP caricati
+* pronostici visualizzati
+* punti per ogni pronostico
+* dettaglio Qualifica
+* dettaglio Sprint
+* dettaglio Gara
+* Bonus
+* Malus
+* Totale GP
+* totale stagione.
+
+---
+
+# 12. Controllo database
+
+Verificare durante i test:
+
+* RPC `score_prediction`: **0 chiamate**
+* INSERT: **0**
+* UPDATE: **0**
+* DELETE: **0**
+* UPSERT: **0**
+* prediction modificate: **0**
+* prediction_entries modificate: **0**
+* session_results modificate: **0**
+* schema modificato: **NO**
+* RLS modificato: **NO**
+* scoring modificato: **NO**
+
+Infine:
+
+`git diff --check`
+
+deve risultare PASS.
+
+---
+
+# 13. Output
+
+Creare:
+
+`.agents/outputs/task-35-historical-scores-ui.md`
+
+Il report deve indicare:
+
+* pagine modificate
+* componenti modificati/creati
+* query utilizzate
+* dati mostrati
+* test eseguiti
+* conferma che i dati sono read-only
+* conferma che nessun punteggio è stato ricalcolato o modificato.
+
+## Risultato desiderato
+
+Alla fine voglio poter:
+
+1. entrare in **FantaTest**;
+2. vedere la classifica;
+3. cliccare un partecipante;
+4. vedere tutti i suoi GP;
+5. vedere per ogni GP **Qualifica / Sprint / Gara / Bonus / Malus / Totale**;
+6. espandere il GP;
+7. vedere **ogni singolo pronostico e quanti punti ha generato**.
+
+In `/miei-risultati` voglio avere lo stesso livello di dettaglio, ma direttamente per il mio profilo.
+
+NON correggere nessun punteggio in questo task.
