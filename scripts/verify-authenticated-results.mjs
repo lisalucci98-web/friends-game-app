@@ -224,10 +224,10 @@ function isClassified(result) {
 
 async function loadServerExpectations(session) {
   const token = session.access_token;
-  const [seasonRows, grandPrix, sessions, predictions, memberships] = await Promise.all([
-    supabaseRest('seasons?year=eq.2026&select=id,year', token),
+  const [seasons, grandPrix, sessions, predictions, memberships] = await Promise.all([
+    supabaseRest('seasons?select=id,year&order=year.desc', token),
     supabaseRest(
-      'grand_prix?select=id,name,short_name,date_start,date_end,season_id&season_id=not.is.null&is_test=eq.false&order=date_start.asc',
+      'grand_prix?select=id,name,short_name,date_start,date_end,season_id&is_test=eq.false&order=date_start.asc',
       token,
     ),
     supabaseRest(
@@ -244,19 +244,10 @@ async function loadServerExpectations(session) {
     ),
   ]);
 
-  const season = seasonRows[0];
-  assert(season, 'La stagione 2026 non è disponibile.');
-  const seasonGrandPrix = grandPrix.filter((item) => item.season_id === season.id || !item.season_id);
-  assert(seasonGrandPrix.length > 0, 'Nessun GP 2026 disponibile.');
+  const season = seasons[0];
+  assert(season, 'Nessuna stagione disponibile.');
   const leagueId = memberships[0]?.league_id ?? '';
   assert(leagueId, 'L’account di verifica non appartiene a una lega.');
-
-  const leaguePredictions = predictions.filter((prediction) => prediction.league_id === leagueId);
-  const scoredPredictions = leaguePredictions.filter(hasScore);
-  const seasonTotal = scoredPredictions.reduce(
-    (total, prediction) => total + (numberOrNull(prediction.total_points) || 0),
-    0,
-  );
 
   const [leagueMembers, leagueScores] = await Promise.all([
     supabaseRest('rpc/get_league_members', token, {
@@ -265,39 +256,86 @@ async function loadServerExpectations(session) {
       body: JSON.stringify({ p_league_id: leagueId }),
     }),
     supabaseRest(
-      `predictions?league_id=eq.${leagueId}&select=user_id,total_points,scored_at,qualifying_points,sprint_points,race_points,bonus_points,malus_points`,
+      `predictions?league_id=eq.${leagueId}&select=user_id,grand_prix_id,total_points,scored_at,qualifying_points,sprint_points,race_points,bonus_points,malus_points`,
       token,
     ),
   ]);
 
-  const totals = new Map();
-  for (const member of leagueMembers ?? []) {
-    totals.set(member.user_id, { userId: member.user_id, name: member.name ?? 'Utente senza nome', total: 0 });
-  }
-  for (const prediction of leagueScores) {
-    if (!hasScore(prediction)) continue;
-    const row = totals.get(prediction.user_id);
-    if (row) row.total += numberOrNull(prediction.total_points) || 0;
-  }
-  const leaderboard = [...totals.values()].sort((a, b) => b.total - a.total);
-
   return {
     token,
     userId: session.user.id,
-    seasonGrandPrix,
+    season,
+    seasons,
+    grandPrix,
     sessions,
-    predictions: leaguePredictions,
-    seasonTotal,
-    leaderboard,
+    predictions,
+    leagueMembers,
+    leagueScores,
     leagueId,
   };
 }
 
-async function verifyMyResults(cdp, expected) {
-  await navigate(cdp, '/miei-risultati', 'Punteggio stagione');
+function expectationsForSeason(base, season) {
+  const seasonGrandPrix = base.grandPrix.filter((item) => item.season_id === season.id);
+  const seasonGrandPrixIds = new Set(seasonGrandPrix.map((item) => item.id));
+  const leaguePredictions = base.predictions.filter(
+    (prediction) =>
+      prediction.league_id === base.leagueId &&
+      seasonGrandPrixIds.has(prediction.grand_prix_id),
+  );
+  const scoredPredictions = leaguePredictions.filter(hasScore);
+  const seasonTotal = scoredPredictions.reduce(
+    (total, prediction) => total + (numberOrNull(prediction.total_points) || 0),
+    0,
+  );
+  const totals = new Map();
+  for (const member of base.leagueMembers ?? []) {
+    totals.set(member.user_id, {
+      userId: member.user_id,
+      name: member.name ?? 'Utente senza nome',
+      total: 0,
+    });
+  }
+  for (const prediction of base.leagueScores ?? []) {
+    if (!hasScore(prediction) || !seasonGrandPrixIds.has(prediction.grand_prix_id)) continue;
+    const row = totals.get(prediction.user_id);
+    if (row) row.total += numberOrNull(prediction.total_points) || 0;
+  }
+
+  return {
+    ...base,
+    season,
+    seasonGrandPrix,
+    predictions: leaguePredictions,
+    seasonTotal,
+    leaderboard: [...totals.values()].sort((a, b) => b.total - a.total),
+  };
+}
+
+async function selectSeason(cdp, selector, season) {
+  const selected = await evaluate(
+    cdp,
+    `(() => {
+      const element = document.querySelector(${JSON.stringify(selector)});
+      if (!element) return false;
+      element.value = ${JSON.stringify(season.id)};
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+      return element.value === ${JSON.stringify(season.id)};
+    })()`,
+  );
+  assert(selected, `Selettore stagione ${selector} non disponibile.`);
+  await waitForBody(cdp, (body) =>
+    body.includes(`Stagione ${season.year}`),
+  );
+  await sleep(300);
+}
+
+async function verifyMyResultsPage(cdp, expected) {
   const actual = await evaluate(
     cdp,
     `(() => ({
+       seasonLabel: document.querySelector('.task21-toolbar .task21-kicker')?.textContent?.trim() ?? '',
+       seasonSelect: document.querySelector('[data-testid="task21-season-select"]')?.value ?? '',
       seasonTotal: document.querySelector('#task21-season-score')?.textContent?.trim() ?? '',
       rows: [...document.querySelectorAll('.task21-gp-row')].map((row) => ({
         total: row.querySelector('.task21-gp-points strong')?.textContent?.trim() ?? '',
@@ -312,6 +350,8 @@ async function verifyMyResults(cdp, expected) {
     }))()`,
   );
 
+  assert(actual.seasonLabel === `Stagione ${expected.season.year}`, `Stagione UI ${actual.seasonLabel} non valida.`);
+  assert(actual.seasonSelect === expected.season.id, `Selettore stagione UI ${actual.seasonSelect} != ${expected.season.id}.`);
   assert(actual.seasonTotal === String(expected.seasonTotal), `Totale stagione UI ${actual.seasonTotal} != server ${expected.seasonTotal}.`);
   assert(
     actual.rows.length === expected.seasonGrandPrix.length,
@@ -341,8 +381,12 @@ async function verifyMyResults(cdp, expected) {
   }
 }
 
-async function verifyLeaderboard(cdp, expected) {
-  await navigate(cdp, `/leghe/${expected.leagueId}`, 'Classifica lega');
+async function verifyMyResults(cdp, expected) {
+  await navigate(cdp, '/miei-risultati', 'Punteggio stagione');
+  await verifyMyResultsPage(cdp, expected);
+}
+
+async function verifyLeaderboardPage(cdp, expected) {
   const actual = await evaluate(
     cdp,
     `([...document.querySelectorAll('.task21-leader-row')]).map((row) => ({
@@ -350,12 +394,22 @@ async function verifyLeaderboard(cdp, expected) {
       total: row.querySelector('.task21-member-meta strong')?.textContent?.trim() ?? '',
     }))`,
   );
+  const selectedSeason = await evaluate(
+    cdp,
+    'document.querySelector("[data-testid=\"task21-league-season-select\"]")?.value ?? ""',
+  );
+  assert(selectedSeason === expected.season.id, `Stagione classifica UI ${selectedSeason} != ${expected.season.id}.`);
   assert(actual.length === expected.leaderboard.length, 'Numero partecipanti UI diverso dal server.');
   for (let index = 0; index < actual.length; index += 1) {
     const serverRow = expected.leaderboard[index];
     assert(actual[index].name === serverRow.name, `Classifica: nome ${actual[index].name} != ${serverRow.name}.`);
     assert(actual[index].total === String(serverRow.total), `Classifica: punti ${actual[index].total} != ${serverRow.total}.`);
   }
+}
+
+async function verifyLeaderboard(cdp, expected) {
+  await navigate(cdp, `/leghe/${expected.leagueId}`, 'Classifica lega');
+  await verifyLeaderboardPage(cdp, expected);
 }
 
 async function verifyOfficialResults(cdp, expected) {
@@ -397,7 +451,8 @@ async function verifyOfficialResults(cdp, expected) {
 
 async function main() {
   const session = await signIn();
-  const expected = await loadServerExpectations(session);
+  const baseExpectations = await loadServerExpectations(session);
+  const expected = expectationsForSeason(baseExpectations, baseExpectations.season);
   const port = 9229;
   const browser = spawn(
     chromiumPath,
@@ -425,6 +480,19 @@ async function main() {
     });
     await verifyMyResults(cdp, expected);
     await verifyLeaderboard(cdp, expected);
+    const historicalSeason = baseExpectations.seasons.find(
+      (candidate) =>
+        candidate.id !== expected.season.id &&
+        baseExpectations.grandPrix.some((item) => item.season_id === candidate.id),
+    );
+    if (historicalSeason) {
+      const historicalExpected = expectationsForSeason(baseExpectations, historicalSeason);
+      await selectSeason(cdp, '[data-testid="task21-season-select"]', historicalSeason);
+      await verifyMyResultsPage(cdp, historicalExpected);
+      await navigate(cdp, `/leghe/${expected.leagueId}`, 'Classifica lega');
+      await selectSeason(cdp, '[data-testid="task21-league-season-select"]', historicalSeason);
+      await verifyLeaderboardPage(cdp, historicalExpected);
+    }
     await verifyOfficialResults(cdp, expected);
     console.log(
       `Verifica autenticata superata: ${expected.seasonGrandPrix.length} GP, ${expected.leaderboard.length} partecipanti, Qualifiche/Sprint/Gara coerenti.`,

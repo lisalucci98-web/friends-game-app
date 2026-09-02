@@ -512,6 +512,8 @@
 .task21-kicker, .task21-round, .task21-select-label > span, .task21-score-item span, .task21-gp-points span, .task21-gp-out span, .task21-hero-side span, .task21-invite span, .task21-detail-values span, .task21-out-value span { color: hsl(var(--muted-foreground)); font-family: var(--app-font-mono); font-size: .59rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .task21-select-label { display: grid; gap: 6px; min-width: 190px; }
 .task21-select-label select { min-height: 38px; padding: 8px 30px 8px 10px; border: 1px solid hsl(var(--foreground) / .16); border-radius: 3px; color: hsl(var(--foreground)); background: hsl(var(--card)); font: inherit; font-size: .78rem; }
+.task21-select-label--dark > span { color: hsl(var(--primary-foreground) / .62); }
+.task21-select-label--dark select { color: hsl(var(--primary-foreground)); border-color: hsl(var(--primary-foreground) / .25); background: hsl(var(--primary-foreground) / .08); }
 .task21-score-hero { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(125px, .7fr)); gap: 20px; padding: 25px 27px; color: hsl(var(--primary-foreground)); background: hsl(var(--foreground)); box-shadow: var(--shadow-md); }
 .task21-score-hero > div:first-child { display: grid; align-content: center; gap: 5px; }
 .task21-score-hero .task21-kicker { color: hsl(var(--primary-foreground) / .62); }

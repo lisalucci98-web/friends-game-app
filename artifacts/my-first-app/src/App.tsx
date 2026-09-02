@@ -3105,7 +3105,7 @@ function MyResultsPage() {
 
   return (
     <MainPageLayout
-      eyebrow="Fanta MotoGP · 2026"
+      eyebrow="Fanta MotoGP · risultati"
       title="I miei risultati"
       text="Il riepilogo dei tuoi punteggi, GP dopo GP."
       className="results-app-page"

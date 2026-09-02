@@ -23,6 +23,7 @@ type Season = {
 
 type GrandPrix = {
   id: string;
+  season_id: string | null;
   name: string | null;
   short_name: string | null;
   country: string | null;
@@ -335,37 +336,41 @@ function predictionForGp(
 }
 
 async function loadSeasonData() {
-  const seasonResponse = await supabase
-    .from('seasons')
-    .select('id, year')
-    .eq('year', 2026)
-    .maybeSingle();
+  const [seasonsResponse, grandPrixResponse] = await Promise.all([
+    supabase
+      .from('seasons')
+      .select('id, year')
+      .order('year', { ascending: false }),
+    supabase
+      .from('grand_prix')
+      .select('id, season_id, name, short_name, country, circuit, date_start, date_end')
+      .eq('is_test', false)
+      .order('date_start', { ascending: true }),
+  ]);
 
-  if (seasonResponse.error || !seasonResponse.data) {
+  if (seasonsResponse.error || grandPrixResponse.error || !seasonsResponse.data?.length) {
     throw new Error('Non è stato possibile caricare la stagione.');
   }
 
-  const season = seasonResponse.data as Season;
-  const [grandPrixResponse, sessionsResponse] = await Promise.all([
-    supabase
-      .from('grand_prix')
-      .select('id, name, short_name, country, circuit, date_start, date_end')
-      .eq('season_id', season.id)
-      .eq('is_test', false)
-      .order('date_start', { ascending: true }),
-    supabase
-      .from('sessions')
-      .select('id, grand_prix_id, type, status, session_date, number')
-      .order('session_date', { ascending: true }),
-  ]);
+  const seasons = seasonsResponse.data as Season[];
+  const grandPrix = (grandPrixResponse.data || []) as GrandPrix[];
+  const grandPrixIds = grandPrix.map((item) => item.id);
+  const sessionsResponse = grandPrixIds.length
+    ? await supabase
+        .from('sessions')
+        .select('id, grand_prix_id, type, status, session_date, number')
+        .in('grand_prix_id', grandPrixIds)
+        .order('session_date', { ascending: true })
+    : { data: [], error: null };
 
-  if (grandPrixResponse.error || sessionsResponse.error) {
+  if (sessionsResponse.error) {
     throw new Error('Non è stato possibile caricare il calendario MotoGP.');
   }
 
   return {
-    season,
-    grandPrix: (grandPrixResponse.data || []) as GrandPrix[],
+    seasons,
+    season: seasons[0],
+    grandPrix,
     sessions: (sessionsResponse.data || []) as RaceSession[],
   };
 }
@@ -470,6 +475,7 @@ export function MyResultsContent({
   onOpenOfficialResults: () => void;
 }) {
   const [season, setSeason] = useState<Season | null>(null);
+  const [seasons, setSeasons] = useState<Season[]>([]);
   const [grandPrix, setGrandPrix] = useState<GrandPrix[]>([]);
   const [sessions, setSessions] = useState<RaceSession[]>([]);
   const [predictions, setPredictions] = useState<PredictionScore[]>([]);
@@ -544,6 +550,7 @@ export function MyResultsContent({
         throw new Error('Non è stato possibile caricare le tue leghe.');
       }
 
+      setSeasons(seasonData.seasons);
       setSeason(seasonData.season);
       setGrandPrix(seasonData.grandPrix);
       setSessions(seasonData.sessions);
@@ -576,6 +583,22 @@ export function MyResultsContent({
         : predictions,
     [predictions, selectedLeagueId],
   );
+  const seasonGrandPrix = useMemo(
+    () =>
+      grandPrix.filter((grandPrixItem) => grandPrixItem.season_id === season?.id),
+    [grandPrix, season?.id],
+  );
+  const seasonGrandPrixIds = useMemo(
+    () => new Set(seasonGrandPrix.map((grandPrixItem) => grandPrixItem.id)),
+    [seasonGrandPrix],
+  );
+  const seasonPredictions = useMemo(
+    () =>
+      visiblePredictions.filter((prediction) =>
+        seasonGrandPrixIds.has(prediction.grand_prix_id),
+      ),
+    [seasonGrandPrixIds, visiblePredictions],
+  );
   const predictionRiderMap = useMemo(
     () => new Map(predictionRiders.map((rider) => [rider.id, rider])),
     [predictionRiders],
@@ -583,15 +606,15 @@ export function MyResultsContent({
 
   const rows = useMemo(
     () =>
-      grandPrix.map((grandPrixItem, index) => ({
+      seasonGrandPrix.map((grandPrixItem, index) => ({
         grandPrix: grandPrixItem,
         round: index + 1,
-        prediction: predictionForGp(visiblePredictions, grandPrixItem.id),
+        prediction: predictionForGp(seasonPredictions, grandPrixItem.id),
       })),
-    [grandPrix, visiblePredictions],
+    [seasonGrandPrix, seasonPredictions],
   );
 
-  const scoredPredictions = visiblePredictions.filter(hasScore);
+  const scoredPredictions = seasonPredictions.filter(hasScore);
   const seasonTotal = scoredPredictions.reduce(
     (total, prediction) => total + (toNumber(prediction.total_points) || 0),
     0,
@@ -611,7 +634,7 @@ export function MyResultsContent({
   if (errorMessage) {
     return <ResultsState kind="error" message={errorMessage} onRetry={() => void load()} />;
   }
-  if (!season || grandPrix.length === 0) {
+  if (!season) {
     return <ResultsState kind="empty" message="Nessun risultato disponibile" />;
   }
 
@@ -638,6 +661,26 @@ export function MyResultsContent({
             </select>
           </label>
         )}
+        <label className="task21-select-label" htmlFor="task21-results-season">
+          <span>Stagione</span>
+          <select
+            id="task21-results-season"
+            name="season"
+            value={season.id}
+            onChange={(event) => {
+              const nextSeason = seasons.find((item) => item.id === event.target.value);
+              if (nextSeason) setSeason(nextSeason);
+            }}
+            disabled={seasons.length < 2}
+            data-testid="task21-season-select"
+          >
+            {seasons.map((item) => (
+              <option key={item.id} value={item.id}>
+                MotoGP {item.year}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <section className="task21-score-hero" aria-labelledby="task21-season-score">
@@ -645,7 +688,7 @@ export function MyResultsContent({
           <span className="task21-kicker">Punteggio stagione</span>
           <h2 id="task21-season-score">{seasonTotal}</h2>
           <p>
-            {scoredPredictions.length} GP con punteggio disponibile su {grandPrix.length}
+            {scoredPredictions.length} GP con punteggio disponibile su {seasonGrandPrix.length}
           </p>
         </div>
         <div className="task21-hero-side">
@@ -879,6 +922,8 @@ export function LeagueResultsContent({
 }) {
   const [league, setLeague] = useState<League | null>(null);
   const [members, setMembers] = useState<LeagueMember[]>([]);
+  const [season, setSeason] = useState<Season | null>(null);
+  const [seasons, setSeasons] = useState<Season[]>([]);
   const [grandPrix, setGrandPrix] = useState<GrandPrix[]>([]);
   const [sessions, setSessions] = useState<RaceSession[]>([]);
   const [predictions, setPredictions] = useState<PredictionScore[]>([]);
@@ -950,17 +995,15 @@ export function LeagueResultsContent({
 
       setLeague(leagueResponse.data as League);
       setMembers(nextMembers);
+      setSeasons(seasonData.seasons);
+      setSeason(seasonData.season);
       setGrandPrix(seasonData.grandPrix);
       setSessions(seasonData.sessions);
       setPredictions((predictionsResponse.data || []) as PredictionScore[]);
       setSelectedMemberId((current) =>
         current && memberIds.includes(current) ? current : user.id,
       );
-      setSelectedGpId((current) =>
-        current && seasonData.grandPrix.some((item) => item.id === current)
-          ? current
-          : seasonData.grandPrix[seasonData.grandPrix.length - 1]?.id || '',
-      );
+      setSelectedGpId('');
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -976,9 +1019,34 @@ export function LeagueResultsContent({
     void load();
   }, [load]);
 
+  const seasonGrandPrix = useMemo(
+    () =>
+      grandPrix.filter((grandPrixItem) => grandPrixItem.season_id === season?.id),
+    [grandPrix, season?.id],
+  );
+  const seasonGrandPrixIds = useMemo(
+    () => new Set(seasonGrandPrix.map((grandPrixItem) => grandPrixItem.id)),
+    [seasonGrandPrix],
+  );
+  const seasonPredictions = useMemo(
+    () =>
+      predictions.filter((prediction) =>
+        seasonGrandPrixIds.has(prediction.grand_prix_id),
+      ),
+    [predictions, seasonGrandPrixIds],
+  );
+
+  useEffect(() => {
+    setSelectedGpId((current) =>
+      current && seasonGrandPrix.some((item) => item.id === current)
+        ? current
+        : seasonGrandPrix[seasonGrandPrix.length - 1]?.id || '',
+    );
+  }, [seasonGrandPrix]);
+
   const leaderboard = useMemo(() => {
     const rows = members.map((member, index) => {
-      const memberPredictions = predictions.filter(
+      const memberPredictions = seasonPredictions.filter(
         (prediction) => prediction.user_id === member.user_id,
       );
       const scored = memberPredictions.filter(hasScore);
@@ -1007,11 +1075,11 @@ export function LeagueResultsContent({
       }
       return { ...row, rank: previousRank };
     });
-  }, [members, predictions]);
+  }, [members, seasonPredictions]);
 
   const selectedMember = members.find((member) => member.user_id === selectedMemberId);
   const selectedGp = grandPrix.find((item) => item.id === selectedGpId);
-  const selectedPrediction = predictions.find(
+  const selectedPrediction = seasonPredictions.find(
     (prediction) =>
       prediction.user_id === selectedMemberId &&
       prediction.grand_prix_id === selectedGpId,
@@ -1135,7 +1203,7 @@ export function LeagueResultsContent({
       </div>
     );
   }
-  if (!league) return null;
+  if (!league || !season) return null;
 
   return (
     <div className="task21-league-shell">
@@ -1143,8 +1211,28 @@ export function LeagueResultsContent({
         <div>
           <span className="task21-kicker">Fanta MotoGP · Lega</span>
           <h2>{league.name || 'Lega senza nome'}</h2>
-          <p>{members.length} {members.length === 1 ? 'partecipante' : 'partecipanti'} · stagione 2026</p>
+          <p>{members.length} {members.length === 1 ? 'partecipante' : 'partecipanti'} · stagione {season.year}</p>
         </div>
+        <label className="task21-select-label task21-select-label--dark" htmlFor="task21-league-season">
+          <span>Stagione</span>
+          <select
+            id="task21-league-season"
+            name="season"
+            value={season.id}
+            onChange={(event) => {
+              const nextSeason = seasons.find((item) => item.id === event.target.value);
+              if (nextSeason) setSeason(nextSeason);
+            }}
+            disabled={seasons.length < 2}
+            data-testid="task21-league-season-select"
+          >
+            {seasons.map((item) => (
+              <option key={item.id} value={item.id}>
+                MotoGP {item.year}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="task21-invite">
           <span>Codice invito</span>
           <strong>{league.invite_code}</strong>
@@ -1162,7 +1250,7 @@ export function LeagueResultsContent({
           <section className="task21-panel" aria-labelledby="task21-leaderboard-title">
             <div className="task21-panel-heading">
               <div>
-                <span className="task21-kicker">Stagione 2026</span>
+                <span className="task21-kicker">Stagione {season.year}</span>
                 <h2 id="task21-leaderboard-title">Classifica lega</h2>
               </div>
               <Trophy size={25} aria-hidden="true" className="task21-panel-icon" />
