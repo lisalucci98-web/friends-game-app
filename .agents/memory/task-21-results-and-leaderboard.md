@@ -56,6 +56,7 @@ I punteggi sono letti dalle colonne già presenti in `predictions`: `qualifying_
 - Prima della chiusura il pannello mostra solo lo stato e il messaggio `Pronostico nascosto fino alla chiusura del GP`.
 - L’autorizzazione della lega viene verificata con l’appartenenza dell’utente corrente a `league_members`; non sono state introdotte modifiche RLS.
 - La validazione completa con due sessioni browser autenticate non è stata possibile nel preview corrente, perché non era disponibile una sessione utente interattiva. Le policy RLS esistenti devono quindi continuare a essere considerate il confine server-side della privacy.
+- Il service role REST non sostituisce una sessione utente per le RPC che richiedono `auth.uid()`; i controlli autenticati di classifica e privacy richiedono quindi un browser con sessione reale.
 
 ## Limitazioni note
 
