@@ -68,7 +68,7 @@ Regole speciali applicate:
 |marty.bria1996|ITA|41fc7021-5532-575b-9814-37ebf8f1433d|3|3|0/2/20/3/0/25|5/2/23/3/0/30|30|
 |alessandro.cavasso.1995|GBR|b7f18f49-1f80-5e61-9883-29acebd3f35e|3|3|0/9/7/2/-1/17|5/9/8/2/-1/22|22|
 
-I punti delle entry sono assegnati solo alla relativa previsione: Pole, tempo Qualifica, Sprint P1–P3, Gara P1–P5 e bonus OUT. Bonus top-five/exact-order, penalty OUT e malus L restano componenti aggregate della Gara e non vengono attribuiti artificialmente a un’altra entry.
+I punti delle entry sono assegnati solo alla relativa previsione: Pole, tempo Qualifica, Sprint P1–P3, Gara P1–P5 e bonus OUT. Bonus top-five/exact-order, penalty OUT e malus NC restano componenti aggregate della Gara e non vengono attribuiti artificialmente a un’altra entry.
 
 |Utente|GP|Prediction ID|Tipo|Posizione|Entry ID|DB points|Proposed points|
 |---|---|---|---|---|---|---|---|
