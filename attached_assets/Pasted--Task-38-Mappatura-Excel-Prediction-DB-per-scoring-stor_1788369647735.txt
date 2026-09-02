@@ -1,0 +1,391 @@
+# Task 38 — Mappatura Excel → Prediction DB per scoring storico
+
+## Obiettivo
+
+Il Task 37 dry-run ha correttamente bloccato l'apply perché:
+
+* 81 prediction complete;
+* solo 8/10 fixture obbligatori sono ricostruibili con prova Excel sufficiente;
+* 73 prediction complete non hanno ancora una prova Excel riga-per-riga sufficiente;
+* 30 prediction sono partial;
+* 2 prediction sono extra/non presenti nella sorgente storica.
+
+Prima di modificare qualsiasi dato, voglio ora verificare se le 73 prediction `HISTORICAL_UNCERTAIN` possono essere rese deterministiche attraverso una **mappatura diretta riga-per-riga tra la sorgente Excel storica e la prediction presente nel database**.
+
+Questo task è ancora **100% READ-ONLY**.
+
+---
+
+# 1. NON modificare il database
+
+Durante tutto il task:
+
+* INSERT = 0
+* UPDATE = 0
+* DELETE = 0
+* UPSERT = 0
+* RPC `score_prediction` = 0
+* nessuna modifica a `predictions`
+* nessuna modifica a `prediction_entries`
+* nessuna modifica a `session_results`
+* nessuna modifica a schema
+* nessuna modifica RLS
+* nessuna modifica workflow.
+
+---
+
+# 2. Sorgente storica
+
+Utilizzare gli stessi file Excel già individuati nei Task 31/32.
+
+NON utilizzare una nuova fonte.
+
+Per ogni GP, individuare la riga dell'utente corrispondente nella sorgente storica.
+
+La corrispondenza deve essere verificata usando almeno:
+
+* GP;
+* utente;
+* contenuto del pronostico.
+
+Non affidarsi solamente al nome se esistono possibili ambiguità.
+
+---
+
+# 3. Mappatura obbligatoria
+
+Per ogni prediction COMPLETE presente nel DB creare una mappatura:
+
+| Utente | GP | Prediction DB ID | Excel file | Excel sheet | Excel row | Match utente | Match GP | Match pronostico | Scoring deterministico |
+| ------ | -- | ---------------- | ---------- | ----------- | --------: | ------------ | -------- | ---------------- | ---------------------- |
+
+Il campo `Excel row` deve identificare concretamente la riga utilizzata.
+
+Se possibile, riportare anche il riferimento alla cella/range delle colonne contenenti:
+
+* Pole;
+* tempo pole;
+* Sprint P1/P2/P3;
+* Gara P1/P2/P3/P4/P5;
+* OUT.
+
+---
+
+# 4. NON limitarsi al totale
+
+La prova deve essere a livello di singolo pronostico.
+
+Per esempio, per:
+
+**Niky / Thailandia**
+
+dimostrare:
+
+Excel row → prediction DB → prediction_entries.
+
+Poi:
+
+| Entry DB | Tipo | Rider/valore DB | Valore Excel | Punti proposti |
+| -------- | ---- | --------------- | ------------ | -------------: |
+
+Il totale deve essere ricostruito dalle singole componenti.
+
+Per Thailandia verificare esplicitamente:
+
+**8 + 3 + 10 = 21**
+
+---
+
+# 5. Verifica delle 81 prediction COMPLETE
+
+Tentare di mappare tutte le 81 prediction complete.
+
+Per ciascuna classificare:
+
+### VERIFIED
+
+Esiste una corrispondenza univoca:
+
+Excel row → DB prediction → DB entries.
+
+Il punteggio può essere determinato senza supposizioni.
+
+### AMBIGUOUS
+
+Esiste più di una possibile riga o corrispondenza.
+
+NON scegliere arbitrariamente.
+
+### NOT_FOUND
+
+Non è stata trovata una riga Excel corrispondente.
+
+### INCOMPLETE_SOURCE
+
+La riga Excel esiste ma non contiene abbastanza informazioni per determinare il punteggio.
+
+---
+
+# 6. Per le VERIFIED
+
+Per ogni prediction verificata produrre:
+
+* prediction ID;
+* Excel file;
+* sheet;
+* row;
+* valori del pronostico;
+* scoring per ogni entry;
+* Qualifica;
+* Sprint;
+* Gara;
+* Bonus;
+* Malus;
+* Totale.
+
+Il punteggio deve essere prodotto dal **Task 32 canonical scorer**.
+
+NON modificare il DB.
+
+---
+
+# 7. Confronto con il DB
+
+Per ogni VERIFIED confrontare:
+
+### `prediction_entries.points`
+
+con:
+
+### `points` proposti dallo scorer storico.
+
+E confrontare:
+
+### aggregati `predictions`
+
+con:
+
+### aggregati storici ricostruiti.
+
+Creare:
+
+| Utente | GP | Prediction ID | DB Total | Excel Total |  Δ | Entry DB points | Entry proposed points | Stato |
+| ------ | -- | ------------- | -------: | ----------: | -: | --------------- | --------------------- | ----- |
+
+---
+
+# 8. Importantissimo: non usare l'assenza dei punti come motivo di incertezza
+
+Il Task 36 ha già dimostrato che:
+
+**1116/1116 `prediction_entries.points = 0`**
+
+Quindi il fatto che le entry abbiano `points = 0` NON deve essere considerato una prova che il dato storico sia incerto.
+
+È proprio il problema che vogliamo correggere.
+
+La prova deve derivare dalla corrispondenza:
+
+**Excel → prediction → entry**
+
+non dai punti attualmente memorizzati.
+
+---
+
+# 9. Prediction PARTIAL
+
+Le 30 prediction partial devono rimanere escluse.
+
+NON cercare di completarle automaticamente.
+
+NON creare entry mancanti.
+
+NON modificarle.
+
+Classificarle:
+
+`PARTIAL_EXCLUDED`
+
+anche se esiste una riga Excel.
+
+---
+
+# 10. Extra
+
+Mantenere separate:
+
+* Nicholas / RSM
+* Nicholas / ARA
+
+Classificazione:
+
+`EXTRA_NOT_IN_HISTORICAL_SOURCE`
+
+NON modificarle.
+
+---
+
+# 11. Marino / Aragon
+
+La prediction DB non esiste.
+
+Classificare:
+
+`MISSING_DB_PREDICTION`
+
+NON creare nessun record.
+
+---
+
+# 12. Qatar
+
+Mantenere la gestione già stabilita.
+
+Se non è possibile determinare il punteggio con dati sufficienti:
+
+`MISSING_DATA`
+
+NON inventare il risultato.
+
+---
+
+# 13. Fixture obbligatori
+
+Verificare esplicitamente:
+
+1. Niky / Thailandia
+2. Niky / Brasile
+3. Niky / Francia
+4. Niky / Aragon
+5. Marty / Catalogna
+6. Marty / Italia
+7. Simo / Thailandia
+8. Alessandro / Spagna
+9. Alessandro / UK
+10. Marino / Aragon
+
+Per ciascuno indicare:
+
+* Excel row trovata;
+* prediction DB trovata;
+* mapping riuscito/non riuscito;
+* motivo.
+
+ATTENZIONE:
+
+Se Niky / Aragon è effettivamente presente nella sorgente Excel ma la prediction DB è classificata extra, documentare la situazione.
+
+Se Marino / Aragon non esiste nel DB, non crearla.
+
+---
+
+# 14. Obiettivo specifico del task
+
+Voglio capire se i 73 `HISTORICAL_UNCERTAIN` sono realmente incerti oppure se semplicemente il Task 37 non aveva ancora una prova riga-per-riga sufficiente.
+
+L'obiettivo è trasformare, dove possibile:
+
+`HISTORICAL_UNCERTAIN`
+
+in:
+
+`VERIFIED`
+
+attraverso una corrispondenza diretta con la sorgente Excel.
+
+---
+
+# 15. Nessuna correzione automatica
+
+NON fare ancora l'apply.
+
+Anche se una prediction viene classificata `VERIFIED`, non modificarla.
+
+Questo task deve produrre solamente la lista definitiva dei record che POTREBBERO essere corretti in un successivo task.
+
+---
+
+# 16. Output
+
+Creare:
+
+`.agents/outputs/task-38-excel-db-mapping.md`
+
+Il report deve contenere:
+
+## Executive summary
+
+* prediction complete: 81
+* VERIFIED: X
+* AMBIGUOUS: X
+* NOT_FOUND: X
+* INCOMPLETE_SOURCE: X
+* PARTIAL: 30
+* EXTRA: 2
+
+## Tabella completa
+
+Una riga per tutte le 81 prediction complete.
+
+## Dettaglio delle VERIFIED
+
+Per ogni VERIFIED:
+
+* utente;
+* GP;
+* prediction ID;
+* Excel file;
+* sheet;
+* row;
+* valori Excel;
+* valori DB;
+* scoring calcolato;
+* differenza.
+
+## Fixture obbligatori
+
+Dettaglio dei 10 casi.
+
+## Casi non risolvibili
+
+Spiegare esattamente perché.
+
+---
+
+# 17. Test
+
+Obbligatori:
+
+* Task 32 scorer → PASS 10/10
+* Task 33 replay → PASS
+* Task 34 audit → PASS
+* Task 36 diagnosis → PASS
+* Task 37 dry-run → PASS
+* typecheck → PASS
+* build → PASS
+* `git diff --check` → PASS
+
+Controlli di sicurezza:
+
+* RPC `score_prediction`: 0
+* INSERT: 0
+* UPDATE: 0
+* DELETE: 0
+* UPSERT: 0
+* prediction modificate: 0
+* prediction_entries modificate: 0
+* session_results modificate: 0
+* schema modificato: NO
+* RLS modificato: NO.
+
+## Risultato desiderato
+
+NON correggere ancora alcun punteggio.
+
+Voglio ottenere una mappatura verificabile:
+
+**Excel → utente → GP → prediction DB → prediction_entries → punteggio storico**
+
+per il maggior numero possibile delle 81 prediction complete.
+
+Solo dopo questo risultato decideremo quali record possono essere aggiornati in sicurezza.
