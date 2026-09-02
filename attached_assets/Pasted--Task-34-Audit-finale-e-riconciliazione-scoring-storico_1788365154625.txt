@@ -1,0 +1,389 @@
+# Task 34 — Audit finale e riconciliazione scoring storico FantaMotoGP
+
+## Obiettivo
+
+Dopo il completamento del Task 33, eseguire un **audit read-only definitivo** delle prediction storiche della lega `TEST01` per capire esattamente perché i punteggi attualmente memorizzati nel database differiscono dai punteggi ricostruiti secondo le formule Excel storiche.
+
+**NON applicare alcuna modifica al database.**
+
+Questo task serve esclusivamente a produrre una fotografia completa e verificabile delle discrepanze, così da poter decidere in un task successivo come gestire lo storico.
+
+---
+
+## Regola fondamentale
+
+Questo task deve essere **100% read-only**.
+
+NON eseguire:
+
+* INSERT
+* UPDATE
+* DELETE
+* UPSERT
+* RPC `score_prediction`
+* modifica di `predictions`
+* modifica di `prediction_entries`
+* modifica di `session_results`
+* modifica di `leagues`
+* modifica di `league_members`
+* modifiche a schema
+* modifiche RLS
+* modifiche alle funzioni RPC
+* modifiche ai risultati ufficiali
+* modifiche ai workflow esistenti.
+
+Sono consentite esclusivamente query SELECT e calcoli offline.
+
+---
+
+# 1. Usa la stessa sorgente del Task 33
+
+Riutilizza:
+
+* le prediction storiche già individuate dal Task 33;
+* la risoluzione utenti/GP;
+* le formule Excel ricostruite nel Task 32;
+* lo scorer storico validato dal Task 32;
+* la conversione dei tempi Qualifica memorizzati come secondi numerici;
+* gli attuali `session_results` live del database.
+
+NON creare una nuova interpretazione delle regole.
+
+La logica di scoring deve essere esattamente quella già validata dal Task 32.
+
+---
+
+# 2. Analizza tutte le 111 prediction risolte
+
+Per ciascuna prediction storica in `TEST01`, classificare:
+
+### A. Complete
+
+Prediction con tutti gli elementi necessari per essere valutata secondo lo storico.
+
+### B. Partial
+
+Prediction incomplete, già identificate nel Task 33.
+
+Devono rimanere escluse dal confronto numerico finale se non è possibile ricostruire correttamente il punteggio.
+
+### C. Extra
+
+Prediction presenti nel DB ma non nella sorgente storica:
+
+* Nicholas / RSM
+* Nicholas / ARA
+
+Mantenerle separate e NON considerarle errori.
+
+---
+
+# 3. Per ogni prediction COMPLETE
+
+Calcolare offline:
+
+### Qualifica
+
+* Pole points
+* Qualifying Time points
+* Qualifying total
+
+### Sprint
+
+* P1
+* P2
+* P3
+* Sprint total
+
+### Gara
+
+* P1
+* P2
+* P3
+* P4
+* P5
+* OUT bonus
+* OUT penalty
+* L
+* Race position total
+* Race bonus
+* Race total
+
+### Totale
+
+* Qualifying
+* Sprint
+* Race
+* Bonus
+* Malus
+* Grand Total
+
+Confrontare ogni valore con quello attualmente memorizzato nel DB.
+
+---
+
+# 4. Creare una classificazione delle discrepanze
+
+Per ogni prediction complete classificare il risultato in una delle seguenti categorie:
+
+### MATCH
+
+Il punteggio DB coincide completamente con quello ricostruito.
+
+### DATA_DIFFERENCE
+
+La formula è corretta ma il risultato può essere diverso perché gli attuali `session_results` non rappresentano necessariamente gli stessi dati disponibili quando fu creato l'Excel storico.
+
+### SCORING_DIFFERENCE
+
+Gli stessi dati ufficiali producono un punteggio diverso a causa della logica precedentemente utilizzata dal database.
+
+### MISSING_DATA
+
+Non ci sono abbastanza dati ufficiali attualmente disponibili per ricostruire in modo affidabile il punteggio.
+
+### HISTORICAL_UNCERTAIN
+
+Caso che non può essere attribuito con certezza alle categorie precedenti.
+
+NON forzare una classificazione se non è dimostrabile.
+
+---
+
+# 5. Tabella principale obbligatoria
+
+Generare una tabella completa con una riga per ogni prediction COMPLETE.
+
+Colonne minime:
+
+| Utente | GP | Prediction ID | DB Q | Calc Q | ΔQ | DB S | Calc S | ΔS | DB R | Calc R | ΔR | DB Bonus | Calc Bonus | DB Malus | Calc Malus | DB Totale | Calc Totale | ΔTotale | Classificazione |
+| ------ | -- | ------------- | ---: | -----: | -: | ---: | -----: | -: | ---: | -----: | -: | -------: | ---------: | -------: | ---------: | --------: | ----------: | ------: | --------------- |
+
+Se necessario aggiungere ulteriori colonne per spiegare la discrepanza.
+
+---
+
+# 6. Dettaglio delle componenti
+
+Per tutte le prediction con `SCORING_DIFFERENCE`, mostrare anche il dettaglio:
+
+* Pole DB vs Excel
+* Qualifying Time DB vs Excel
+* Sprint DB vs Excel
+* Race DB vs Excel
+* Bonus DB vs Excel
+* Malus DB vs Excel
+* Total DB vs Excel
+
+In particolare verificare separatamente:
+
+### Qualifying Time
+
+Verificare che il tempo venga interpretato correttamente anche quando il DB lo memorizza come numero di secondi.
+
+### Bonus
+
+Usare esclusivamente la modalità bonus già confermata dal Task 31/32.
+
+### OUT
+
+Verificare:
+
+* OUT bonus
+* OUT penalty
+* valore `L`
+
+Ricordare che `L` è definito dalla ricostruzione Excel e **NON equivale semplicemente al numero di `NOT_CLASSIFIED`**.
+
+### Malus
+
+Usare esclusivamente la formula storica:
+
+* L = 0 → 0
+* L = 1 → -1
+* L = 2 → -5
+* L >= 3 → -10
+
+---
+
+# 7. Analisi aggregata
+
+Produrre anche un riepilogo:
+
+* prediction complete totali
+* MATCH
+* DATA_DIFFERENCE
+* SCORING_DIFFERENCE
+* MISSING_DATA
+* HISTORICAL_UNCERTAIN
+* prediction partial
+* prediction extra
+
+E per le prediction complete:
+
+* numero di discrepanze Qualifica
+* numero di discrepanze Sprint
+* numero di discrepanze Gara
+* numero di discrepanze Bonus
+* numero di discrepanze Malus
+* numero di discrepanze Totale
+
+---
+
+# 8. Analisi per GP
+
+Creare un riepilogo per ogni GP storico:
+
+| GP | Complete | Match | Data diff | Scoring diff | Missing data | Totale DB | Totale ricalcolato |
+| -- | -------: | ----: | --------: | -----------: | -----------: | --------: | -----------------: |
+
+Non modificare alcun dato.
+
+---
+
+# 9. Analisi per utente
+
+Creare un riepilogo per ogni utente storico:
+
+| Utente | Prediction complete | Match | Discrepanze | Punti DB | Punti ricalcolati |  Δ |
+| ------ | ------------------: | ----: | ----------: | -------: | ----------------: | -: |
+
+ATTENZIONE:
+
+Non utilizzare questo riepilogo per modificare la classifica.
+
+È solo diagnostico.
+
+---
+
+# 10. Casi già noti
+
+Verificare esplicitamente che l'audit confermi i casi già ricostruiti:
+
+### Niky / Thailandia
+
+La ricostruzione Excel deve produrre:
+
+**21 punti**
+
+con la composizione già verificata nel Task 31/32.
+
+### Marty / Catalogna
+
+La ricostruzione Excel deve produrre:
+
+**13 punti**
+
+con la composizione:
+
+**6 + 9 - 2 = 13**
+
+### Marty / Italia
+
+Verificare che venga mantenuta l'interpretazione Bonus A già confermata, necessaria per ottenere:
+
+**30 punti**
+
+### Marino / Aragon
+
+Verificare il caso utilizzando la sorgente Excel storica e, se disponibile, la prediction DB corrispondente.
+
+Se la prediction DB non è presente, NON inventarla e classificarla semplicemente come caso non confrontabile.
+
+---
+
+# 11. Qatar
+
+Qatar deve essere trattato separatamente.
+
+Come già verificato nei task precedenti, non sono disponibili risultati ufficiali utilizzabili sufficientemente completi per il ricalcolo.
+
+NON inventare risultati.
+
+NON ricostruire artificialmente il punteggio.
+
+Segnalare il GP come `MISSING_DATA` dove appropriato.
+
+---
+
+# 12. Verifica dei 2 extra
+
+Verificare separatamente:
+
+* Nicholas / RSM
+* Nicholas / ARA
+
+Devono essere segnalati come:
+
+`EXTRA_NOT_IN_HISTORICAL_SOURCE`
+
+e non devono essere considerati discrepanze.
+
+---
+
+# 13. Output
+
+Creare:
+
+`.agents/outputs/task-34-historical-scoring-final-audit.md`
+
+Il report deve contenere:
+
+1. Executive summary
+2. Dataset analizzato
+3. Metodo di scoring utilizzato
+4. Tabella completa delle prediction
+5. Dettaglio delle discrepanze
+6. Analisi per GP
+7. Analisi per utente
+8. Casi speciali
+9. Qatar
+10. Extra prediction
+11. Conclusioni
+12. Raccomandazione per il successivo task
+
+---
+
+# 14. Test obbligatori
+
+Prima di concludere:
+
+* Task 32 scorer test → PASS
+* Task 32 special cases → PASS
+* Task 33 replay → PASS
+* nuovo audit → PASS
+* `git diff --check` → PASS
+
+Verificare esplicitamente:
+
+* RPC `score_prediction` chiamate = 0
+* INSERT = 0
+* UPDATE = 0
+* DELETE = 0
+* UPSERT = 0
+* prediction modificate = 0
+* prediction_entries modificate = 0
+* session_results modificati = 0
+* schema modificato = NO
+* RLS modificato = NO
+* RPC modificati = NO
+
+---
+
+# 15. Regola finale
+
+NON correggere ancora i punteggi.
+
+NON applicare lo scorer al database.
+
+NON aggiornare la classifica.
+
+NON modificare la visualizzazione dell'app.
+
+Il risultato finale deve essere esclusivamente un **audit diagnostico read-only** che ci permetta di decidere con certezza, nel task successivo, se:
+
+1. mantenere i punteggi storici attuali;
+2. sostituirli con quelli Excel;
+3. oppure mantenere i punteggi storici Excel come fonte ufficiale per lo storico e usare la nuova logica per i nuovi GP.
+
+Se una discrepanza non può essere spiegata con certezza, NON fare supposizioni: segnalarla come `HISTORICAL_UNCERTAIN`.
