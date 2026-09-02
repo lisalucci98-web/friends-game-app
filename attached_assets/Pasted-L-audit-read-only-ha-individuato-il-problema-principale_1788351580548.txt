@@ -1,0 +1,144 @@
+L'audit read-only ha individuato il problema principale: QUALIFYING_TIME è presente nelle prediction_entries, ma in molte prediction non è presente nel campo aggregato utilizzato dal percorso di scoring. Inoltre esistono differenze strutturali tra lo scoring attuale e i punteggi storici verificati, soprattutto per OUT, bonus e malus.
+
+NON eseguire ancora alcuna scrittura e NON modificare ancora database, RPC o scoring.
+
+Voglio ora una ANALISI READ-ONLY per ricostruire esattamente il metodo corretto di scoring storico.
+
+OBIETTIVO:
+La tabella di punteggi storici che ti ho fornito è il riferimento corretto.
+
+Devi determinare come ottenere esattamente quei punteggi utilizzando:
+
+* prediction_entries storiche;
+* session_results ufficiali;
+* regole del regolamento;
+* eventuale codice/RPC già presente.
+
+USA COME CASI DI TEST OBBLIGATORI almeno:
+
+Niky:
+
+* Thailandia = 21
+* Brasile = 25
+* Francia = 18
+* Aragon = 24
+
+Marty:
+
+* Catalogna = 13
+* Italia = 30
+
+Simo:
+
+* Thailandia = 26
+
+Marino:
+
+* Aragon = 28
+
+Alessandro:
+
+* Spagna = 19
+* UK = 22
+
+Per ciascun caso ricostruisci matematicamente il punteggio:
+
+QUALIFICHE
+
+* punti tempo qualifiche;
+* punti pole;
+* subtotale qualifiche.
+
+SPRINT
+
+* punti P1;
+* punti P2;
+* punti P3;
+* subtotale sprint.
+
+GARA
+
+* punti P1-P5;
+* punti OUT;
+* bonus ordine/top 5;
+* malus;
+* subtotale gara.
+
+TOTALE:
+Qualifiche + Sprint + Gara + Bonus/Malus = totale storico atteso.
+
+IMPORTANTE:
+Non limitarti a descrivere la RPC attuale. Devi verificare se la RPC attuale implementa davvero le regole che hanno prodotto i punteggi storici.
+
+QUALIFYING_TIME:
+Determina perché il valore presente in prediction_entries non viene utilizzato correttamente.
+Verifica:
+
+* come viene salvato il tempo;
+* come viene letto;
+* come viene confrontato con il tempo ufficiale;
+* quali unità/formato vengono utilizzati;
+* se il campo aggregato è realmente necessario;
+* se può essere letto direttamente da prediction_entries senza modificare lo schema.
+
+OUT:
+Ricostruisci la regola effettivamente usata nello storico e confrontala con quella implementata attualmente.
+
+BONUS:
+Ricostruisci esattamente il calcolo storico del bonus:
+
+* 5 punti se ordine esatto dei primi 5;
+* 3 punti se 4 dei 5 sono nella posizione corretta;
+* 1 punto se 3 dei 5 sono nella posizione corretta;
+* +2 se tutti e 5 i piloti selezionati sono comunque nei primi 5, indipendentemente dall'ordine.
+
+MALUS:
+Verifica esattamente la logica storica:
+
+* -1 per un pilota selezionato che non termina;
+* -5 se 3 piloti selezionati non terminano;
+* -10 se tutti e 5 non terminano.
+
+Verifica anche come viene gestita la combinazione bonus + malus.
+
+IMPORTANTE:
+Non modificare le regole sulla base di una supposizione.
+Se il codice attuale differisce dal regolamento o dai punteggi storici, evidenzia la differenza.
+
+DEVI PRODURRE:
+
+1. Una tabella:
+   Caso | Atteso | Ricostruito | Delta | Qualifica | Sprint | Gara | Bonus | Malus
+
+2. Per ogni caso con Delta != 0:
+
+   * causa esatta della differenza;
+   * dato utilizzato;
+   * dato che dovrebbe essere utilizzato.
+
+3. Una conclusione separata:
+
+A. Problemi nei dati prediction_entries
+B. Problemi nei risultati ufficiali
+C. Problemi nel percorso/RPC di scoring
+D. Problemi nella visualizzazione
+
+4. Proponi la MINIMA modifica necessaria per fare in modo che lo scoring attuale produca i punteggi storici corretti.
+
+IMPORTANTE:
+La proposta deve privilegiare:
+
+* riutilizzo delle prediction_entries già presenti;
+* nessuna modifica dello schema se non strettamente necessaria;
+* nessuna modifica ai risultati ufficiali;
+* nessuna modifica ai pronostici;
+* nessuna modifica alle RLS.
+
+NON APPLICARE ANCORA LA SOLUZIONE.
+
+Non chiamare score_prediction.
+Non eseguire UPDATE, INSERT o DELETE.
+Non creare migration.
+Non modificare RPC o funzioni.
+
+Voglio esclusivamente il piano tecnico della correzione e la dimostrazione matematica sui casi di test sopra indicati.
