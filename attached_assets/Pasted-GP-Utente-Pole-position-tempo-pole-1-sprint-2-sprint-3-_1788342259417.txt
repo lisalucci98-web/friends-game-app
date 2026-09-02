@@ -1,0 +1,140 @@
+GP	Utente	Pole position	tempo pole	1 sprint	2 sprint	3 sprint	1gp	2gp	3gp	4gp	5gp	out
+Thailandia	dalla.pozza.silvia@gmail.com	M. Marquez	01:40.600	M. Marquez	A. Marquez	F. Di Giannantonio	M. Marquez	M. Bezzecchi	P. Acosta	R. Fernandez	F. Di Giannantonio	F. Quartararo
+Thailandia	tommaso.strada95@gmail.com	M. Marquez	01:39.800	M. Marquez	F. Di Giannantonio	J. Martin	M. Bezzecchi	M. Marquez	P. Acosta	F. Di Giannantonio	R. Fernandez	A. Ogura
+Thailandia	marino.dilorenzo@gmail.com	N. Bulega	01:35.678				M. Bezzecchi	M. Marquez	R. Fernandez	J. Martin	P. Acosta	J. Miller
+Thailandia	ivan23dell@gmail.com	M. Bezzecchi	01:28.035	M. Marquez	M. Bezzecchi	J. Martin	M. Marquez	M. Bezzecchi	J. Martin	A. Marquez	P. Acosta	R. Fernandez
+Thailandia	alandellosbel8@gmail.com	M. Bezzecchi	01:28.143				M. Marquez	P. Acosta	R. Fernandez	J. Martin	A. Marquez	J. Mir
+Thailandia	alessandro.cavasso.1995@gmail.com	M. Bezzecchi	01:28.245	M. Marquez	M. Bezzecchi	F. Di Giannantonio	M. Bezzecchi	M. Marquez	P. Acosta	R. Fernandez	F. Di Giannantonio	J. Mir
+Thailandia	lucifero1966@gmail.com	M. Marquez	01:28:459	M. Marquez	M. Bezzecchi	P. Acosta	M. Marquez	M. Bezzecchi	P. Acosta	F. Aldeguer	R. Fernandez	B. Binder
+Thailandia	simo.salva92@gmail.com	M. Bezzecchi	01:28.467	M. Bezzecchi	M. Marquez	J. Martin	M. Marquez	M. Bezzecchi	P. Acosta	R. Fernandez	A. Ogura	J. Mir
+Thailandia	marty.bria1996@gmail.com	M. Bezzecchi	01:28:489	M. Bezzecchi	M. Marquez	J. Martin	M. Marquez	M. Bezzecchi	P. Acosta	R. Fernandez	F. Di Giannantonio	T. Razgatlioglu
+Thailandia	nikyturets@gmail.com	M. Bezzecchi	01:28.526	M. Bezzecchi	M. Marquez	F. Di Giannantonio	M. Marquez	M. Bezzecchi	P. Acosta	R. Fernandez	A. Marquez	J. Mir
+Brasile	dalla.pozza.silvia@gmail.com	M. Marquez	01:47.600	M. Bezzecchi	P. Acosta	A. Marquez	M. Marquez	M. Bezzecchi	F. Di Giannantonio	P. Acosta	F. Quartararo	M. Viñales
+Brasile	tommaso.strada95@gmail.com	M. Marquez	01:20.500	M. Bezzecchi	M. Marquez	F. Di Giannantonio	M. Bezzecchi	M. Marquez	F. Di Giannantonio	P. Acosta	F. Quartararo	J. Mir
+Brasile	marino.dilorenzo@gmail.com	M. Marquez	01:20:000	M. Marquez	M. Bezzecchi	F. Di Giannantonio	M. Marquez	M. Bezzecchi	J. Martin	F. Di Giannantonio	F. Bagnaia	J. Mir
+Brasile	ivan23dell@gmail.com	M. Marquez	01:20.936	M. Marquez	M. Bezzecchi	P. Acosta	M. Bezzecchi	M. Marquez	P. Acosta	J. Martin	J. Zarco	F. Quartararo
+Brasile	alandellosbel8@gmail.com			M. Bezzecchi	M. Marquez	F. Di Giannantonio	M. Marquez	F. Di Giannantonio	M. Bezzecchi	J. Martin	P. Acosta	J. Mir
+Brasile	alessandro.cavasso.1995@gmail.com	M. Marquez	01:20.527	M. Marquez	M. Bezzecchi	J. Martin	M. Marquez	M. Bezzecchi	F. Di Giannantonio	J. Martin	A. Marquez	J. Mir
+Brasile	lucifero1966@gmail.com			M. Marquez	M. Bezzecchi	F. Quartararo	M. Marquez	M. Bezzecchi	F. Di Giannantonio	J. Martin	F. Quartararo	B. Binder
+Brasile	simo.salva92@gmail.com	F. Bagnaia	01:17.920	A. Marquez	M. Bezzecchi	F. Di Giannantonio	M. Marquez	F. Di Giannantonio	J. Martin	M. Bezzecchi	A. Ogura	J. Mir
+Brasile	marty.bria1996@gmail.com	J. Martin	01:17.789	M. Bezzecchi	M. Marquez	F. Di Giannantonio	M. Marquez	F. Di Giannantonio	J. Martin	M. Bezzecchi	F. Quartararo	J. Mir
+Brasile	nikyturets@gmail.com	M. Marquez	01:17:850	M. Marquez	M. Bezzecchi	J. Martin	M. Marquez	M. Bezzecchi	F. Di Giannantonio	J. Martin	A. Ogura	B. Binder
+USA	nikyturets@gmail.com	M. Marquez	02:00.500	M. Bezzecchi	F. Di Giannantonio	M. Marquez	M. Bezzecchi	J. Martin	F. Di Giannantonio	F. Bagnaia	P. Acosta	J. Zarco
+USA	ivan23dell@gmail.com	M. Marquez	02:00.367	F. Di Giannantonio	M. Bezzecchi	P. Acosta	J. Martin	M. Bezzecchi	F. Bagnaia	F. Di Giannantonio	M. Marquez	J. Mir
+USA	alandellosbel8@gmail.com	M. Bezzecchi	02:00:100	M. Bezzecchi	M. Marquez	F. Di Giannantonio	M. Bezzecchi	M. Marquez	F. Di Giannantonio	J. Martin	P. Acosta	J. Mir
+USA	tommaso.strada95@gmail.com	M. Marquez	02:00.700	M. Bezzecchi	F. Di Giannantonio	M. Marquez						
+USA	marino.dilorenzo@gmail.com	M. Marquez	02:00.440	F. Di Giannantonio	M. Bezzecchi	M. Marquez	M. Bezzecchi	F. Di Giannantonio	F. Bagnaia	J. Martin	M. Marquez	F. Quartararo
+USA	alessandro.cavasso.1995@gmail.com	M. Marquez	01:59.867	M. Bezzecchi	F. Di Giannantonio	M. Marquez	M. Bezzecchi	F. Di Giannantonio	F. Bagnaia	M. Marquez	J. Martin	J. Mir
+USA	dalla.pozza.silvia@gmail.com	M. Marquez	01:45.100	M. Bezzecchi	M. Marquez	P. Acosta	J. Martin	M. Bezzecchi	P. Acosta	M. Marquez	R. Fernandez	J. Mir
+USA	lucifero1966@gmail.com	M. Marquez	02:00:764	M. Bezzecchi	F. Di Giannantonio	F. Bagnaia	M. Marquez	M. Bezzecchi	F. Bagnaia	F. Di Giannantonio	F. Aldeguer	J. Zarco
+USA	simo.salva92@gmail.com	M. Bezzecchi	02:01.050	M. Bezzecchi	F. Di Giannantonio	P. Acosta	M. Bezzecchi	F. Di Giannantonio	F. Bagnaia	J. Martin	P. Acosta	T. Razgatlioglu
+USA	marty.bria1996@gmail.com	M. Bezzecchi	02:00.980	F. Di Giannantonio	M. Bezzecchi	F. Bagnaia	F. Bagnaia	F. Di Giannantonio	J. Martin	M. Bezzecchi	J. Mir	J. Zarco
+Qatar	alandellosbel8@gmail.com											
+Qatar	ivan23dell@gmail.com											
+Qatar	marino.dilorenzo@gmail.com											
+Qatar	lucifero1966@gmail.com											
+Qatar	nikyturets@gmail.com											
+Qatar	davide.bettio.3@gmail.com											
+Qatar	dalla.pozza.silvia@gmail.com											
+Qatar	alessandro.cavasso.1995@gmail.com											
+Qatar	tommaso.strada95@gmail.com											
+Qatar	mosemilan8@gmail.com											
+Spagna	alessandro.cavasso.1995@gmail.com	M. Marquez	01:43.274	M. Marquez	M. Bezzecchi	F. Di Giannantonio	M. Marquez	A. Marquez	M. Bezzecchi	F. Di Giannantonio	J. Martin	J. Mir
+Spagna	simo.salva92@gmail.com	P. Acosta	01:48.300	M. Marquez	M. Bezzecchi	F. Di Giannantonio	M. Marquez	M. Bezzecchi	F. Di Giannantonio	A. Marquez	P. Acosta	J. Mir
+Spagna	marty.bria1996@gmail.com	P. Acosta	01:47.980	M. Marquez	F. Di Giannantonio	M. Bezzecchi	M. Marquez	F. Di Giannantonio	M. Bezzecchi	P. Acosta	A. Marquez	J. Mir
+Spagna	ivan23dell@gmail.com	M. Marquez	01:35.267	M. Marquez	M. Bezzecchi	A. Marquez	M. Bezzecchi	M. Marquez	P. Acosta	A. Marquez	J. Martin	R. Fernandez
+Spagna	alandellosbel8@gmail.com			M. Marquez	M. Bezzecchi	F. Di Giannantonio	A. Marquez	M. Marquez	M. Bezzecchi	F. Di Giannantonio	P. Acosta	J. Mir
+Spagna	nikyturets@gmail.com	F. Di Giannantonio	01:35.610	M. Marquez	M. Bezzecchi	F. Di Giannantonio	M. Bezzecchi	M. Marquez	A. Marquez	F. Di Giannantonio	J. Martin	J. Miller
+Spagna	lucifero1966@gmail.com	M. Bezzecchi	01:37:159	M. Marquez	M. Bezzecchi	F. Bagnaia	A. Marquez	M. Marquez	F. Bagnaia	M. Bezzecchi	F. Di Giannantonio	A. Ogura
+Spagna	dalla.pozza.silvia@gmail.com	M. Bezzecchi	01:36.900	Marc Marquez	Francesco Bagnaia	Franco Morbidelli	M. Bezzecchi	M. Marquez	F. Di Giannantonio	P. Acosta	F. Bagnaia	P. Espargaro
+Francia	marino.dilorenzo@gmail.com	F. Di Giannantonio	01:29.450	M. Marquez	F. Bagnaia	F. Di Giannantonio	M. Bezzecchi	J. Martin	F. Bagnaia	F. Di Giannantonio	M. Marquez	J. Mir
+Francia	nikyturets@gmail.com	F. Di Giannantonio	01:29.430	M. Marquez	M. Bezzecchi	F. Bagnaia	M. Bezzecchi	J. Martin	F. Bagnaia	P. Acosta	F. Di Giannantonio	J. Mir
+Francia	simo.salva92@gmail.com			M. Marquez	M. Bezzecchi	F. Bagnaia	J. Martin	F. Bagnaia	F. Di Giannantonio	M. Bezzecchi	P. Acosta	F. Morbidelli
+Francia	ivan23dell@gmail.com	F. Di Giannantonio	01:29.526	M. Marquez	M. Bezzecchi	F. Bagnaia	M. Bezzecchi	J. Martin	P. Acosta	A. Marquez	F. Bagnaia	F. Di Giannantonio
+Francia	marty.bria1996@gmail.com			M. Bezzecchi	M. Marquez	F. Bagnaia	F. Bagnaia	J. Martin	M. Bezzecchi	F. Di Giannantonio	J. Zarco	F. Morbidelli
+Francia	alessandro.cavasso.1995@gmail.com	Marc Marquez		Marc Marquez	Fabio Quartararo	Alex Marquez	M. Bezzecchi	J. Martin	F. Bagnaia	M. Marquez	F. Di Giannantonio	J. Mir
+Francia	tommaso.strada95@gmail.com	F. Bagnaia	01:29.200	M. Marquez	M. Bezzecchi	F. Bagnaia	Marc Marquez	Alex Marquez	Francesco Bagnaia	Fabio Quartararo	Fermin Aldeguer	Joan Mir
+Francia	alandellosbel8@gmail.com	F. Di Giannantonio	01:28.231	M. Marquez	M. Bezzecchi	F. Bagnaia	M. Bezzecchi	M. Marquez	F. Bagnaia	J. Martin	J. Zarco	J. Mir
+Catalogna	nikyturets@gmail.com	A. Marquez	01:37.628	P. Acosta	A. Marquez	R. Fernandez	A. Marquez	P. Acosta	F. Di Giannantonio	R. Fernandez	A. Ogura	J. Martin
+Catalogna	mosemilan8@gmail.com	Marc Marquez	01:38:799				Alex Marquez	Marc Marquez	Pedro Acosta	Fabio Di Giannantonio	Enea Bastianini	Joan Mir
+Catalogna	lucifero1966@gmail.com	Pedro Acosta	01:37:222	#N/A			Alex Marquez	Marc Marquez	Enea Bastianini	Fabio Di Giannantonio	Pedro Acosta	Johann Zarco
+Catalogna	tommaso.strada95@gmail.com	A. Marquez	01:37:400	M. Bezzecchi	A. Marquez	F. Di Giannantonio	Marc Marquez	Alex Marquez	Fabio Quartararo	Pedro Acosta	Johann Zarco	Joan Mir
+Catalogna	dalla.pozza.silvia@gmail.com	M. Bezzecchi	01:38.600	Marc Marquez	Marco Bezzecchi	Jorge Martin	Marc Marquez	Pedro Acosta	Alex Marquez	Fabio Di Giannantonio	Fabio Quartararo	Francesco Bagnaia
+Catalogna	marino.dilorenzo@gmail.com	A. Marquez	01:38.150	P. Acosta	A. Marquez	R. Fernandez	P. Acosta	A. Marquez	J. Martin	F. Di Giannantonio	R. Fernandez	J. Zarco
+Catalogna	alessandro.cavasso.1995@gmail.com	P. Acosta	01:38.427	P. Acosta	A. Marquez	R. Fernandez	F. Di Giannantonio	A. Marquez	P. Acosta	R. Fernandez	J. Martin	J. Mir
+Catalogna	alandellosbel8@gmail.com											
+Catalogna	ivan23dell@gmail.com	M. Bezzecchi	01:38.221	P. Acosta	R. Fernandez	A. Marquez	J. Martin	R. Fernandez	M. Bezzecchi	F. Di Giannantonio	F. Quartararo	B. Binder
+Catalogna	davide.bettio.3@gmail.com											
+Catalogna	marty.bria1996@gmail.com	P. Acosta	01:37.589	A. Marquez	P. Acosta	F. Di Giannantonio	A. Marquez	F. Di Giannantonio	J. Martin	R. Fernandez	P. Acosta	B. Binder
+Catalogna	simo.salva92@gmail.com	A. Marquez	01:37.700	P. Acosta	A. Marquez	R. Fernandez	A. Marquez	F. Di Giannantonio	J. Martin	P. Acosta	R. Fernandez	J. Mir
+Italia	marty.bria1996@gmail.com	F. Di Giannantonio	01:44:000	M. Bezzecchi	R. Fernandez	J. Martin	M. Bezzecchi	J. Martin	F. Bagnaia	R. Fernandez	F. Di Giannantonio	M. Marquez
+Italia	alandellosbel8@gmail.com			M. Bezzecchi	J. Martin	M. Marquez	M. Bezzecchi	J. Martin	R. Fernandez	M. Marquez	F. Di Giannantonio	J. Mir
+Italia	simo.salva92@gmail.com	F. Di Giannantonio	01:43.970	M. Bezzecchi	A. Marquez	R. Fernandez	M. Bezzecchi	F. Di Giannantonio	J. Martin	F. Bagnaia	R. Fernandez	P. Acosta
+Italia	nikyturets@gmail.com	F. Di Giannantonio	01:44.247	J. Martin	M. Marquez	F. Bagnaia	M. Bezzecchi	J. Martin	F. Di Giannantonio	R. Fernandez	A. Ogura	J. Mir
+Italia	dalla.pozza.silvia@gmail.com	F. Di Giannantonio	01:34.600				M. Bezzecchi	J. Martin	M. Marquez	F. Di Giannantonio	F. Bagnaia	E. Bastianini
+Italia	marino.dilorenzo@gmail.com	F. Di Giannantonio	01:44.220				M. Bezzecchi	J. Martin	F. Di Giannantonio	R. Fernandez	F. Aldeguer	J. Miller
+Italia	lucifero1966@gmail.com			M. Bezzecchi	M. Marquez	F. Bagnaia	M. Bezzecchi	J. Martin	M. Marquez	F. Aldeguer	F. Bagnaia	R. Fernandez
+Italia	ivan23dell@gmail.com	F. Di Giannantonio	01:44.473	M. Bezzecchi	J. Martin	M. Marquez	J. Martin	M. Bezzecchi	R. Fernandez	M. Marquez	P. Acosta	F. Aldeguer
+Italia	tommaso.strada95@gmail.com	F. Bagnaia	01:44.200	F. Di Giannantonio	M. Bezzecchi	F. Bagnaia	J. Martin	M. Bezzecchi	F. Di Giannantonio	R. Fernandez	M. Marquez	J. Mir
+Italia	alessandro.cavasso.1995@gmail.com	F. Bagnaia	01:44.658	M. Bezzecchi	J. Martin	M. Marquez						
+Ungheria	nikyturets@gmail.com	P. Acosta	01:36.500	P. Acosta	M. Marquez	J. Martin	M. Marquez	P. Acosta	M. Bezzecchi	J. Martin	F. Di Giannantonio	J. Mir
+Ungheria	marino.dilorenzo@gmail.com	P. Acosta	01:36.380	M. Marquez	F. Di Giannantonio	P. Acosta	M. Marquez	P. Acosta	F. Aldeguer	M. Bezzecchi	F. Di Giannantonio	D. Moreira
+Ungheria	alandellosbel8@gmail.com	F. Di Giannantonio	01:36.154	M. Marquez	F. Di Giannantonio	P. Acosta	M. Marquez	P. Acosta	M. Bezzecchi	F. Di Giannantonio	F. Aldeguer	J. Mir
+Ungheria	tommaso.strada95@gmail.com	M. Marquez	01:36.450	M. Bezzecchi	M. Marquez	J. Martin	M. Marquez	M. Bezzecchi	F. Di Giannantonio	P. Acosta	J. Martin	J. Mir
+Ungheria	marty.bria1996@gmail.com	P. Acosta	01:36.489	M. Marquez	P. Acosta	F. Di Giannantonio	M. Marquez	P. Acosta	M. Bezzecchi	F. Aldeguer	R. Fernandez	J. Miller
+Ungheria	dalla.pozza.silvia@gmail.com	P. Acosta	01:36.900				M. Marquez	M. Bezzecchi	P. Acosta	J. Martin	A. Fernandez	E. Bastianini
+Ungheria	simo.salva92@gmail.com	P. Acosta	01:36.640	M. Marquez	F. Di Giannantonio	P. Acosta	M. Marquez	M. Bezzecchi	P. Acosta	J. Martin	F. Aldeguer	B. Binder
+Ungheria	lucifero1966@gmail.com			M. Marquez	P. Acosta	M. Bezzecchi	M. Bezzecchi	F. Di Giannantonio	M. Marquez	P. Acosta	F. Bagnaia	E. Bastianini
+Ungheria	alessandro.cavasso.1995@gmail.com	M. Marquez	01:35.457	P. Acosta	F. Di Giannantonio	M. Marquez	M. Bezzecchi	P. Acosta	M. Marquez	J. Martin	R. Fernandez	J. Mir
+Ungheria	ivan23dell@gmail.com	F. Di Giannantonio	01:36.837	M. Bezzecchi	J. Martin	F. Di Giannantonio	M. Bezzecchi	J. Martin	P. Acosta	F. Aldeguer	R. Fernandez	M. Marquez
+Repubblica Ceca	nikyturets@gmail.com	M. Marquez	01:52.000	A. Ogura	M. Marquez	M. Bezzecchi	A. Ogura	M. Marquez	F. Bagnaia	F. Di Giannantonio	P. Acosta	J. Mir
+Repubblica Ceca	mosemilan8@gmail.com	#N/A		#N/A			#N/A					
+Repubblica Ceca	lucifero1966@gmail.com	M. Bezzecchi	01:51:353	M. Bezzecchi	F. Bagnaia	M. Marquez	F. Bagnaia	M. Marquez	A. Ogura	F. Di Giannantonio	R. Fernandez	J. Mir
+Repubblica Ceca	tommaso.strada95@gmail.com											
+Repubblica Ceca	dalla.pozza.silvia@gmail.com											
+Repubblica Ceca	marino.dilorenzo@gmail.com	M. Bezzecchi	01:51.100	A. Ogura	F. Di Giannantonio	M. Marquez	A. Ogura	F. Bagnaia	F. Di Giannantonio	M. Marquez	P. Acosta	J. Mir
+Repubblica Ceca	alessandro.cavasso.1995@gmail.com	M. Bezzecchi	01:51.347	M. Bezzecchi	A. Ogura	F. Di Giannantonio	A. Ogura	F. Di Giannantonio	R. Fernandez	F. Bagnaia	M. Marquez	J. Mir
+Repubblica Ceca	alandellosbel8@gmail.com											
+Repubblica Ceca	ivan23dell@gmail.com	M. Bezzecchi	01:51:134	M. Bezzecchi	F. Di Giannantonio	M. Marquez	M. Bezzecchi	J. Martin	P. Acosta	M. Marquez	A. Ogura	F. Aldeguer
+Repubblica Ceca	davide.bettio.3@gmail.com											
+Repubblica Ceca	marty.bria1996@gmail.com	M. Bezzecchi	01:51.689	M. Bezzecchi	F. Di Giannantonio	A. Ogura	F. Bagnaia	M. Marquez	A. Ogura	F. Di Giannantonio	R. Fernandez	P. Acosta
+Repubblica Ceca	simo.salva92@gmail.com	M. Bezzecchi	01:51.640	F. Bagnaia	F. Di Giannantonio	A. Ogura	F. Bagnaia	M. Marquez	A. Ogura	F. Di Giannantonio	D. Moreira	M. Viñales
+Netherlands	alandellosbel8@gmail.com											
+Netherlands	ivan23dell@gmail.com											
+Netherlands	marino.dilorenzo@gmail.com	M. Bezzecchi	01:30.580	M. Bezzecchi	R. Fernandez	J. Martin	M. Bezzecchi	A. Ogura	R. Fernandez	J. Martin	F. Di Giannantonio	E. Bastianini
+Netherlands	lucifero1966@gmail.com			M. Bezzecchi	A. Ogura	F. Bagnaia	M. Bezzecchi	R. Fernandez	F. Bagnaia	M. Marquez	A. Ogura	R. Fernandez
+Netherlands	nikyturets@gmail.com	M. Bezzecchi	01:30.450	J. Martin	M. Bezzecchi	A. Ogura	M. Bezzecchi	A. Ogura	R. Fernandez	J. Martin	F. Di Giannantonio	B. Binder
+Netherlands	davide.bettio.3@gmail.com											
+Netherlands	dalla.pozza.silvia@gmail.com	M. Marquez	01:37.100									
+Netherlands	alessandro.cavasso.1995@gmail.com						M. Bezzecchi	A. Ogura	J. Martin	F. Di Giannantonio	R. Fernandez	J. Mir
+Netherlands	tommaso.strada95@gmail.com											
+Netherlands	mosemilan8@gmail.com											
+Netherlands	simo.salva92@gmail.com	M. Bezzecchi	01:30.945	M. Bezzecchi	J. Martin	F. Bagnaia	M. Bezzecchi	A. Ogura	R. Fernandez	F. Bagnaia	J. Martin	J. Mir
+Netherlands	marty.bria1996@gmail.com	M. Bezzecchi	01:30.790	M. Bezzecchi	J. Martin	A. Ogura	R. Fernandez	M. Bezzecchi	F. Bagnaia	A. Ogura	F. Di Giannantonio	F. Quartararo
+Germania	nikyturets@gmail.com	M. Marquez	01:19.195	M. Marquez	R. Fernandez	A. Marquez	M. Marquez	F. Di Giannantonio	A. Ogura	A. Marquez	R. Fernandez	J. Mir
+Germania	mosemilan8@gmail.com											
+Germania	lucifero1966@gmail.com	R. Fernandez	01:18:123	M. Marquez	R. Fernandez	F. Di Giannantonio						
+Germania	tommaso.strada95@gmail.com											
+Germania	dalla.pozza.silvia@gmail.com											
+Germania	marino.dilorenzo@gmail.com	M. Marquez	01:18.980	M. Marquez	F. Di Giannantonio	R. Fernandez	M. Marquez	A. Marquez	F. Di Giannantonio	A. Ogura	J. Martin	D. Moreira
+Germania	alessandro.cavasso.1995@gmail.com	M. Marquez	01:39.224	M. Marquez	F. Di Giannantonio	R. Fernandez	M. Marquez	F. Di Giannantonio	A. Marquez	A. Ogura	R. Fernandez	J. Mir
+Germania	alandellosbel8@gmail.com			M. Marquez	F. Di Giannantonio	A. Marquez						
+Germania	ivan23dell@gmail.com											
+Germania	davide.bettio.3@gmail.com											
+Germania	simo.salva92@gmail.com	M. Marquez	01:19.240	M. Marquez	F. Di Giannantonio	A. Marquez	A. Marquez	M. Marquez	A. Ogura	F. Di Giannantonio	R. Fernandez	J. Mir
+Germania	marty.bria1996@gmail.com	M. Marquez	01:19.167	M. Marquez	F. Di Giannantonio	R. Fernandez	M. Marquez	A. Marquez	F. Di Giannantonio	A. Ogura	R. Fernandez	E. Bastianini
+UK	alessandro.cavasso.1995@gmail.com	M. Bezzecchi	01:56.128	J. Martin	A. Ogura	M. Bezzecchi	M. Bezzecchi	J. Martin	A. Ogura	F. Di Giannantonio	R. Fernandez	J. Mir
+UK	simo.salva92@gmail.com	M. Bezzecchi	01:56.250	J. Martin	A. Ogura	R. Fernandez	J. Martin	A. Ogura	R. Fernandez	M. Bezzecchi	A. Marquez	J. Mir
+UK	nikyturets@gmail.com	M. Bezzecchi	01:56.354	R. Fernandez	A. Ogura	F. Di Giannantonio	A. Ogura	J. Martin	M. Bezzecchi	R. Fernandez	F. Di Giannantonio	J. Mir
+UK	marty.bria1996@gmail.com	R. Fernandez	01:56.020	J. Martin	R. Fernandez	A. Ogura	J. Martin	A. Ogura	R. Fernandez	M. Bezzecchi	F. Di Giannantonio	P. Acosta
+UK	lucifero1966@gmail.com	R. Fernandez	01:56:148	R. Fernandez	M. Marquez	J. Martin	J. Martin	A. Ogura	M. Marquez	F. Di Giannantonio	M. Bezzecchi	F. Morbidelli
+UK	alandellosbel8@gmail.com						J. Martin	M. Bezzecchi	A. Ogura	M. Marquez	R. Fernandez	J. Mir
+UK	ivan23dell@gmail.com	M. Bezzecchi	01:55.828				J. Martin	M. Bezzecchi	A. Ogura	R. Fernandez	F. Di Giannantonio	L. Marini
+UK	tommaso.strada95@gmail.com	M. Bezzecchi	01:56.067	M. Bezzecchi	J. Martin	A. Ogura						
+UK	marino.dilorenzo@gmail.com			A. Ogura	J. Martin	R. Fernandez						
+Aragon	lucifero1966@gmail.com	R. Fernandez	01:45:324	M. Bezzecchi	A. Marquez	M. Marquez	M. Marquez	A. Marquez	M. Bezzecchi	J. Martin	F. Bagnaia	J. Zarco
+Aragon	ivan23dell@gmail.com	M. Bezzecchi	01:45.145	M. Bezzecchi	M. Marquez	J. Martin	J. Martin	M. Bezzecchi	A. Ogura	P. Acosta	F. Aldeguer	F. Quartararo
+Aragon	tommaso.strada95@gmail.com						M. Marquez	M. Bezzecchi	J. Mir	A. Marquez	P. Acosta	J. Mir
+Aragon	simo.salva92@gmail.com	M. Bezzecchi	01:44.350	M. Bezzecchi	M. Marquez	A. Marquez						
+Aragon	alessandro.cavasso.1995@gmail.com			A. Marquez	M. Bezzecchi	A. Marquez						
+Aragon	marty.bria1996@gmail.com			M. Bezzecchi	M. Marquez	A. Marquez						
