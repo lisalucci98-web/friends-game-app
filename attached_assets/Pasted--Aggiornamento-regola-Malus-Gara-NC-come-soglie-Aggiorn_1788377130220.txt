@@ -1,0 +1,106 @@
+# Aggiornamento regola Malus Gara — NC come soglie
+
+Aggiorna la logica di calcolo del punteggio di FantaMotoGP secondo il regolamento ufficiale.
+
+## Regola ufficiale
+
+La tabella del regolamento rappresenta **soglie cumulative**, quindi il malus deve essere calcolato così:
+
+| Numero piloti non classificati (NC) | Malus Gara |
+| ----------------------------------: | ---------: |
+|                                   0 |          0 |
+|                                   1 |         -1 |
+|                                   2 |         -1 |
+|                                   3 |         -5 |
+|                                   4 |         -5 |
+|                                   5 |        -10 |
+
+In altre parole:
+
+```text
+NC = 0 → 0
+NC = 1–2 → -1
+NC = 3–4 → -5
+NC >= 5 → -10
+```
+
+## Importante: definizione di NC
+
+Mantieni la definizione già utilizzata dal progetto:
+
+`NC` deve essere determinato verificando quanti dei **5 piloti pronosticati per la Gara** risultano presenti nella lista ufficiale degli `Out`/non classificati.
+
+Non usare semplicemente il numero totale dei piloti `NOT_CLASSIFIED` della sessione.
+
+## Obiettivo
+
+Individua tutte le implementazioni della logica del malus Gara nel progetto e verifica che utilizzino questa funzione/regola.
+
+Cerca in particolare:
+
+* scorer storico;
+* scorer live;
+* funzioni/RPC utilizzate per aggiornare il punteggio;
+* eventuali utility condivise;
+* test automatici;
+* eventuali script di import/scoring storico.
+
+## Compatibilità
+
+NON modificare:
+
+* struttura DB;
+* schema;
+* RLS;
+* formato delle prediction;
+* regole di Qualifica;
+* regole Pole;
+* regole Sprint;
+* regole Gara Top 5;
+* bonus Gara;
+* altre regole del regolamento.
+
+Modifica esclusivamente la regola del **Malus Gara NC**.
+
+## Test obbligatori
+
+Aggiungi/verifica test per almeno questi casi:
+
+```text
+0 NC → 0
+1 NC → -1
+2 NC → -1
+3 NC → -5
+4 NC → -5
+5 NC → -10
+```
+
+Aggiungi inoltre un test che dimostri che il conteggio viene effettuato sui **5 piloti pronosticati**, confrontandoli con gli `Out`, e non sul numero totale di `NOT_CLASSIFIED` della gara.
+
+## Storico
+
+Prima di modificare qualsiasi dato storico:
+
+1. esegui un dry-run;
+2. individua tutte le prediction storiche il cui malus cambierebbe con la nuova regola;
+3. mostra:
+
+   * prediction/user/GP
+   * NC attuali
+   * malus attuale
+   * malus corretto
+   * differenza sul totale;
+4. NON eseguire ancora UPDATE/INSERT.
+
+Non modificare alcun dato del database durante questo task senza mia successiva autorizzazione.
+
+## Output finale
+
+Restituisci:
+
+* file modificati;
+* nuova implementazione della regola;
+* test eseguiti e risultato;
+* numero di prediction storiche che cambierebbero;
+* elenco delle prediction interessate dal dry-run;
+* conferma esplicita che non sono state effettuate scritture sul DB.
