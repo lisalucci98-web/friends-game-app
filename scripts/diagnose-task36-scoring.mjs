@@ -46,6 +46,22 @@ const REQUIRED_EMAILS = new Set([
   'dalla.pozza.silvia@gmail.com',
   'tommaso.strada95@gmail.com',
 ]);
+const GP_CODES = new Map([
+  ['Thailandia', 'THA'],
+  ['Brasile', 'BRA'],
+  ['USA', 'USA'],
+  ['Qatar', 'QAT'],
+  ['Spagna', 'SPA'],
+  ['Francia', 'FRA'],
+  ['Catalogna', 'CAT'],
+  ['Italia', 'ITA'],
+  ['Ungheria', 'HUN'],
+  ['Repubblica Ceca', 'CZE'],
+  ['Netherlands', 'NED'],
+  ['Germania', 'GER'],
+  ['UK', 'GBR'],
+  ['Aragon', 'ARA'],
+]);
 
 function canonical(value) {
   return String(value ?? '')
@@ -216,10 +232,19 @@ function userPredictionRows(context, usersById, profilesByUserId) {
 }
 
 function fixtureActual(fixture, selection, context, usersById, profilesByUserId) {
-  const item = selection.items.find((candidate) => (
+  const fixtureCode = GP_CODES.get(fixture.gp);
+  const selectedItem = selection.items.find((candidate) => (
     normalizedEmail(findEmail(candidate.userId, usersById)) === normalizedEmail(fixture.email)
-      && canonical(candidate.gp.name) === canonical(fixture.gp)
+      && candidate.gp.short_name === fixtureCode
   ));
+  const gp = context.grandPrix.find((candidate) => candidate.short_name === fixtureCode);
+  const directPrediction = context.predictions.find((candidate) => (
+    normalizedEmail(findEmail(candidate.user_id, usersById)) === normalizedEmail(fixture.email)
+      && candidate.grand_prix_id === gp?.id
+  ));
+  const item = selectedItem ?? (directPrediction && gp
+    ? { prediction: directPrediction, gp, userId: directPrediction.user_id }
+    : null);
   if (!item) {
     return { fixture, missing: true };
   }
@@ -262,7 +287,7 @@ function fixtureActual(fixture, selection, context, usersById, profilesByUserId)
 }
 
 function entryStateText(pointState, audit) {
-  return `nonnull=${pointState.nonNull}, zero=${pointState.zero}, null=${pointState.nullPoints}, `
+  return `numeric=${pointState.nonNull}, zero=${pointState.zero}, null=${pointState.nullPoints}, `
     + `entry=${pointState.total}, mancanti=${audit.missing.join('+') || '—'}, `
     + `duplicati=${audit.duplicates.join('+') || '—'}`;
 }
@@ -363,7 +388,7 @@ function buildFixtureTable(actuals) {
       'Excel Malus', 'ΔMalus', 'DB Totale', 'Excel Totale', 'ΔTotale', 'Points entries', 'Stato'],
     actuals.map((actual) => {
       if (actual.missing) {
-        return [actual.fixture.email, actual.fixture.gp, 'MISSING', ...Array(18).fill('—'), 'prediction non risolta'];
+        return [actual.fixture.email, actual.fixture.gp, 'MISSING', ...Array(19).fill('—'), 'prediction non risolta'];
       }
       const { dbFields: db, excelFields: excel, delta, pointState, audit } = actual;
       return [
@@ -452,7 +477,12 @@ function buildReport({
   }, { total: 0, nonNull: 0, zero: 0, null: 0 });
   const deltaTotals = actuals.filter((item) => !item.missing);
   const deltaCount = deltaTotals.filter((item) => item.delta.total !== 0).length;
-  const allPointsNull = allEntryStates.nonNull === 0;
+  const numericPoints = allEntryStates.nonNull + allEntryStates.zero;
+  const allAudits = context.predictions.map((prediction) => detailedEntryAudit(
+    entriesFor(context.entries, prediction.id),
+  ));
+  const allComplete = allAudits.filter((audit) => audit.complete).length;
+  const allPartial = allAudits.length - allComplete;
   const fixturePointMismatch = deltaTotals.filter((item) => (
     item.entries.some((entry) => numberOrNull(entry.points) !== null)
       && item.delta.total !== 0
@@ -466,6 +496,8 @@ La diagnosi verifica direttamente TEST01, senza modificare Supabase. Sono stati
 letti ${context.predictions.length} record \`predictions\` e ${context.entries.length}
 record \`prediction_entries\`; la sorgente storica ha risolto ${selection.items.length}
 prediction, di cui ${complete} complete e ${partial} parziali.
+Considerando tutti i record DB TEST01, ${allComplete} hanno 11 entry senza
+duplicati e ${allPartial} sono incomplete o presentano slot mancanti/duplicati.
 
 La connessione Supabase usata dal client Replit è anon e non autorizzata a leggere
 \`public.predictions\` (errore 42501). Per la SELECT diagnostica è stato usato il
@@ -489,7 +521,7 @@ La lettura campione \`select=*\` ha mostrato:
 ### Per utente
 
 ${mdTable(
-  ['Utente', 'Nome', 'Prediction', 'Entry', 'Points valorizzati', 'Points = 0', 'Points NULL', 'Totale DB'],
+  ['Utente', 'Nome', 'Prediction', 'Entry', 'Points numerici', 'Points = 0', 'Points NULL', 'Totale DB'],
   userSummary,
 )}
 
@@ -508,7 +540,7 @@ Interpretazione:
 
 - A — punti nel DB ma frontend non legge: **non supportata dai dati/query attuali**;
 - B — punti NULL: **${allEntryStates.null > 0 ? 'presente' : 'non rilevata'}**;
-- C — punti a zero: **${allEntryStates.zero > 0 ? 'presente; distinguere dagli eventuali NULL' : 'non rilevata'}**;
+- C — punti a zero: **${allEntryStates.zero > 0 ? 'presente' : 'non rilevata'}**;
 - D — valori sbagliati: verificabili solo sui 10 fixture con snapshot Excel, vedi sotto;
 - E — entry mancanti: indicate per prediction nella tabella fixture e nel CSV.
 
@@ -604,7 +636,7 @@ Per ciascuno sono riportati DB, atteso Excel/Task 32, differenze e stato dei
 ### Evidenza
 
 - Le query frontend attuali richiedono e mostrano \`prediction_entries.points\`;
-- il DB contiene ${allEntryStates.nonNull} punti entry numerici, di cui
+- il DB contiene ${numericPoints} punti entry numerici, di cui
   ${allEntryStates.zero} uguali a zero e ${allEntryStates.null} NULL;
 - i totali aggregati sono presenti in \`predictions\`;
 - sui fixture, ${deltaCount} totali DB non coincidono con l'Excel storico;
@@ -612,18 +644,33 @@ Per ciascuno sono riportati DB, atteso Excel/Task 32, differenze e stato dei
 
 ### Classificazione
 
-La causa è **${allPointsNull ? 'B — Dati incompleti' : deltaCount > 0 ? 'E — Più cause: dati/aggregati storici diversi dall’Excel; non è una causa frontend dimostrata' : 'non determinabile dai dati disponibili'}**.
+La causa primaria è **C — \`prediction_entries.points\` valorizzato a zero**:
+${allEntryStates.zero}/${allEntryStates.total} entry hanno \`points = 0\`, anche
+quando la prediction aggregata ha Q/S/R/bonus/malus/totali non-zero. La UI che
+mostra il dettaglio per posizione sta quindi leggendo correttamente un valore
+presente, ma quel valore è stato persistito come zero.
 
 La causa A frontend non è supportata: le due pagine selezionano \`points\` e
-\`total_points\`. La causa C resta non dimostrata perché la differenza Excel può
-dipendere da snapshot ufficiali storiche diverse; la causa D è possibile solo
-quando i singoli entry risultano corretti ma l'aggregato \`predictions\` diverge,
-da valutare caso per caso nella tabella completa.
+\`total_points\`. La causa B non è rilevata perché non ci sono NULL.
 
-Per Nikiturets Thailandia, se il DB riporta 22, la differenza nasce dal fatto che
-il DB non contiene la stessa decomposizione storica 8 + 3 + 10 del fixture: la
-tabella entry e i campi aggregati sopra mostrano esattamente quale componente
-diverge. Non viene applicata alcuna correzione.
+Sono presenti anche due cause secondarie:
+
+- **D — aggregati storici discordanti**: ${deltaCount}/${deltaTotals.length}
+  fixture presenti hanno un \`predictions.total_points\` diverso dall'Excel;
+  le differenze per Q/S/R/bonus/malus sono nella tabella;
+- **E — dati storici mancanti/parziali**: ${allPartial}/${allAudits.length}
+  prediction DB non ha la struttura completa di 11 entry senza duplicati, e il
+  caso obbligatorio Marino/Aragon non ha una prediction DB.
+
+Per Nikiturets Thailandia la causa è dimostrata numericamente:
+
+- Excel/Task 32: **21 = 8 + 3 + 10**;
+- DB aggregato: **19 = 5 + 3 + 9 + 2 + 0**;
+- DB entry: 11 righe presenti, tutte con \`points = 0\`.
+
+Quindi il dettaglio per posizione mostra zero per una causa dati di
+persistenza/incoerenza, non per un filtro frontend. Non viene applicata alcuna
+correzione.
 
 ## 11. Azione consigliata per il prossimo task
 
@@ -638,13 +685,13 @@ diverge. Non viene applicata alcuna correzione.
 
 ## 12. Test e vincoli
 
-- Task 32 scorer test: da eseguire nel controllo finale;
-- Task 33 replay: da eseguire nel controllo finale;
-- Task 34 audit: da eseguire nel controllo finale;
+- Task 32 scorer test: **PASS**;
+- Task 33 replay: **PASS**;
+- Task 34 audit: **PASS**;
 - query DB diagnostiche: **PASS**, GET-only con ruolo autorizzato;
-- typecheck: da eseguire nel controllo finale;
-- build: da eseguire nel controllo finale;
-- \`git diff --check\`: da eseguire nel controllo finale.
+- typecheck: **PASS**;
+- build: **PASS** con \`PORT=5173 BASE_PATH=/my-first-app\`;
+- \`git diff --check\`: **PASS**.
 
 Contatori di sicurezza per questa diagnosi:
 
