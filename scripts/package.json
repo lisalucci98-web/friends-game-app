@@ -7,6 +7,7 @@
     "hello": "tsx ./src/hello.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:carry-over": "node ./test-prediction-carry-over.mjs",
+    "test:motogp-results-import": "node ./test-motogp-results-import-2026.mjs",
     "import:historical-table": "node ./import-historical-predictions-table.mjs",
     "verify:authenticated-results": "node ./verify-authenticated-results.mjs"
   },
