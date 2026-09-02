@@ -1,0 +1,216 @@
+Procediamo con Task #30 — Riconciliare i punteggi storici ancora discordanti.
+
+IMPORTANTE: questa fase deve essere ESCLUSIVAMENTE READ-ONLY.
+
+NON:
+
+* modificare RPC;
+* creare nuove RPC;
+* modificare prediction;
+* modificare prediction_entries;
+* modificare session_results;
+* eseguire score_prediction;
+* eseguire INSERT/UPDATE/DELETE;
+* applicare migration.
+
+OBIETTIVO:
+Determinare con certezza le regole necessarie affinché lo scoring riproduca i punteggi storici di riferimento.
+
+CASI DA RISOLVERE:
+
+1. NIKYTurets / Thailandia
+   Atteso: 21
+   Ricostruito attualmente: 22
+   Delta: -1
+
+2. MARTY / Catalogna
+   Atteso: 13
+   Ricostruito attualmente: 22
+   Delta: -9
+
+3. MARINO / Aragon
+   Atteso: 28
+   Non ricostruibile perché prediction/entries non sono disponibili.
+   NON inventare dati e NON tentare di ricostruirlo.
+
+PER NIKY / THAILANDIA:
+
+Ricostruisci integralmente il punteggio utilizzando i dati presenti nel database.
+
+Mostra:
+
+* prediction_entries;
+* risultati ufficiali;
+* punti Pole;
+* punti Qualifying Time;
+* punti Sprint;
+* punti Race;
+* punti OUT;
+* bonus;
+* malus;
+* totale.
+
+Poi analizza specificamente tutti i piloti non classificati.
+
+Determina:
+
+* quali piloti sono selezionati nel Race;
+* quali sono selezionati come OUT;
+* quali risultano effettivamente DNF/NC;
+* quanti piloti selezionati non hanno terminato;
+* quale malus produce la regola attuale;
+* quale risultato servirebbe per arrivare esattamente a 21.
+
+Non assumere che il regolamento pubblicato sia necessariamente identico alla logica storica: dobbiamo distinguere tra regolamento attuale e comportamento storico verificato.
+
+PER MARTY / CATALOGNA:
+
+Questo è il caso prioritario.
+
+Ricostruisci in dettaglio:
+
+QUALIFICHE
+
+* pole prediction;
+* pole reale;
+* punti pole;
+* tempo prediction;
+* tempo reale;
+* punti tempo.
+
+SPRINT
+
+* prediction P1/P2/P3;
+* risultati reali;
+* punti per ogni posizione.
+
+GARA
+
+* prediction P1-P5;
+* risultati reali;
+* punti per ogni pilota;
+* OUT prediction;
+* risultato OUT;
+* bonus;
+* malus.
+
+Mostra la somma matematica completa che porta a 22.
+
+Poi fai una seconda simulazione teorica per capire quali componenti devono cambiare per arrivare a 13.
+
+ATTENZIONE:
+Non modificare i dati per far tornare 13.
+Voglio sapere quale regola storica potrebbe produrre 13.
+
+CERCA ANCHE NEL REPOSITORY:
+
+Cerca eventuali:
+
+* vecchie versioni dello scoring;
+* migration precedenti;
+* commit o file di backup;
+* report storici;
+* file .md relativi ai punteggi;
+* snapshot;
+* vecchi script;
+* test dello scoring;
+* fixture;
+* dati esportati;
+* documentazione precedente.
+
+Cerca termini:
+
+* "Marty"
+* "Catalogna"
+* "13"
+* "22"
+* "OUT"
+* "malus"
+* "bonus"
+* "qualifying"
+* "score_prediction"
+* "historical"
+* "FantaTest"
+
+Se trovi una versione precedente della logica che permette di spiegare il 13 di Marty/Catalogna, riportala ma NON applicarla.
+
+BONUS:
+
+Confronta esplicitamente queste due interpretazioni:
+
+A)
++5 ordine Top 5 esatto
++3 se 4 posizioni corrette
++1 se 3 posizioni corrette
++2 se tutti i 5 piloti sono comunque nella Top 5
+
+B)
+solo +2 se tutti e 5 i piloti sono nella Top 5
+
+Determina quale delle due è compatibile con i punteggi storici già verificati.
+
+MALUS:
+
+Ricostruisci tutte le combinazioni possibili rilevanti:
+
+* 1 pilota non classificato;
+* 2 piloti non classificati;
+* 3 piloti non classificati;
+* 4 piloti non classificati;
+* 5 piloti non classificati.
+
+Verifica se il sistema storico utilizzava:
+
+* -1 per un singolo DNF;
+* -5 per 3 DNF;
+* -10 per 5 DNF;
+  oppure una logica diversa.
+
+Non scegliere arbitrariamente una formula.
+
+QUALIFYING_TIME:
+
+Conferma separatamente che il problema del tempo Qualifica è indipendente dalle due discrepanze sopra.
+
+Voglio sapere:
+
+* quanti punti aggiuntivi produrrebbe il corretto utilizzo del tempo;
+* quali dei 9 casi test cambierebbero;
+* se questo spiega oppure no i delta di Thailandia e Catalogna.
+
+REPORT FINALE:
+
+Produci:
+
+### Tabella 1 — Casi di test
+
+| Utente | GP | Atteso | Ricostruito | Delta | Qualifica | Sprint | Race | Bonus | Malus |
+
+### Tabella 2 — Niky Thailandia
+
+Breakdown completo.
+
+### Tabella 3 — Marty Catalogna
+
+Breakdown completo.
+
+### Tabella 4 — Regole storiche deducibili
+
+* Qualifying Time
+* Pole
+* Sprint
+* Race
+* OUT
+* Bonus
+* Malus
+
+### Conclusione
+
+Indica chiaramente:
+
+1. quali regole possiamo considerare definitivamente confermate;
+2. quali sono ancora indeterminate;
+3. quale minima modifica alla RPC sarà necessaria;
+4. quali dati non devono essere modificati.
+
+NON APPLICARE ALCUNA CORREZIONE.
