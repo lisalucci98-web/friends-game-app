@@ -5,6 +5,7 @@ import {
   buildPrediction,
   comparison,
   entryAudit,
+  secondsToExcelTime,
 } from './validate-historical-excel-scoring-test01.mjs';
 
 const riders = new Map([
@@ -57,6 +58,8 @@ assert.deepEqual(prediction, {
   ],
   out: 'Joan Mir',
 });
+assert.equal(secondsToExcelTime(prediction.qualifyingTime), '01:28.652');
+assert.equal(secondsToExcelTime(100.6), '01:40.600');
 
 const official = buildOfficialResults({
   qualifying: {

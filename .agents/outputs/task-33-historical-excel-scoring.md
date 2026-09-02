@@ -4,6 +4,8 @@
 - Lega: **FantaTest** (TEST01)
 - Stagione: **2026**
 - Accesso dati: **solo GET Supabase REST/Auth**
+- Regole applicate: **specifica offline Task 32 derivata dalle formule Excel**
+- Risultati ufficiali del replay: **session_results live, senza ricalcolo Excel forzato**
 - RPC scoring invocate: **0**
 
 ## Perimetro e sicurezza
@@ -16,9 +18,14 @@
 - Prediction complete: **81**
 - Prediction parziali escluse dal replay: **30**
 - Prediction già marcate scored_at: **94**
+- Complete già marcate scored_at: **81**
+- Complete senza scored_at (candidati apply sicuri): **0**
+- Parziali già marcate scored_at: **13**
+- Parziali senza scored_at (bloccate): **17**
 
 - Le prediction parziali non vengono completate, corrette, ricalcolate o inviate alla RPC.
 - I campi aggregati database vengono soltanto letti e confrontati.
+- Il confronto non certifica che i valori cache dei singoli workbook coincidano con gli attuali risultati ufficiali live.
 - Il report locale è l’unico file scritto da questa esecuzione.
 
 ## Copertura risultati ufficiali
@@ -44,6 +51,10 @@
 - Replay Excel completati: **81**
 - Confronti categoria Q/S/R/T coincidenti: **1/81**
 - Confronti componenti Q/S/racePosition/bonus/malus/T coincidenti: **0/81**
+- Match singoli categorie: Q **27**, S **22**, R **3**, T **3**
+- Match singoli componenti: Q **27**, S **22**, racePosition **0**, bonus **76**, malus **50**, T **3**
+- Totali database coerenti con i propri componenti memorizzati: **81/81**
+- Candidati per apply limitato a complete non scored: **0**
 
 ### Totali per utente sulle sole prediction complete
 

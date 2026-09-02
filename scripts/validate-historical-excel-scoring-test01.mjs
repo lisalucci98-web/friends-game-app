@@ -338,7 +338,7 @@ export function buildPrediction(entries, ridersById) {
   };
 }
 
-function secondsToExcelTime(value) {
+export function secondsToExcelTime(value) {
   if (value === null || value === undefined || value === '') return value;
   if (typeof value !== 'number' || !Number.isFinite(value)) return value;
   const minutes = Math.floor(value / 60);
@@ -452,6 +452,34 @@ function buildReport({
   }));
   const categoryMatches = comparisons.filter((row) => row.comparison.categoryMatch).length;
   const componentMatches = comparisons.filter((row) => row.comparison.componentMatch).length;
+  const categoryFields = ['qualifying', 'sprint', 'race', 'total'];
+  const componentFields = ['qualifying', 'sprint', 'racePosition', 'bonus', 'malus', 'total'];
+  const categoryFieldMatches = Object.fromEntries(
+    categoryFields.map((field) => [
+      field,
+      comparisons.filter((row) =>
+        row.comparison.databaseCategory[field] === row.comparison.excelCategory[field]).length,
+    ]),
+  );
+  const componentFieldMatches = Object.fromEntries(
+    componentFields.map((field) => [
+      field,
+      comparisons.filter((row) =>
+        row.comparison.databaseComponents[field] === row.comparison.excelComponents[field]).length,
+    ]),
+  );
+  const storedComponentTotalsConsistent = comparisons.filter((row) => (
+    row.comparison.databaseComponents.qualifying
+      + row.comparison.databaseComponents.sprint
+      + row.comparison.databaseComponents.racePosition
+      + row.comparison.databaseComponents.bonus
+      + row.comparison.databaseComponents.malus
+      === row.comparison.databaseComponents.total
+  )).length;
+  const completeScored = fullRows.filter((row) => row.item.prediction.scored_at !== null).length;
+  const completeUnscored = fullRows.length - completeScored;
+  const partialScored = partialRows.filter((row) => row.item.prediction.scored_at !== null).length;
+  const partialUnscored = partialRows.length - partialScored;
   const gpIds = [...new Set(selection.items.map((item) => item.gp.id))];
   const coverageRows = gpIds.map((gpId) => {
     const gp = context.grandPrix.find((item) => item.id === gpId);
@@ -494,6 +522,8 @@ function buildReport({
     `- Lega: **${context.league.name}** (${LEAGUE_CODE})`,
     `- Stagione: **${SEASON_YEAR}**`,
     '- Accesso dati: **solo GET Supabase REST/Auth**',
+    '- Regole applicate: **specifica offline Task 32 derivata dalle formule Excel**',
+    '- Risultati ufficiali del replay: **session_results live, senza ricalcolo Excel forzato**',
     '- RPC scoring invocate: **0**',
     '',
     '## Perimetro e sicurezza',
@@ -506,9 +536,14 @@ function buildReport({
     `- Prediction complete: **${fullRows.length}**`,
     `- Prediction parziali escluse dal replay: **${partialRows.length}**`,
     `- Prediction già marcate scored_at: **${selection.items.filter((item) => item.prediction.scored_at !== null).length}**`,
+    `- Complete già marcate scored_at: **${completeScored}**`,
+    `- Complete senza scored_at (candidati apply sicuri): **${completeUnscored}**`,
+    `- Parziali già marcate scored_at: **${partialScored}**`,
+    `- Parziali senza scored_at (bloccate): **${partialUnscored}**`,
     '',
     '- Le prediction parziali non vengono completate, corrette, ricalcolate o inviate alla RPC.',
     '- I campi aggregati database vengono soltanto letti e confrontati.',
+    '- Il confronto non certifica che i valori cache dei singoli workbook coincidano con gli attuali risultati ufficiali live.',
     '- Il report locale è l’unico file scritto da questa esecuzione.',
     '',
     '## Copertura risultati ufficiali',
@@ -523,6 +558,10 @@ function buildReport({
     `- Replay Excel completati: **${fullRows.length}**`,
     `- Confronti categoria Q/S/R/T coincidenti: **${categoryMatches}/${comparisons.length}**`,
     `- Confronti componenti Q/S/racePosition/bonus/malus/T coincidenti: **${componentMatches}/${comparisons.length}**`,
+    `- Match singoli categorie: Q **${categoryFieldMatches.qualifying}**, S **${categoryFieldMatches.sprint}**, R **${categoryFieldMatches.race}**, T **${categoryFieldMatches.total}**`,
+    `- Match singoli componenti: Q **${componentFieldMatches.qualifying}**, S **${componentFieldMatches.sprint}**, racePosition **${componentFieldMatches.racePosition}**, bonus **${componentFieldMatches.bonus}**, malus **${componentFieldMatches.malus}**, T **${componentFieldMatches.total}**`,
+    `- Totali database coerenti con i propri componenti memorizzati: **${storedComponentTotalsConsistent}/${comparisons.length}**`,
+    `- Candidati per apply limitato a complete non scored: **${completeUnscored}**`,
     '',
     '### Totali per utente sulle sole prediction complete',
     '',
