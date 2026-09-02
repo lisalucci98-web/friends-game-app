@@ -1,0 +1,95 @@
+I punteggi storici appena calcolati NON sembrano corretti.
+
+La tabella seguente è il riferimento corretto dei punteggi GP per GP. NON modificare ancora il database e NON ricalcolare nulla.
+
+| FantaPiloti                                                                   | THAI | BRA | USA | QAT | ESP | FRA | Catalogna | ITA | UNG | CZE | NED | GER | UK | Aragon |
+| ----------------------------------------------------------------------------- | ---: | --: | --: | --: | --: | --: | --------: | --: | --: | --: | --: | --: | -: | -----: |
+| [nikyturets@gmail.com](mailto:nikyturets@gmail.com)                           |   21 |  25 |  17 |   0 |  12 |  18 |         5 |  16 |  16 |  17 |  13 |  22 | 18 |     24 |
+| [marty.bria1996@gmail.com](mailto:marty.bria1996@gmail.com)                   |   19 |  13 |   9 |   0 |  14 |  11 |        13 |  30 |  14 |  16 |  12 |  18 | 15 |      2 |
+| [simo.salva92@gmail.com](mailto:simo.salva92@gmail.com)                       |   26 |  18 |  10 |   0 |  16 |  15 |         1 |  17 |  12 |  17 |  11 |  19 | 22 |      7 |
+| [alandellosbel8@gmail.com](mailto:alandellosbel8@gmail.com)                   |   22 |  10 |  22 |   0 |  13 |   7 |         0 |  19 |  15 |   0 |   0 |   5 |  8 |      0 |
+| [alessandro.cavasso.1995@gmail.com](mailto:alessandro.cavasso.1995@gmail.com) |   19 |  18 |  15 |   0 |  19 |  10 |         8 |   3 |   9 |  14 |  15 |  17 | 22 |      3 |
+| [ivan23dell@gmail.com](mailto:ivan23dell@gmail.com)                           |   12 |  10 |  21 |   0 |  14 |  11 |        12 |   9 |   3 |  14 |   0 |   0 |  7 |     14 |
+| [marino.dilorenzo@gmail.com](mailto:marino.dilorenzo@gmail.com)               |   16 |  15 |  13 |   0 |   0 |  18 |         5 |  12 |  16 |  18 |  13 |  24 |  2 |     28 |
+| [lucifero1966@gmail.com](mailto:lucifero1966@gmail.com)                       |   12 |  15 |  12 |   0 |  10 |   0 |         0 |  11 |  11 |  19 |   6 |   6 | 10 |     17 |
+| [dalla.pozza.silvia@gmail.com](mailto:dalla.pozza.silvia@gmail.com)           |   11 |   9 |  16 |   0 |   7 |   0 |         0 |  16 |  12 |   0 |   0 |   0 |  0 |      0 |
+| [tommaso.strada95@gmail.com](mailto:tommaso.strada95@gmail.com)               |   11 |  15 |   1 |   0 |   0 |   8 |         4 |   8 |  14 |   0 |   0 |   0 |  7 |     12 |
+
+OBIETTIVO:
+Capire esattamente perché lo scoring attuale non produce questi valori.
+
+NON modificare ancora:
+
+* predictions
+* prediction_entries
+* session_results
+* RPC
+* funzioni di scoring
+* schema
+* RLS
+* classifica
+
+Esegui esclusivamente un AUDIT READ-ONLY.
+
+1. Recupera per ogni utente e GP:
+
+   * prediction_entries presenti;
+   * risultati ufficiali utilizzati dallo scoring;
+   * punteggio attualmente calcolato;
+   * punteggio atteso dalla tabella sopra.
+
+2. Per ogni GP con differenza, fai un breakdown dettagliato:
+
+   * qualifying time: pronostico / risultato / punti assegnati;
+   * pole: pronostico / risultato / punti assegnati;
+   * sprint P1-P3: pronostico / risultati / punti;
+   * race P1-P5: pronostico / risultati / punti;
+   * OUT: pronostico / risultato effettivo / punti;
+   * bonus;
+   * malus;
+   * totale.
+
+3. Confronta il risultato con la tabella di riferimento.
+
+4. Identifica le discrepanze e raggruppale per causa.
+
+Voglio sapere in particolare se il problema deriva da:
+
+* formula di scoring errata;
+* risultati ufficiali/session_results errati;
+* mapping rider errato;
+* prediction_entries importate nella posizione sbagliata;
+* gestione di OUT;
+* gestione del bonus;
+* gestione del malus;
+* qualifying time;
+* pole position;
+* Sprint;
+* Race;
+* arrotondamenti/confronti del tempo;
+* prediction già esistenti;
+* qualche altra causa.
+
+5. Fai anche un controllo specifico su NIKYTURETS, perché i suoi punteggi sono il riferimento storico già verificato e devono essere prodotti dallo stesso sistema.
+
+6. Controlla se esiste una differenza tra:
+
+   * il metodo utilizzato storicamente per ottenere i punteggi della tabella;
+   * l'attuale RPC/funzione di scoring.
+
+7. NON correggere nulla automaticamente.
+
+REPORT FINALE:
+Crea una tabella:
+
+Utente | GP | Atteso | Attuale | Delta | Causa probabile
+
+e poi una seconda tabella con il breakdown della prima discrepanza significativa trovata.
+
+Alla fine indicami chiaramente:
+A) se il problema è nei dati importati;
+B) se il problema è nei risultati ufficiali;
+C) se il problema è nella funzione/RPC di scoring;
+D) se il problema è nella visualizzazione della classifica.
+
+Non effettuare alcuna scrittura sul database.
