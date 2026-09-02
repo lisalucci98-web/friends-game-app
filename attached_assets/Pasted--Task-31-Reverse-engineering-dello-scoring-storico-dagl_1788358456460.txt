@@ -1,0 +1,467 @@
+# Task 31 — Reverse engineering dello scoring storico dagli Excel Google Drive
+
+## OBIETTIVO
+
+Replit ha accesso al Google Drive contenente gli spreadsheet Excel utilizzati storicamente per calcolare i punteggi di FantaMotoGP.
+
+Voglio utilizzare questi Excel come **fonte primaria e autorevole per ricostruire esattamente il metodo di calcolo dei punteggi storici**.
+
+Il risultato finale deve permettere di implementare nel sistema lo stesso scoring utilizzato negli Excel, senza dover dedurre le regole dai soli punteggi finali.
+
+## MODALITÀ OBBLIGATORIA
+
+Questa fase è esclusivamente READ-ONLY.
+
+NON:
+
+* modificare il database;
+* modificare prediction;
+* modificare prediction_entries;
+* modificare session_results;
+* modificare RPC;
+* creare nuove RPC;
+* creare migration;
+* eseguire score_prediction;
+* eseguire INSERT/UPDATE/DELETE;
+* modificare RLS;
+* modificare Google Sheet/Excel;
+* sovrascrivere file esistenti.
+
+Puoi leggere e analizzare liberamente i file del Google Drive già accessibili al progetto.
+
+---
+
+# 1. INDIVIDUAZIONE DEGLI EXCEL
+
+Cerca nel Google Drive tutti gli spreadsheet utilizzati per il calcolo dei punteggi dei GP 2026.
+
+Cerca per:
+
+* nome GP;
+* abbreviazioni;
+* nomi di piloti;
+* "FantaMotoGP";
+* "punteggi";
+* "score";
+* "scoring";
+* "pronostici";
+* "prediction".
+
+GP da cercare:
+
+* Thailandia
+* Brasile
+* USA
+* Qatar
+* Spagna
+* Francia
+* Catalogna
+* Italia
+* Ungheria
+* Repubblica Ceca
+* Netherlands / Olanda
+* Germania
+* UK / Regno Unito
+* Aragon
+
+Se esistono più versioni dello stesso file, NON scegliere arbitrariamente.
+
+Elencale tutte e determina quale sembra essere quella effettivamente utilizzata per il calcolo storico.
+
+---
+
+# 2. ANALISI DELLA STRUTTURA
+
+Per ogni Excel trovato analizza:
+
+* nome file;
+* data/versione se disponibile;
+* numero di fogli;
+* nomi dei fogli;
+* eventuali fogli nascosti;
+* eventuali colonne/named ranges;
+* formule;
+* valori calcolati;
+* riferimenti ad altri fogli;
+* riferimenti a celle esterne;
+* eventuali formule copiate verso il basso/destra.
+
+IMPORTANTE:
+
+Non limitarti ai valori visualizzati.
+
+Voglio le **FORMULE ORIGINALI delle celle** utilizzate per il calcolo.
+
+Se un valore deriva da una catena di formule, ricostruisci la catena.
+
+---
+
+# 3. IDENTIFICARE LA LOGICA DI SCORING
+
+Ricostruisci separatamente le formule utilizzate per:
+
+## QUALIFICA
+
+Determina:
+
+* punti Pole Position;
+* punti tempo pole;
+* eventuali punti per differenza dal tempo reale;
+* unità utilizzate;
+* gestione millisecondi;
+* arrotondamenti;
+* soglie;
+* eventuali bonus/malus;
+* eventuali condizioni IF.
+
+In particolare verifica il formato dei tempi:
+
+* MM:SS.MMM
+* MM:SS:MMM
+* valori numerici Excel
+* secondi
+* millisecondi.
+
+Determina esattamente come l'Excel confronta il tempo pronosticato con il tempo reale.
+
+---
+
+# 4. SPRINT
+
+Ricostruisci esattamente:
+
+* punti P1;
+* punti P2;
+* punti P3;
+* eventuali punti per altre posizioni;
+* gestione pilota non classificato;
+* gestione pilota ritirato;
+* eventuali bonus/malus Sprint.
+
+Riporta le formule originali e poi trasformale in una spiegazione matematica leggibile.
+
+---
+
+# 5. GARA
+
+Ricostruisci:
+
+* punti P1;
+* P2;
+* P3;
+* P4;
+* P5;
+* eventuali punti per posizioni successive;
+* gestione DNF/NC;
+* gestione OUT;
+* bonus;
+* malus.
+
+Per il Race voglio particolare attenzione alle formule che confrontano prediction e risultato ufficiale.
+
+---
+
+# 6. BONUS TOP 5
+
+Determinare dalla formula Excel quale delle seguenti logiche è realmente utilizzata.
+
+### Interpretazione A
+
+* +5 se tutti i primi 5 sono nella posizione esatta;
+* +3 se 4 posizioni sono corrette;
+* +1 se 3 posizioni sono corrette;
+* +2 se tutti i 5 piloti pronosticati sono comunque nella Top 5.
+
+### Interpretazione B
+
+* +2 solamente se tutti i 5 piloti pronosticati sono nella Top 5.
+
+Non assumere nessuna delle due.
+
+**Deve essere la formula Excel a determinare la risposta.**
+
+Se esiste una terza logica, documentala.
+
+---
+
+# 7. OUT E MALUS
+
+Questa è la parte più importante.
+
+Utilizza le formule Excel per determinare esattamente:
+
+* cosa significa OUT;
+* quando viene assegnato il punto OUT;
+* se l'OUT è legato a un pilota specifico;
+* cosa succede se il pilota pronosticato come OUT termina la gara;
+* cosa succede se un pilota della Top 5 non termina;
+* come vengono calcolati i malus;
+* se il malus dipende dal numero di piloti NC;
+* se dipende da quali piloti sono NC;
+* se esistono condizioni speciali.
+
+NON dedurre la formula soltanto dai risultati finali.
+
+Voglio la formula Excel che lo dimostra.
+
+---
+
+# 8. CASI DI TEST OBBLIGATORI
+
+Usa gli Excel per ricostruire questi casi e confrontarli con i punteggi storici già verificati.
+
+| Utente                                                                        | GP         | Punteggio atteso |
+| ----------------------------------------------------------------------------- | ---------- | ---------------: |
+| [nikyturets@gmail.com](mailto:nikyturets@gmail.com)                           | Thailandia |               21 |
+| [nikyturets@gmail.com](mailto:nikyturets@gmail.com)                           | Brasile    |               25 |
+| [nikyturets@gmail.com](mailto:nikyturets@gmail.com)                           | Francia    |               18 |
+| [nikyturets@gmail.com](mailto:nikyturets@gmail.com)                           | Aragon     |               24 |
+| [marty.bria1996@gmail.com](mailto:marty.bria1996@gmail.com)                   | Catalogna  |               13 |
+| [marty.bria1996@gmail.com](mailto:marty.bria1996@gmail.com)                   | Italia     |               30 |
+| [simo.salva92@gmail.com](mailto:simo.salva92@gmail.com)                       | Thailandia |               26 |
+| [alessandro.cavasso.1995@gmail.com](mailto:alessandro.cavasso.1995@gmail.com) | Spagna     |               19 |
+| [alessandro.cavasso.1995@gmail.com](mailto:alessandro.cavasso.1995@gmail.com) | UK         |               22 |
+
+Per ciascun caso estrai dall'Excel:
+
+* Qualifica;
+* Sprint;
+* Gara;
+* Bonus;
+* OUT;
+* Malus;
+* Totale.
+
+Il totale deve essere verificato matematicamente.
+
+---
+
+# 9. CASO SPECIALE: MARTY / CATALOGNA
+
+Questo caso è prioritario.
+
+Il sistema attuale ricostruisce 22 punti.
+
+Il punteggio storico è 13.
+
+Il precedente valore persistito era 4.
+
+Voglio capire ESATTAMENTE perché l'Excel produce 13.
+
+Non accettare spiegazioni del tipo "probabilmente malus -10".
+
+Devi trovare la formula/cella Excel che produce il valore.
+
+Riporta:
+
+* coordinate della cella;
+* formula;
+* valori delle celle utilizzate;
+* risultato;
+* spiegazione della formula.
+
+Se la formula utilizza celle di altri fogli, segui tutta la catena.
+
+---
+
+# 10. CASO SPECIALE: NIKYTurets / THAILANDIA
+
+Il sistema attuale ricostruisce 22.
+
+Lo storico è 21.
+
+Anche qui voglio identificare esattamente la differenza.
+
+Riporta:
+
+* formula Excel;
+* valori intermedi;
+* OUT;
+* malus;
+* bonus;
+* totale.
+
+Determina perché Excel produce 21.
+
+---
+
+# 11. CONFRONTO CON IL CODICE ATTUALE
+
+Dopo aver ricostruito lo scoring Excel, confrontalo con:
+
+* RPC attuale;
+* eventuale scoring frontend/backend;
+* eventuali funzioni TypeScript;
+* eventuali utility di scoring.
+
+Produci una tabella:
+
+| Regola          | Excel storico | Scoring attuale | Differenza |
+| --------------- | ------------- | --------------- | ---------- |
+| Pole            | ...           | ...             | ...        |
+| Qualifying Time | ...           | ...             | ...        |
+| Sprint P1       | ...           | ...             | ...        |
+| Sprint P2       | ...           | ...             | ...        |
+| Sprint P3       | ...           | ...             | ...        |
+| Race P1-P5      | ...           | ...             | ...        |
+| OUT             | ...           | ...             | ...        |
+| Bonus           | ...           | ...             | ...        |
+| Malus           | ...           | ...             | ...        |
+
+---
+
+# 12. RICOSTRUZIONE IN PSEUDOCODICE
+
+Una volta individuate le formule Excel, trasformale in pseudocodice indipendente dal database.
+
+Esempio:
+
+```text
+qualifying_score =
+    pole_score(...)
+    + qualifying_time_score(...)
+
+sprint_score =
+    ...
+
+race_score =
+    ...
+
+bonus =
+    ...
+
+malus =
+    ...
+
+total =
+    qualifying_score
+    + sprint_score
+    + race_score
+    + bonus
+    + malus
+```
+
+NON implementare questo pseudocodice nel progetto.
+
+Deve essere solamente una descrizione della logica.
+
+---
+
+# 13. TEST AUTOMATICO OFFLINE
+
+Se possibile, crea esclusivamente un test/script temporaneo o una funzione di analisi che:
+
+1. legga i dati degli Excel;
+2. applichi le formule ricostruite;
+3. produca il punteggio;
+4. confronti il risultato con il totale presente nell'Excel.
+
+Questo test deve essere completamente offline/read-only.
+
+Non deve scrivere nel database.
+
+Obiettivo:
+
+**Excel originale = risultato ricostruito**
+
+per tutti i casi disponibili.
+
+---
+
+# 14. GESTIONE DELLE FORMULE NON DISPONIBILI
+
+Se gli Excel contengono solo valori e non formule:
+
+NON inventare le formule.
+
+Indica:
+
+* file;
+* foglio;
+* cella;
+* valore;
+* impossibilità di determinare la formula originale.
+
+Se alcune formule sono presenti e altre no, separa chiaramente:
+
+* regole dimostrate;
+* regole dedotte;
+* regole ancora sconosciute.
+
+---
+
+# 15. REPORT FINALE
+
+Crea:
+
+`.agents/outputs/task-31-excel-scoring-reverse-engineering.md`
+
+Il report deve contenere:
+
+## A. Excel trovati
+
+| GP | File | Versione | Fogli | Formule disponibili |
+| -- | ---- | -------- | ----- | ------------------- |
+
+## B. Formule originali
+
+Per ogni categoria:
+
+* Qualifica;
+* Qualifying Time;
+* Sprint;
+* Gara;
+* Bonus;
+* OUT;
+* Malus.
+
+Riporta le formule Excel originali e le relative celle.
+
+## C. Regolamento matematico ricostruito
+
+Spiegazione leggibile di ogni regola.
+
+## D. Casi di test
+
+| Utente | GP | Excel | Ricostruito | Delta |
+| ------ | -- | ----: | ----------: | ----: |
+
+## E. Confronto con scoring attuale
+
+| Regola | Excel | Sistema | Delta |
+
+## F. Marty / Catalogna
+
+Analisi completa del 13.
+
+## G. Niky / Thailandia
+
+Analisi completa del 21.
+
+## H. Conclusione
+
+Indica chiaramente:
+
+1. scoring storico ricostruito con certezza;
+2. parti ancora indeterminate;
+3. differenze rispetto allo scoring attuale;
+4. modifica minima necessaria al sistema;
+5. eventuali dati che devono essere corretti prima dello scoring.
+
+## IMPORTANTISSIMO
+
+NON APPLICARE NESSUNA MODIFICA.
+
+NON chiamare `score_prediction`.
+
+NON modificare RPC.
+
+NON modificare database.
+
+NON modificare prediction o prediction_entries.
+
+NON modificare risultati ufficiali.
+
+NON modificare Excel/Google Drive.
+
+Il solo output richiesto in questa fase è il report di reverse engineering dello scoring storico.
