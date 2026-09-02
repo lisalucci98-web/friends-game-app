@@ -1,0 +1,68 @@
+## Task — Creazione utenti iniziali FantaMotoGP
+
+Crea i seguenti 8 utenti nel sistema di autenticazione Supabase:
+
+| Email                                                               | Password iniziale |
+| ------------------------------------------------------------------- | ----------------- |
+| [marty.bria1996@gmail.com](mailto:marty.bria1996@gmail.com)         | 123456            |
+| [simo.salva92@gmail.com](mailto:simo.salva92@gmail.com)             | 123456            |
+| [alandellosbel8@gmail.com](mailto:alandellosbel8@gmail.com)         | 123456            |
+| [ivan23dell@gmail.com](mailto:ivan23dell@gmail.com)                 | 123456            |
+| [marino.dilorenzo@gmail.com](mailto:marino.dilorenzo@gmail.com)     | 123456            |
+| [lucifero1966@gmail.com](mailto:lucifero1966@gmail.com)             | 123456            |
+| [dalla.pozza.silvia@gmail.com](mailto:dalla.pozza.silvia@gmail.com) | 123456            |
+| [tommaso.strada95@gmail.com](mailto:tommaso.strada95@gmail.com)     | 123456            |
+
+### Regole fondamentali
+
+1. Usa esclusivamente il sistema di autenticazione Supabase già presente nel progetto.
+2. **NON modificare o eliminare utenti esistenti.**
+3. Prima verifica se uno degli 8 indirizzi è già registrato.
+4. Se un utente esiste già:
+
+   * NON ricrearlo;
+   * NON sovrascrivere la password;
+   * riportalo semplicemente come `ALREADY_EXISTS`.
+5. Se non esiste, crealo con la password iniziale `123456`.
+6. Non stampare password, token o credenziali nei log.
+7. Non salvare la password in chiaro nel database applicativo.
+8. Utilizza il backend/server-side o una procedura amministrativa sicura: **non inserire mai una service-role key nel frontend**.
+9. Se il progetto dispone già di una procedura amministrativa per la creazione utenti, riutilizzala.
+
+### Cambio password
+
+Dopo la creazione, imposta il flusso in modo che `123456` sia considerata una password iniziale e che l'utente venga invitato a cambiarla al primo accesso, se questa funzionalità è già supportata dall'app.
+
+Se il progetto non dispone di questa funzionalità, **non modificare lo schema senza necessità**. Segnala semplicemente che la password iniziale è temporanea.
+
+### Verifica finale
+
+Al termine restituisci esclusivamente una tabella:
+
+| Email | Stato                            |
+| ----- | -------------------------------- |
+| ...   | CREATED / ALREADY_EXISTS / ERROR |
+
+Non mostrare mai le password.
+
+Esegui inoltre:
+
+* TypeScript check
+* build
+* `git diff --check`
+* verifica che gli utenti possano effettuare il login
+* verifica che nessun account esistente sia stato modificato
+
+### Importante
+
+Questa operazione riguarda **solo la creazione degli account**.
+
+NON creare automaticamente:
+
+* prediction
+* prediction_entries
+* partecipazioni alle leghe
+* punteggi
+* pronostici storici
+
+Questi verranno gestiti separatamente.
