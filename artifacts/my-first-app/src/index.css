@@ -644,6 +644,21 @@
 .task21-score-matrix tbody td.is-empty { color: hsl(var(--muted-foreground) / .55); font-weight: 500; }
 .task21-score-matrix tbody td.is-pending { color: hsl(30 70% 38%); font-size: .59rem; font-weight: 700; }
 .task21-score-matrix .task21-score-matrix-total { color: hsl(var(--primary)); font-size: .82rem; }
+.task21-score-matrix-mobile { display: none; }
+.task21-mobile-score-card { border-top: 1px solid hsl(var(--foreground) / .08); }
+.task21-mobile-score-card:first-child { border-top: 0; }
+.task21-mobile-score-card.is-current { border-left: 3px solid hsl(var(--primary)); }
+.task21-mobile-score-card-heading { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 14px 17px 12px; }
+.task21-mobile-score-card-heading > div { display: grid; gap: 3px; min-width: 0; }
+.task21-mobile-score-card-heading strong { overflow: hidden; text-overflow: ellipsis; font-size: .82rem; white-space: nowrap; }
+.task21-mobile-score-card-heading small { color: hsl(var(--primary)); font-family: var(--app-font-mono); font-size: .57rem; font-weight: 700; text-transform: uppercase; }
+.task21-mobile-score-card-heading b { color: hsl(var(--primary)); font-family: var(--app-font-mono); font-size: .8rem; white-space: nowrap; }
+.task21-mobile-score-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; padding: 0 17px 16px; }
+.task21-mobile-score-cell { display: grid; gap: 5px; min-width: 0; padding: 9px 8px; border: 1px solid hsl(var(--foreground) / .09); background: hsl(var(--card) / .68); }
+.task21-mobile-score-cell span { overflow: hidden; color: hsl(var(--muted-foreground)); font-family: var(--app-font-mono); font-size: .53rem; font-weight: 700; letter-spacing: .03em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.task21-mobile-score-cell strong { overflow: hidden; color: hsl(var(--foreground)); font-family: var(--app-font-mono); font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
+.task21-mobile-score-cell.is-empty strong { color: hsl(var(--muted-foreground) / .65); font-weight: 500; }
+.task21-mobile-score-cell.is-pending strong { color: hsl(30 70% 38%); font-size: .6rem; }
 .task21-all-members-panel { display: grid; gap: 0; }
 .task21-all-members { display: grid; }
 .task21-member-detail { border-top: 1px solid hsl(var(--foreground) / .08); }
@@ -743,6 +758,7 @@
   .task21-member-detail-summary { grid-template-columns: 26px 28px minmax(0, 1fr) 17px; }
   .task21-member-detail-summary .task21-member-meta { display: none; }
   .task21-member-meta { display: none; }
+  .task21-mobile-score-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Inline form layouts and league/profile surfaces */
@@ -1255,4 +1271,11 @@ button { touch-action: manipulation; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .task21-leader-row:hover, .bottom-nav-item:active { transform: none; }
+}
+
+/* Keep every participant's GP scores available on mobile without a wide table. */
+@media (max-width: 800px) {
+  .task21-score-matrix-panel { display: grid; }
+  .task21-score-matrix-wrap { display: none; }
+  .task21-score-matrix-mobile { display: grid; }
 }

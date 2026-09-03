@@ -1365,6 +1365,47 @@ export function LeagueResultsContent({
                 </tbody>
               </table>
             </div>
+            <div className="task21-score-matrix-mobile" aria-label="Punteggi di ogni partecipante per Gran Premio">
+              {leaderboard.map((row) => {
+                const isCurrentUser = row.member.user_id === user?.id;
+                return (
+                  <article
+                    className={`task21-mobile-score-card${isCurrentUser ? ' is-current' : ''}`}
+                    key={row.member.user_id}
+                    data-testid={`mobile-score-card-${row.member.user_id}`}
+                  >
+                    <header className="task21-mobile-score-card-heading">
+                      <span className="task21-score-matrix-rank">{row.rank}</span>
+                      <div>
+                        <strong>{row.member.name || 'Utente senza nome'}</strong>
+                        {isCurrentUser && <small>Tu</small>}
+                      </div>
+                      <b>{row.total} pt</b>
+                    </header>
+                    <div className="task21-mobile-score-grid">
+                      {seasonGrandPrix.map((item) => {
+                        const prediction = predictionForGp(row.predictions, item.id);
+                        const score = prediction
+                          ? hasScore(prediction)
+                            ? formatTotal(prediction.total_points)
+                            : 'Attesa'
+                          : '—';
+                        return (
+                          <div
+                            className={`task21-mobile-score-cell${!prediction ? ' is-empty' : prediction && !hasScore(prediction) ? ' is-pending' : ''}`}
+                            key={item.id}
+                            title={prediction ? `${gpName(item)}: ${score} punti` : `${gpName(item)}: nessun pronostico`}
+                          >
+                            <span>{gpLabel(item)}</span>
+                            <strong>{score}</strong>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
             <p className="task21-note">
               “—” indica che non è presente un pronostico; “Attesa” indica un pronostico non ancora conteggiato.
             </p>

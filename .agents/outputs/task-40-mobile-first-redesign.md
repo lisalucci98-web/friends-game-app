@@ -38,7 +38,7 @@ Completato con modifiche esclusivamente frontend. La logica dati, le query Supab
 - Classifica lega organizzata in righe/card verticali leggibili senza tabella larga.
 - Dettaglio partecipante e storico GP mantenuti in sezioni espandibili.
 - Breakdown dei punti conservato nella modalità progressiva.
-- Matrice GP nascosta su mobile per prevenire scroll orizzontale, disponibile nel layout desktop.
+- Matrice GP disponibile su desktop come tabella e su mobile come card per partecipante, così ogni GP resta leggibile senza scroll orizzontale.
 - `/miei-risultati` mantiene la distinzione visuale e semantica tra `0`, `—` e `Attesa`.
 
 ### Pronostici
