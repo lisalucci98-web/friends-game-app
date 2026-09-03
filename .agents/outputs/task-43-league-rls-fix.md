@@ -157,3 +157,39 @@ Restano da eseguire dopo l’applicazione della migrazione:
 
 Il criterio PASS completo del Task 43 richiede inoltre l’applicazione reale in
 Supabase e i test autenticati positivi e negativi.
+
+## 9. Verifica finale del canale disponibile — 3 settembre 2026
+
+È stata ripetuta la verifica usando la connessione Supabase installata nel
+workspace. La connessione risulta di tipo `api_key`, senza client SDK
+disponibile; il proxy espone quindi solo richieste HTTP al PostgREST.
+
+Risultati read-only:
+
+```text
+GET /rest/v1/leagues?select=id,name,invite_code&invite_code=eq.TEST01
+HTTP 200
+body: []
+
+POST /rest/v1/rpc/is_league_score_viewer_2026
+HTTP 404
+PGRST202: function public.is_league_score_viewer_2026 was not found
+```
+
+La risposta `PGRST202` conferma nuovamente che la migrazione non è stata
+applicata al progetto remoto. La risposta vuota su `TEST01` non è una
+verifica RLS positiva o negativa per Nicholas/Alessandro: il proxy non
+fornisce una sessione autenticata impersonabile e non esiste un canale SQL
+autorizzato per applicare la migrazione o interrogare `pg_policy`.
+
+Di conseguenza restano non eseguibili in questa sessione:
+
+- applicazione di `20260903120000_league_scoped_score_read_access.sql`;
+- conteggi prima/dopo sul database remoto;
+- confronto autenticato dei risultati di Nicholas e Alessandro;
+- test negativo autenticato verso una lega diversa.
+
+Non sono state effettuate scritture remote, non sono stati letti o stampati
+segreti, e nessun punteggio è stato modificato. Il report conserva i conteggi
+amministrativi già acquisiti come baseline, marcandoli correttamente come
+non sufficienti a dimostrare il comportamento RLS tra due sessioni utente.
