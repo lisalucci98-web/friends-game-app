@@ -1,0 +1,634 @@
+# Task 43 — Fix RLS punteggi tra membri della stessa lega + test completo FantaTest
+
+## Obiettivo
+
+Correggere il problema per cui un utente autenticato riesce a vedere i propri punteggi nella pagina della lega, ma vede `0`/nessun dato per gli altri partecipanti.
+
+La causa probabile è nelle policy RLS di Supabase:
+
+* `predictions` attualmente consente SELECT solo quando `user_id = auth.uid()`;
+* `prediction_entries` consente SELECT solo per predictions appartenenti all'utente corrente;
+* `league_members` consente SELECT solo per la propria membership.
+
+### Comportamento desiderato
+
+Un utente autenticato deve poter leggere:
+
+1. le proprie predictions;
+2. le predictions degli altri utenti **solo se appartengono alla stessa lega**;
+3. le `prediction_entries` relative alle predictions degli utenti della stessa lega;
+4. le membership necessarie per visualizzare i partecipanti della propria lega.
+
+Un utente NON deve poter leggere:
+
+* predictions di utenti appartenenti ad altre leghe;
+* prediction_entries relative ad altre leghe.
+
+NON modificare:
+
+* dati delle predictions;
+* `prediction_entries.points`;
+* `total_points`;
+* `qualifying_points`;
+* `sprint_points`;
+* `race_points`;
+* `bonus_points`;
+* `malus_points`;
+* scoring;
+* `session_results`;
+* schema delle tabelle;
+* autenticazione;
+* service_role;
+* altre RLS non necessarie.
+
+---
+
+# 1. Prima fase — ispezione obbligatoria
+
+Prima di modificare qualsiasi cosa, verificare:
+
+* struttura delle tabelle `leagues`, `league_members`, `predictions`, `prediction_entries`;
+* tutte le policy RLS esistenti sulle quattro tabelle;
+* presenza di eventuali policy duplicate;
+* eventuali query frontend che filtrano erroneamente con `.eq('user_id', currentUserId)`.
+
+Eseguire:
+
+```sql
+SELECT
+  schemaname,
+  tablename,
+  policyname,
+  permissive,
+  roles,
+  cmd,
+  qual,
+  with_check
+FROM pg_policies
+WHERE schemaname = 'public'
+  AND tablename IN (
+    'leagues',
+    'league_members',
+    'predictions',
+    'prediction_entries'
+  )
+ORDER BY tablename, cmd, policyname;
+```
+
+Non procedere alla modifica se la struttura reale delle colonne non corrisponde a quella prevista.
+
+---
+
+# 2. Policy SELECT per league_members
+
+Il problema è che attualmente `league_members` permette di vedere solo la propria membership.
+
+Dobbiamo permettere a un membro di vedere tutti i membri delle proprie leghe, ma nessun membro di leghe estranee.
+
+Rimuovere SOLO le vecchie policy SELECT equivalenti alla lettura della propria membership e creare una policy dedicata.
+
+SQL:
+
+```sql
+DROP POLICY IF EXISTS "Users can view their own memberships"
+ON public.league_members;
+
+CREATE POLICY "Members can view members of their leagues"
+ON public.league_members
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.league_members viewer_membership
+    WHERE viewer_membership.league_id = league_members.league_id
+      AND viewer_membership.user_id = auth.uid()
+  )
+);
+```
+
+IMPORTANTE:
+
+Non modificare le policy INSERT/DELETE esistenti.
+
+---
+
+# 3. Policy SELECT per predictions
+
+Attualmente sono presenti policy equivalenti a:
+
+```text
+Users can view own predictions
+predictions_select_own
+```
+
+Entrambe devono essere rimosse perché limitano la SELECT a:
+
+```sql
+user_id = auth.uid()
+```
+
+Rimuovere SOLO queste policy:
+
+```sql
+DROP POLICY IF EXISTS "Users can view own predictions"
+ON public.predictions;
+
+DROP POLICY IF EXISTS "predictions_select_own"
+ON public.predictions;
+```
+
+Creare quindi una singola policy:
+
+```sql
+CREATE POLICY "Members can view predictions in their leagues"
+ON public.predictions
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.league_members viewer_membership
+    WHERE viewer_membership.league_id = predictions.league_id
+      AND viewer_membership.user_id = auth.uid()
+  )
+);
+```
+
+Questa policy significa:
+
+> l'utente può leggere una prediction se appartiene alla stessa `league_id`.
+
+NON usare:
+
+```sql
+USING (true)
+```
+
+e NON usare:
+
+```sql
+USING (user_id = auth.uid())
+```
+
+per la nuova policy.
+
+---
+
+# 4. Policy SELECT per prediction_entries
+
+Attualmente sono presenti policy duplicate/equivalenti:
+
+```text
+Users can view own prediction entries
+prediction_entries_select_own
+```
+
+Rimuoverle:
+
+```sql
+DROP POLICY IF EXISTS "Users can view own prediction entries"
+ON public.prediction_entries;
+
+DROP POLICY IF EXISTS "prediction_entries_select_own"
+ON public.prediction_entries;
+```
+
+Creare:
+
+```sql
+CREATE POLICY "Members can view prediction entries in their leagues"
+ON public.prediction_entries
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.predictions p
+    JOIN public.league_members lm
+      ON lm.league_id = p.league_id
+    WHERE p.id = prediction_entries.prediction_id
+      AND lm.user_id = auth.uid()
+  )
+);
+```
+
+Questa policy permette di leggere una `prediction_entry` solo quando la prediction appartiene a una lega di cui l'utente corrente è membro.
+
+---
+
+# 5. NON modificare le policy di scrittura
+
+Le seguenti operazioni devono rimanere limitate al proprietario:
+
+### predictions
+
+INSERT:
+
+```sql
+user_id = auth.uid()
+```
+
+UPDATE:
+
+```sql
+user_id = auth.uid()
+```
+
+DELETE:
+
+```sql
+user_id = auth.uid()
+```
+
+### prediction_entries
+
+INSERT/UPDATE/DELETE devono continuare a verificare che la prediction appartenga all'utente corrente.
+
+NON trasformare queste policy in policy basate sulla membership della lega.
+
+Un membro della lega deve poter leggere i punteggi degli altri, ma NON modificare i loro pronostici.
+
+---
+
+# 6. Verifica delle policy dopo la modifica
+
+Eseguire:
+
+```sql
+SELECT
+  tablename,
+  policyname,
+  cmd,
+  qual,
+  with_check
+FROM pg_policies
+WHERE schemaname = 'public'
+  AND tablename IN (
+    'league_members',
+    'predictions',
+    'prediction_entries'
+  )
+ORDER BY tablename, cmd, policyname;
+```
+
+Verificare che per SELECT esistano policy equivalenti a:
+
+```text
+Members can view members of their leagues
+Members can view predictions in their leagues
+Members can view prediction entries in their leagues
+```
+
+e che non siano rimaste le vecchie policy SELECT `*_own` che limitano la lettura esclusivamente a `auth.uid()`.
+
+---
+
+# 7. Test SQL della logica RLS
+
+Non usare `service_role` per simulare il comportamento dell'utente.
+
+I test devono essere effettuati con sessioni utente autenticato reali oppure tramite il client Supabase autenticato.
+
+Creare/identificare almeno due utenti:
+
+* USER_A = membro di FantaTest
+* USER_B = altro membro di FantaTest
+
+e, se possibile:
+
+* USER_C = utente che NON appartiene a FantaTest.
+
+---
+
+# 8. Test FantaTest — membership
+
+Accedere con USER_A.
+
+La query equivalente a:
+
+```sql
+SELECT league_id, user_id
+FROM public.league_members;
+```
+
+deve restituire:
+
+* tutti i membri delle leghe a cui USER_A appartiene;
+* nessun membro di leghe a cui USER_A non appartiene.
+
+In particolare, USER_A deve poter vedere tutti i membri di:
+
+```text
+FantaTest
+```
+
+non solo USER_A.
+
+---
+
+# 9. Test FantaTest — predictions
+
+Con USER_A autenticato:
+
+```sql
+SELECT
+  id,
+  user_id,
+  league_id,
+  grand_prix_id,
+  total_points
+FROM public.predictions
+WHERE league_id = '<FANTATEST_LEAGUE_ID>'
+ORDER BY user_id, grand_prix_id;
+```
+
+La query deve restituire le predictions di:
+
+* USER_A
+* USER_B
+* tutti gli altri membri di FantaTest che hanno predictions.
+
+NON deve restituire predictions appartenenti ad altre leghe.
+
+---
+
+# 10. Test FantaTest — prediction_entries
+
+Con USER_A autenticato:
+
+```sql
+SELECT
+  pe.id,
+  pe.prediction_id,
+  pe.prediction_type,
+  pe.position,
+  pe.rider_id,
+  pe.points
+FROM public.prediction_entries pe
+JOIN public.predictions p
+  ON p.id = pe.prediction_id
+WHERE p.league_id = '<FANTATEST_LEAGUE_ID>';
+```
+
+Devono essere visibili le entries di tutti i partecipanti di FantaTest.
+
+Questo è fondamentale perché la pagina della lega utilizza `prediction_entries.points` per mostrare i punteggi individuali.
+
+---
+
+# 11. Test di isolamento tra leghe — OBBLIGATORIO
+
+Questo test è fondamentale.
+
+Creare/identificare:
+
+```text
+LEAGUE_A = FantaTest
+LEAGUE_B = un'altra lega
+```
+
+USER_A deve appartenere a LEAGUE_A ma NON a LEAGUE_B.
+
+Con USER_A autenticato:
+
+* predictions di LEAGUE_A → VISIBILI;
+* prediction_entries di LEAGUE_A → VISIBILI;
+* predictions di LEAGUE_B → NON VISIBILI;
+* prediction_entries di LEAGUE_B → NON VISIBILI;
+* membri di LEAGUE_B → NON VISIBILI.
+
+NON accettare una soluzione che renda pubbliche tutte le predictions.
+
+---
+
+# 12. Verifica specifica con Nicholas
+
+Usare l'account di Nicholas già presente nel progetto.
+
+Verificare che entrando nella lega FantaTest:
+
+* Nicholas continui a vedere i propri punteggi;
+* Nicholas veda anche i punteggi degli altri partecipanti;
+* i punteggi storici già presenti non cambino;
+* i valori numerici rimangano identici;
+* `—` rimanga `—`;
+* `Attesa` rimanga `Attesa`.
+
+In particolare, il punteggio storico di Nicholas/Thailandia deve rimanere:
+
+```text
+21
+```
+
+NON eseguire alcun ricalcolo.
+
+---
+
+# 13. Verifica con un secondo account
+
+Accedere con un secondo partecipante di FantaTest.
+
+Verificare che:
+
+```text
+Account A:
+  vede A
+  vede B
+
+Account B:
+  vede B
+  vede A
+```
+
+e che entrambi vedano gli stessi punteggi della lega.
+
+Questo deve funzionare anche dopo logout/login, quindi non deve dipendere da dati presenti solamente nel client.
+
+---
+
+# 14. Controllo frontend
+
+Dopo la modifica RLS, verificare il codice della pagina:
+
+```text
+/leghe/:leagueId
+```
+
+Cercare filtri come:
+
+```typescript
+.eq('user_id', currentUserId)
+```
+
+oppure:
+
+```typescript
+.eq('user_id', user.id)
+```
+
+applicati alla query delle predictions della lega.
+
+Se esiste un filtro di questo tipo che limita i risultati ai soli pronostici dell'utente corrente, rimuoverlo SOLO dalla query di lettura della classifica/dettaglio lega.
+
+NON rimuoverlo dalle operazioni di modifica/salvataggio dei pronostici.
+
+La query della lega deve usare:
+
+```text
+league_id
+```
+
+come principale criterio di selezione.
+
+---
+
+# 15. Test finale applicazione
+
+Testare:
+
+### Desktop
+
+```text
+/leghe/FantaTest
+```
+
+Verificare:
+
+* tutti i partecipanti;
+* tutti i GP;
+* punteggi corretti;
+* nessun `0` artificiale dovuto a dati non caricati.
+
+### Mobile
+
+Verificare le card dei partecipanti.
+
+Ogni partecipante deve avere:
+
+* nome;
+* GP;
+* punteggio;
+* totale.
+
+---
+
+# 16. Controllo integrità dati
+
+Prima e dopo la modifica confrontare:
+
+```sql
+SELECT
+  COUNT(*) AS predictions_count,
+  COALESCE(SUM(total_points), 0) AS total_points_sum
+FROM public.predictions;
+```
+
+e:
+
+```sql
+SELECT
+  COUNT(*) AS entries_count,
+  COALESCE(SUM(points), 0) AS entries_points_sum
+FROM public.prediction_entries;
+```
+
+I valori devono essere identici prima e dopo la modifica.
+
+Se cambiano, STOP immediatamente.
+
+Questo task non deve modificare alcun dato.
+
+---
+
+# 17. Controllo sicurezza finale
+
+Verificare esplicitamente:
+
+* nessuna policy `SELECT ... USING (true)` sulle tabelle coinvolte;
+* nessun uso di `service_role` nel frontend;
+* nessuna modifica alle policy INSERT/UPDATE/DELETE salvo assoluta necessità;
+* nessun dato di un'altra lega visibile a un utente che non ne è membro.
+
+---
+
+# 18. Build e typecheck
+
+Eseguire:
+
+```bash
+npm run typecheck
+npm run build
+```
+
+Se disponibili, eseguire anche i test automatici del progetto.
+
+---
+
+# 19. Report finale obbligatorio
+
+Creare:
+
+```text
+.agents/outputs/task-43-league-rls-fix.md
+```
+
+Il report deve contenere:
+
+1. policy trovate prima della modifica;
+2. policy rimosse;
+3. policy create;
+4. SQL effettivamente applicato;
+5. risultato test USER_A → FantaTest;
+6. risultato test USER_B → FantaTest;
+7. risultato isolamento altra lega;
+8. verifica Nicholas;
+9. verifica `prediction_entries.points`;
+10. conteggio predictions prima/dopo;
+11. conteggio prediction_entries prima/dopo;
+12. conferma che nessun punteggio è stato modificato;
+13. typecheck;
+14. build;
+15. eventuali problemi residui.
+
+## Criterio di successo
+
+Il task è COMPLETO solo se:
+
+```text
+Membro FantaTest
+      ↓
+vede tutti i membri FantaTest
+      ↓
+vede tutte le predictions FantaTest
+      ↓
+vede tutte le prediction_entries FantaTest
+      ↓
+vede i punteggi corretti degli altri partecipanti
+```
+
+ma:
+
+```text
+Membro FantaTest
+      ↓
+NON vede predictions di altre leghe
+      ↓
+NON vede prediction_entries di altre leghe
+```
+
+e soprattutto:
+
+```text
+prediction_entries.points
+predictions.total_points
+predictions.qualifying_points
+predictions.sprint_points
+predictions.race_points
+predictions.bonus_points
+predictions.malus_points
+```
+
+NON devono essere modificati da questo task.
+
+Questo task riguarda esclusivamente **accesso in lettura tramite RLS + eventuali filtri frontend errati**.
