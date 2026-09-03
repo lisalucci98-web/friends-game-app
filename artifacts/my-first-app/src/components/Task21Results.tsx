@@ -304,6 +304,14 @@ function predictionForGp(
     })[0];
 }
 
+function predictionUpdatedAt(prediction: PredictionScore) {
+  return new Date(prediction.updated_at || prediction.created_at || 0).getTime();
+}
+
+function predictionMapKey(userId: string, grandPrixId: string) {
+  return `${userId}:${grandPrixId}`;
+}
+
 async function loadSeasonData() {
   const [seasonsResponse, grandPrixResponse] = await Promise.all([
     supabase
@@ -1037,17 +1045,36 @@ export function LeagueResultsContent({
         throw new Error('Non è stato possibile caricare i partecipanti.');
       }
 
-      const nextMembers = (membersResponse.data || []) as LeagueMember[];
-      // The membership check above and the league_id filter form the access
-      // boundary. Do not filter again by the RPC payload: the scores query
-      // must return every member's server-side score for this league.
+      const rpcMembers = (membersResponse.data || []) as LeagueMember[];
+      const nextMembers = rpcMembers;
+      const memberIds = nextMembers.map((member) => member.user_id);
       const predictionsResponse = await supabase
         .from('predictions')
         .select(leaderboardSelect)
-        .eq('league_id', leagueId);
+        .eq('league_id', leagueId)
+        .in('user_id', memberIds);
 
       if (predictionsResponse.error) {
         throw new Error('Non è stato possibile caricare i punteggi della lega.');
+      }
+
+      const nextPredictions = (predictionsResponse.data || []) as unknown as PredictionScore[];
+      if (import.meta.env.DEV) {
+        const predictionCounts = Object.fromEntries(
+          memberIds.map((memberId) => [
+            memberId,
+            nextPredictions.filter((prediction) => prediction.user_id === memberId).length,
+          ]),
+        );
+        console.debug('[league-results] read-only participant mapping', {
+          currentUserId: user.id,
+          leagueId,
+          rpcMemberUserIds: rpcMembers.map((member) => member.user_id),
+          memberUserIds: memberIds,
+          loadedPredictionUserIds: [...new Set(nextPredictions.map((prediction) => prediction.user_id))],
+          loadedPredictionCount: nextPredictions.length,
+          predictionCounts,
+        });
       }
 
       setLeague(leagueResponse.data as League);
@@ -1056,7 +1083,7 @@ export function LeagueResultsContent({
       setSeason(seasonData.season);
       setGrandPrix(seasonData.grandPrix);
       setSessions(seasonData.sessions);
-      setPredictions((predictionsResponse.data || []) as unknown as PredictionScore[]);
+      setPredictions(nextPredictions);
       setSelectedMemberId((current) =>
         current && nextMembers.some((member) => member.user_id === current) ? current : user.id,
       );
@@ -1091,6 +1118,17 @@ export function LeagueResultsContent({
       ),
     [predictions, seasonGrandPrixIds],
   );
+  const seasonPredictionsByMemberAndGp = useMemo(() => {
+    const indexed = new Map<string, PredictionScore>();
+    for (const prediction of seasonPredictions) {
+      const key = predictionMapKey(prediction.user_id, prediction.grand_prix_id);
+      const existing = indexed.get(key);
+      if (!existing || predictionUpdatedAt(prediction) >= predictionUpdatedAt(existing)) {
+        indexed.set(key, prediction);
+      }
+    }
+    return indexed;
+  }, [seasonPredictions]);
 
   const leaderboard = useMemo(() => {
     const rows = members.map((member, index) => {
@@ -1460,7 +1498,9 @@ export function LeagueResultsContent({
                               key={item.id}
                               grandPrix={item}
                               round={index + 1}
-                              prediction={predictionForGp(memberPredictions, item.id)}
+                              prediction={seasonPredictionsByMemberAndGp.get(
+                                predictionMapKey(row.member.user_id, item.id),
+                              )}
                               entries={memberDetailEntries}
                               riders={memberDetailRiders}
                               allGrandPrix={grandPrix}
