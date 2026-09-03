@@ -1,0 +1,449 @@
+# Task 39 — APPLY scoring storico dopo Task 38
+
+Il Task 38 ha completato con successo il dry-run della nuova regola Malus Gara.
+
+Ora autorizzo l'APPLY dei risultati verificati del Task 38 sulla lega:
+
+```text
+TEST01
+```
+
+## OBIETTIVO
+
+Applicare al database i punteggi storici corretti secondo:
+
+```text
+0 NC      →   0
+1–2 NC    →  -1
+3–4 NC    →  -5
+5+ NC     → -10
+```
+
+Il conteggio NC deve essere effettuato esclusivamente sui 5 piloti pronosticati dall'utente e verificando quali sono presenti nella lista `Out`.
+
+---
+
+# 1. USARE IL DRY-RUN DEL TASK 38
+
+PRIMA di qualsiasi scrittura:
+
+* carica il report prodotto dal Task 38;
+* usa esclusivamente le prediction per cui il dry-run ha prodotto un risultato deterministico e applicabile;
+* NON applicare automaticamente le categorie:
+
+  * `HISTORICAL_UNCERTAIN`
+  * `MISSING_DATA`
+  * `PARTIAL`
+  * altre prediction esplicitamente escluse dal Task 38.
+
+Non utilizzare una nuova interpretazione dei dati.
+
+Il dry-run Task 38 è la fonte di verità per decidere quali record possono essere aggiornati.
+
+---
+
+# 2. COSA AGGIORNARE
+
+Per ogni prediction autorizzata dal dry-run, aggiorna i punteggi persistiti necessari affinché il database rifletta il nuovo scoring:
+
+* Qualifica;
+* Sprint;
+* Gara;
+* Bonus;
+* Malus;
+* Totale.
+
+Per le singole `prediction_entries` aggiorna i relativi `points` quando il Task 38 ha determinato il valore corretto.
+
+Mantieni invariati:
+
+* prediction originale;
+* piloti pronosticati;
+* ordine dei piloti;
+* risultati ufficiali;
+* session_results;
+* dati utente;
+* dati della lega;
+* qualsiasi campo non direttamente necessario al punteggio.
+
+NON creare nuove prediction.
+
+NON creare nuove entry.
+
+NON modificare prediction parziali.
+
+---
+
+# 3. NIKY / THAILANDIA
+
+Verifica esplicitamente prima e dopo l'apply:
+
+```text
+Niky / Thailandia
+```
+
+Il valore corretto secondo Excel/Task 32 è:
+
+```text
+Qualifica = 8
+Sprint    = 3
+Gara      = 10
+Totale    = 21
+```
+
+Il risultato finale deve essere:
+
+```text
+21
+```
+
+e non il precedente valore DB.
+
+---
+
+# 4. MARTY / CATALOGNA
+
+Verifica esplicitamente:
+
+```text
+Marty / Catalogna
+```
+
+Il valore storico Excel verificato è:
+
+```text
+Totale = 13
+```
+
+Il database deve riflettere questo valore solo se il Task 38 lo ha classificato come deterministico/applicabile.
+
+Non ricostruire nuovamente la regola durante l'apply.
+
+---
+
+# 5. MARINO / ARAGON
+
+Verifica:
+
+```text
+Marino / Aragon
+```
+
+Se il Task 38 ha confermato che la prediction DB è assente:
+
+* NON creare la prediction;
+* NON creare entry;
+* NON creare punteggi.
+
+Lascia il record invariato.
+
+---
+
+# 6. IDEMPOTENZA
+
+L'apply deve essere idempotente.
+
+Prima di ogni UPDATE verifica il valore corrente.
+
+Se il valore corrente è già quello corretto:
+
+```text
+SKIP
+```
+
+Se è diverso:
+
+```text
+UPDATE
+```
+
+Non effettuare aggiornamenti inutili.
+
+---
+
+# 7. SICUREZZA
+
+NON modificare:
+
+* schema;
+* RLS;
+* migration;
+* RPC;
+* struttura delle tabelle;
+* scoring function/RPC;
+* session_results;
+* risultati ufficiali;
+* utenti;
+* leghe.
+
+Non modificare le regole di scoring oltre alla correzione già effettuata nel Task 38.
+
+---
+
+# 8. SCORE_PREDICTION
+
+Non utilizzare automaticamente `score_prediction` se il Task 38 ha previsto l'applicazione diretta dei risultati del dry-run.
+
+Se l'RPC dovesse essere utilizzata, prima verifica che produca ESATTAMENTE gli stessi valori del Task 38.
+
+In caso contrario:
+
+```text
+STOP
+```
+
+e non procedere con l'apply.
+
+Non usare una RPC che possa produrre risultati differenti dal dry-run approvato.
+
+---
+
+# 9. TRANSAZIONE / ROLLBACK
+
+Se il canale di accesso al database lo permette, esegui l'apply in una transazione.
+
+In caso di errore:
+
+```text
+ROLLBACK
+```
+
+Non lasciare il database in uno stato parzialmente aggiornato.
+
+Se una transazione completa non è possibile, procedi solo se puoi garantire un meccanismo equivalente di rollback/idempotenza e documentalo nel report.
+
+---
+
+# 10. AUDIT PRE-APPLY
+
+Prima dell'apply salva i valori precedenti dei record che verranno modificati.
+
+Per ogni modifica registra:
+
+```text
+prediction_id
+utente
+GP
+campo
+valore precedente
+valore nuovo
+```
+
+Questo deve permettere di verificare esattamente cosa è cambiato.
+
+---
+
+# 11. AUDIT POST-APPLY
+
+Dopo l'apply esegui esclusivamente query di verifica.
+
+Controlla:
+
+* numero prediction modificate;
+* numero entry modificate;
+* numero prediction rimaste invariate;
+* eventuali errori;
+* eventuali prediction partial accidentalmente modificate;
+* eventuali record fuori dal perimetro Task 38 modificati.
+
+Verifica inoltre che:
+
+```text
+DB total = Task 38 expected total
+```
+
+per ogni prediction applicata.
+
+---
+
+# 12. VERIFICA EXCEL
+
+Per tutte le prediction per cui esiste un valore Excel verificato:
+
+```text
+DB finale = Excel storico
+```
+
+Eventuali differenze devono essere riportate e NON devono essere ignorate.
+
+---
+
+# 13. VERIFICHE SPECIFICHE
+
+Controlla almeno:
+
+### Niky / Thailandia
+
+```text
+8 + 3 + 10 = 21
+```
+
+### Niky / Brasile
+
+```text
+25
+```
+
+### Niky / Francia
+
+```text
+18
+```
+
+### Marty / Italia
+
+```text
+30
+```
+
+### Marty / Catalogna
+
+```text
+13
+```
+
+### Simo / Thailandia
+
+```text
+26
+```
+
+### Alessandro / Spagna
+
+```text
+19
+```
+
+### Alessandro / UK
+
+```text
+22
+```
+
+Verifica inoltre tutti gli altri record presenti nel dry-run Task 38 classificati come applicabili.
+
+---
+
+# 14. CONTROLLO SPECIFICO DEL MALUS
+
+Dopo l'apply cerca nuovamente tutte le prediction con:
+
+```text
+NC = 0
+NC = 1
+NC = 2
+NC = 3
+NC = 4
+NC >= 5
+```
+
+Verifica che il malus persistito sia rispettivamente:
+
+```text
+0
+-1
+-1
+-5
+-5
+-10
+```
+
+Particolare attenzione ai casi:
+
+```text
+NC = 2
+```
+
+che DEVONO avere:
+
+```text
+Malus = -1
+```
+
+e mai:
+
+```text
+-5
+```
+
+---
+
+# 15. NON TOCCARE LE PARTIAL
+
+Le 30 prediction partial già identificate nei task precedenti devono rimanere inalterate, salvo esplicita inclusione nel dry-run Task 38 come applicabili.
+
+Verifica:
+
+```text
+partial prima = partial dopo
+```
+
+---
+
+# 16. REPORT
+
+Genera:
+
+```text
+.agents/outputs/task-39-scoring-apply-final.md
+```
+
+Il report deve contenere:
+
+1. data/ora dell'apply;
+2. lega interessata;
+3. numero prediction candidate;
+4. numero prediction aggiornate;
+5. numero prediction già corrette;
+6. numero entry aggiornate;
+7. numero record esclusi;
+8. numero partial escluse;
+9. numero errori;
+10. tabella completa delle modifiche;
+11. confronto DB pre/post;
+12. confronto con Excel;
+13. verifica Niky/Thailandia = 21;
+14. verifica Marty/Catalogna = 13;
+15. verifica dei casi obbligatori;
+16. verifica dei casi con 2 NC;
+17. conferma che schema/RLS/session_results non sono stati modificati.
+
+---
+
+# 17. VERIFICHE FINALI
+
+Esegui:
+
+```text
+npm run typecheck
+npm run build
+git diff --check
+```
+
+e i test dello scorer storico.
+
+Devono risultare PASS.
+
+---
+
+# 18. CRITERIO DI SUCCESSO
+
+Task 39 è PASS solo se:
+
+* i punteggi approvati dal Task 38 sono stati applicati;
+* nessuna prediction non autorizzata è stata modificata;
+* nessuna prediction partial è stata modificata senza autorizzazione;
+* Niky/Thailandia = 21;
+* Marty/Catalogna = 13, se presente tra i record applicabili del Task 38;
+* i casi Excel verificati coincidono;
+* i casi con 2 NC hanno malus -1;
+* i dati non relativi allo scoring sono invariati;
+* lo schema è invariato;
+* RLS è invariata;
+* session_results è invariato;
+* i test passano;
+* il report finale è stato prodotto.
+
+Al termine NON effettuare ulteriori modifiche.
+
+Restituisci esclusivamente il report finale dell'apply e il riepilogo delle modifiche effettuate.
