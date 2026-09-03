@@ -1308,6 +1308,68 @@ export function LeagueResultsContent({
             </p>
           </section>
           </div>
+          <section className="task21-panel task21-score-matrix-panel" aria-labelledby="task21-score-matrix-title">
+            <div className="task21-panel-heading">
+              <div>
+                <span className="task21-kicker">Riepilogo stagione {season.year}</span>
+                <h2 id="task21-score-matrix-title">Punteggi per GP</h2>
+                <p className="task35-panel-subtitle">Confronta i punteggi di Alessandro e di tutti i partecipanti, GP dopo GP.</p>
+              </div>
+              <BarChart3 size={24} aria-hidden="true" className="task21-panel-icon" />
+            </div>
+            <div className="task21-score-matrix-wrap">
+              <table className="task21-score-matrix">
+                <caption className="sr-only">Punteggi di ogni partecipante per Gran Premio</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Partecipante</th>
+                    {seasonGrandPrix.map((item) => (
+                      <th scope="col" key={item.id} title={gpName(item)}>
+                        <span>{gpLabel(item)}</span>
+                        <small>{formatShortDate(item.date_start)}</small>
+                      </th>
+                    ))}
+                    <th scope="col">Totale</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leaderboard.map((row) => {
+                    const isCurrentUser = row.member.user_id === user?.id;
+                    return (
+                      <tr className={isCurrentUser ? 'is-current' : undefined} key={row.member.user_id}>
+                        <th scope="row">
+                          <span className="task21-score-matrix-rank">{row.rank}</span>
+                          <span>{row.member.name || 'Utente senza nome'}</span>
+                          {isCurrentUser && <small>Tu</small>}
+                        </th>
+                        {seasonGrandPrix.map((item) => {
+                          const prediction = predictionForGp(row.predictions, item.id);
+                          const score = prediction
+                            ? hasScore(prediction)
+                              ? formatTotal(prediction.total_points)
+                              : 'Attesa'
+                            : '—';
+                          return (
+                            <td
+                              className={!prediction ? 'is-empty' : prediction && !hasScore(prediction) ? 'is-pending' : undefined}
+                              key={item.id}
+                              title={prediction ? `${gpName(item)}: ${score} punti` : `${gpName(item)}: nessun pronostico`}
+                            >
+                              {score}
+                            </td>
+                          );
+                        })}
+                        <td className="task21-score-matrix-total">{row.total}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="task21-note">
+              “—” indica che non è presente un pronostico; “Attesa” indica un pronostico non ancora conteggiato.
+            </p>
+          </section>
           <section className="task21-panel task21-all-members-panel" aria-labelledby="task21-all-members-title">
             <div className="task21-panel-heading">
               <div>
