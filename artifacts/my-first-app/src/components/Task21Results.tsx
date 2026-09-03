@@ -1380,7 +1380,9 @@ export function LeagueResultsContent({
                           {isCurrentUser && <small>Tu</small>}
                         </th>
                         {seasonGrandPrix.map((item) => {
-                          const prediction = predictionForGp(row.predictions, item.id);
+                          const prediction = seasonPredictionsByMemberAndGp.get(
+                            predictionMapKey(row.member.user_id, item.id),
+                          );
                           const score = prediction
                             ? hasScore(prediction)
                               ? formatTotal(prediction.total_points)
@@ -1422,7 +1424,9 @@ export function LeagueResultsContent({
                     </header>
                     <div className="task21-mobile-score-grid">
                       {seasonGrandPrix.map((item) => {
-                        const prediction = predictionForGp(row.predictions, item.id);
+                        const prediction = seasonPredictionsByMemberAndGp.get(
+                          predictionMapKey(row.member.user_id, item.id),
+                        );
                         const score = prediction
                           ? hasScore(prediction)
                             ? formatTotal(prediction.total_points)
