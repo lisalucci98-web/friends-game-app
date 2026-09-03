@@ -1038,14 +1038,13 @@ export function LeagueResultsContent({
       }
 
       const nextMembers = (membersResponse.data || []) as LeagueMember[];
-      const memberIds = nextMembers.map((member) => member.user_id);
-      const predictionsResponse = memberIds.length
-        ? await supabase
-            .from('predictions')
-            .select(leaderboardSelect)
-            .eq('league_id', leagueId)
-            .in('user_id', memberIds)
-        : { data: [], error: null };
+      // The membership check above and the league_id filter form the access
+      // boundary. Do not filter again by the RPC payload: the scores query
+      // must return every member's server-side score for this league.
+      const predictionsResponse = await supabase
+        .from('predictions')
+        .select(leaderboardSelect)
+        .eq('league_id', leagueId);
 
       if (predictionsResponse.error) {
         throw new Error('Non è stato possibile caricare i punteggi della lega.');
@@ -1057,9 +1056,9 @@ export function LeagueResultsContent({
       setSeason(seasonData.season);
       setGrandPrix(seasonData.grandPrix);
       setSessions(seasonData.sessions);
-      setPredictions((predictionsResponse.data || []) as PredictionScore[]);
+      setPredictions((predictionsResponse.data || []) as unknown as PredictionScore[]);
       setSelectedMemberId((current) =>
-        current && memberIds.includes(current) ? current : user.id,
+        current && nextMembers.some((member) => member.user_id === current) ? current : user.id,
       );
     } catch (error) {
       setErrorMessage(
