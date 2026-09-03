@@ -1,0 +1,532 @@
+# Task 42 — Debug RLS / accesso ai punteggi degli altri membri della lega
+
+## PROBLEMA OSSERVATO
+
+È stato effettuato un test reale accedendo alla stessa lega con due account differenti.
+
+Risultato:
+
+### Account Nicholas
+
+* Nicholas vede correttamente i propri punteggi;
+* tutti gli altri partecipanti risultano con punteggio 0 / senza dati.
+
+### Altro account
+
+* il secondo utente vede correttamente i propri punteggi;
+* Nicholas e gli altri partecipanti risultano con punteggio 0 / senza dati.
+
+Questo indica fortemente che i dati visualizzati dalla pagina sono limitati dall'utente autenticato.
+
+## IPOTESI PRINCIPALE
+
+Verificare se il problema è causato da:
+
+1. RLS sulle tabelle `predictions` o `prediction_entries`;
+2. query che applica `auth.uid()` / `currentUserId`;
+3. RPC che restituisce soltanto i dati dell'utente corrente;
+4. relazione tra `league_members`, `predictions` e `prediction_entries`;
+5. combinazione di RLS + query frontend.
+
+NON assumere che il problema sia frontend.
+
+---
+
+# 1. OBIETTIVO
+
+La pagina:
+
+```text
+/leghe/:leagueId
+```
+
+deve permettere a un membro della lega di vedere i punteggi degli **ALTRI membri della stessa lega**.
+
+Regola desiderata:
+
+```text
+utente autenticato
+       ↓
+verifica che appartenga alla lega
+       ↓
+può leggere i punteggi di TUTTI i membri di quella lega
+```
+
+NON:
+
+```text
+utente autenticato
+       ↓
+può leggere soltanto predictions.user_id = auth.uid()
+```
+
+---
+
+# 2. MODELLO DI AUTORIZZAZIONE DESIDERATO
+
+L'accesso deve essere basato sull'appartenenza alla lega.
+
+Se:
+
+```text
+user A ∈ league X
+```
+
+allora A può leggere i dati necessari per visualizzare i punteggi di:
+
+```text
+user A
+user B
+user C
+...
+```
+
+purché:
+
+```text
+user B ∈ league X
+user C ∈ league X
+...
+```
+
+NON deve poter leggere i dati di utenti appartenenti a leghe completamente diverse.
+
+Quindi la condizione concettuale è:
+
+```text
+prediction.user_id appartiene a league_members
+WHERE league_members.league_id = currentLeagueId
+```
+
+e non:
+
+```text
+prediction.user_id = auth.uid()
+```
+
+---
+
+# 3. PRIMA FASE — DIAGNOSI READ-ONLY
+
+Prima di modificare qualsiasi cosa, analizza:
+
+### `league_members`
+
+Verifica:
+
+```text
+league_id
+user_id
+```
+
+### `predictions`
+
+Verifica:
+
+```text
+id
+user_id
+grand_prix_id
+qualifying_points
+sprint_points
+race_points
+bonus_points
+malus_points
+total_points
+```
+
+o i nomi effettivamente presenti nello schema.
+
+### `prediction_entries`
+
+Verifica:
+
+```text
+prediction_id
+prediction_type
+position
+rider_id
+points
+```
+
+---
+
+# 4. VERIFICA RLS
+
+Controlla le policy RLS attualmente presenti su:
+
+```text
+predictions
+prediction_entries
+league_members
+```
+
+NON modificarle ancora.
+
+Identifica esplicitamente:
+
+```text
+SELECT policy
+INSERT policy
+UPDATE policy
+DELETE policy
+```
+
+e soprattutto la condizione `USING` / `WITH CHECK`.
+
+Cerca condizioni come:
+
+```text
+auth.uid()
+```
+
+```text
+user_id = auth.uid()
+```
+
+```text
+prediction.user_id = auth.uid()
+```
+
+o equivalenti.
+
+---
+
+# 5. TEST CRITICO
+
+Esegui una verifica utilizzando due utenti appartenenti alla stessa lega TEST01.
+
+Per ciascun account verifica:
+
+```text
+utente autenticato
+league_id
+numero membri visibili
+numero predictions visibili
+numero predictions per user_id
+```
+
+Il risultato atteso è concettualmente:
+
+```text
+Account A:
+A → N predictions
+B → M predictions
+C → K predictions
+
+Account B:
+A → N predictions
+B → M predictions
+C → K predictions
+```
+
+I due account devono vedere lo stesso insieme di prediction della lega, pur mantenendo il normale controllo di appartenenza alla lega.
+
+---
+
+# 6. VERIFICA IMPORTANTE
+
+NON usare dati amministrativi/service-role per "nascondere" il problema.
+
+Il comportamento deve funzionare correttamente con il normale client autenticato dell'app.
+
+Non inserire:
+
+```text
+SUPABASE_SERVICE_ROLE_KEY
+```
+
+nel frontend.
+
+Non bypassare RLS in modo insicuro.
+
+---
+
+# 7. SE IL PROBLEMA È RLS
+
+Se la diagnosi dimostra che RLS impedisce a un membro della lega di leggere le prediction degli altri membri della stessa lega:
+
+1. documenta la policy attuale;
+2. prepara una nuova policy che consenta la lettura solo quando il record appartiene a una lega di cui `auth.uid()` è membro;
+3. verifica che l'accesso rimanga limitato alla lega.
+
+La condizione concettuale deve essere:
+
+```text
+EXISTS (
+  SELECT 1
+  FROM league_members lm_viewer
+  JOIN league_members lm_owner
+    ON lm_owner.league_id = lm_viewer.league_id
+  WHERE lm_viewer.user_id = auth.uid()
+    AND lm_owner.user_id = predictions.user_id
+    AND lm_viewer.league_id = <league della prediction>
+)
+```
+
+Adatta la query allo schema reale del progetto.
+
+NON copiare questa SQL alla cieca: prima verifica le FK e i nomi effettivi delle colonne.
+
+---
+
+# 8. ATTENZIONE ALLE PREDICTION_ENTRIES
+
+Se `predictions` diventa leggibile ma `prediction_entries` rimane limitata a:
+
+```text
+auth.uid()
+```
+
+il problema non sarà completamente risolto.
+
+Verifica quindi entrambe le tabelle.
+
+La catena deve essere leggibile per tutti i membri della lega:
+
+```text
+league_members
+       ↓
+predictions
+       ↓
+prediction_entries
+```
+
+---
+
+# 9. VERIFICA FRONTEND
+
+Solo dopo aver verificato RLS, controlla la query della pagina `/leghe/:leagueId`.
+
+La query deve poter recuperare le prediction di tutti gli utenti della lega.
+
+Cerca eventuali filtri:
+
+```text
+.eq('user_id', currentUserId)
+```
+
+```text
+.eq('user_id', user.id)
+```
+
+```text
+user_id === currentUserId
+```
+
+o equivalenti.
+
+Se esistono, rimuovili SOLO se applicati al caricamento dei dati della lega.
+
+Il controllo:
+
+```text
+currentUser appartiene alla lega
+```
+
+deve rimanere.
+
+---
+
+# 10. NON CONFONDERE AUTORIZZAZIONE E FILTRO UI
+
+La pagina deve continuare a usare:
+
+```text
+currentUser → verifica appartenenza
+```
+
+ma dopo questo controllo:
+
+```text
+league → carica tutti i partecipanti
+league → carica tutti i loro punteggi
+```
+
+Non deve filtrare nuovamente i punteggi per `currentUserId`.
+
+---
+
+# 11. TEST CON DATI REALI
+
+Utilizza TEST01.
+
+Per almeno 3 partecipanti verifica:
+
+```text
+user_id
+nome
+numero prediction
+GP
+total_points
+```
+
+Per esempio:
+
+```text
+Nicholas
+Alessandro
+Marty
+```
+
+se presenti nella lega.
+
+Per ciascuno verifica che un altro membro della lega possa leggere i dati.
+
+---
+
+# 12. TEST DI SICUREZZA
+
+È fondamentale verificare anche il caso opposto.
+
+Un utente appartenente a:
+
+```text
+league A
+```
+
+NON deve poter leggere arbitrariamente le prediction di:
+
+```text
+league B
+```
+
+Quindi il fix deve essere:
+
+```text
+stessa lega → consentito
+altra lega → negato
+```
+
+Non creare una policy che semplicemente renda tutte le `predictions` pubblicamente leggibili.
+
+---
+
+# 13. NESSUN CAMBIAMENTO AI PUNTEGGI
+
+Questo task riguarda esclusivamente l'accesso/visualizzazione dei dati.
+
+NON modificare:
+
+```text
+predictions.points
+prediction_entries.points
+total_points
+qualifying_points
+sprint_points
+race_points
+bonus_points
+malus_points
+```
+
+NON ricalcolare punteggi.
+
+NON creare prediction.
+
+NON modificare risultati ufficiali.
+
+---
+
+# 14. MODIFICHE CONSENTITE
+
+Se necessario, sono consentite SOLO:
+
+* correzioni alle query frontend;
+* correzioni alle policy RLS necessarie per permettere la lettura dei dati della stessa lega;
+* correzioni RPC read-only eventualmente necessarie.
+
+NON modificare lo schema.
+
+NON modificare scoring.
+
+NON modificare dati.
+
+---
+
+# 15. VERIFICHE FINALI
+
+Dopo il fix:
+
+```text
+npm run typecheck
+npm run build
+git diff --check
+```
+
+Poi verifica con almeno due account appartenenti a TEST01.
+
+Risultato atteso:
+
+```text
+Account Nicholas
+→ vede Nicholas
+→ vede Alessandro
+→ vede Marty
+→ vede tutti gli altri membri
+
+Account Alessandro
+→ vede Nicholas
+→ vede Alessandro
+→ vede Marty
+→ vede tutti gli altri membri
+```
+
+I punteggi devono essere identici indipendentemente dall'account utilizzato, perché appartengono alla stessa lega.
+
+---
+
+# 16. REPORT
+
+Crea:
+
+```text
+.agents/outputs/task-42-league-score-access-debug.md
+```
+
+Il report deve contenere:
+
+1. causa esatta del problema;
+2. RLS analizzata;
+3. policy coinvolte;
+4. query frontend analizzate;
+5. eventuale filtro `auth.uid()` trovato;
+6. modifica effettuata;
+7. verifica Nicholas;
+8. verifica Alessandro;
+9. verifica almeno un terzo partecipante;
+10. test cross-league;
+11. typecheck;
+12. build;
+13. conferma che nessun punteggio è stato modificato.
+
+## IMPORTANTE
+
+Se per correggere il problema è necessario modificare una policy RLS, puoi farlo perché è parte del problema di autorizzazione.
+
+Tuttavia:
+
+* modifica SOLO le policy necessarie;
+* non modificare dati;
+* non modificare schema;
+* non modificare scoring;
+* non modificare prediction.
+
+Se non sei certo che una modifica RLS sia sicura, NON applicarla: documenta la causa e fermati.
+
+## CRITERIO DI SUCCESSO
+
+Il task è PASS quando:
+
+```text
+stessa lega
+→ tutti i membri vedono tutti i punteggi della lega
+
+altra lega
+→ i punteggi non sono accessibili
+
+utente corrente
+→ continua a vedere correttamente i propri punteggi
+
+database scoring
+→ invariato
+```
