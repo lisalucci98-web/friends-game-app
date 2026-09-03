@@ -112,3 +112,17 @@ mtime_ms = 1788358140432
 storage_uri = "gcs://replit-rams-assets-archer/rams/assets/repl:92af7a65-61ba-4849-85b4-634f42e78888/661c72cb-c446-43a1-9558-ba78bfdc0ef8/65dc95a8-754d-42a6-b2d4-d30c323b4583"
 storage_version_token = "1788358178631715"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "F5PEWpeVFBcUkZIAw3yM6"
+uri = "file://.agents/outputs/task-39-scoring-apply-final.md"
+type = "text"
+title = "Task 39 — Report finale apply scoring storico"
+description = "Report completo dell'apply idempotente sulla lega TEST01, con audit pre/post, modifiche, verifiche NC e controlli di integrità."
+logical_id = "98d46eae-baaa-431c-8d83-824b389c1ace"
+content_hash = "sha256:28db703b67cfbadb2e7ea3a6dd0d39de485a20866aba9f9d2cee65efcc08280e"
+size = 98425
+mtime_ms = 1788426709814
+storage_uri = "gcs://replit-rams-assets-archer/rams/assets/repl:92af7a65-61ba-4849-85b4-634f42e78888/98d46eae-baaa-431c-8d83-824b389c1ace/1dae8117-b31c-4648-940f-bf73b775818f"
+storage_version_token = "1788426773774510"
+content_type = "text/markdown"
