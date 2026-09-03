@@ -1,0 +1,646 @@
+# Task 40 — Mobile-first redesign di FantaMotoGP
+
+## OBIETTIVO
+
+Riprogettare l'interfaccia di FantaMotoGP per renderla **molto più moderna, intuitiva e soprattutto smartphone-friendly**, mantenendo inalterate tutte le funzionalità e la logica esistente.
+
+L'app deve essere progettata con approccio **mobile-first**, perché lo smartphone è il dispositivo principale con cui gli utenti utilizzeranno la piattaforma.
+
+Il risultato deve sembrare una vera **app mobile**, pur rimanendo una web app.
+
+---
+
+# 1. REGOLA FONDAMENTALE
+
+Questo task riguarda esclusivamente:
+
+* UI;
+* UX;
+* responsive design;
+* navigazione;
+* disposizione dei componenti;
+* leggibilità;
+* interazioni touch;
+* micro-animazioni eventualmente necessarie.
+
+NON modificare:
+
+* database;
+* schema Supabase;
+* RLS;
+* RPC;
+* scoring;
+* prediction;
+* prediction_entries;
+* risultati ufficiali;
+* autenticazione;
+* struttura dei dati;
+* API;
+* logica di calcolo dei punteggi.
+
+Non modificare alcun dato.
+
+---
+
+# 2. APPROCCIO MOBILE-FIRST
+
+Progetta prima l'interfaccia per:
+
+* 360 × 800 px
+* 390 × 844 px
+* 393 × 873 px
+* 412 × 915 px
+
+e successivamente adatta il layout a tablet e desktop.
+
+NON limitarti a ridurre la versione desktop.
+
+La versione mobile deve avere una propria gerarchia visiva.
+
+---
+
+# 3. NAVIGAZIONE MOBILE
+
+Sostituisci eventuali navbar desktop troppo ingombranti con una navigazione mobile semplice.
+
+Preferenza:
+
+### Bottom navigation
+
+Con 4–5 sezioni principali, ad esempio:
+
+* 🏠 Home
+* 🏆 Leghe
+* 🏁 Pronostici
+* 📊 Risultati
+* 👤 Profilo
+
+La bottom navigation deve:
+
+* rimanere facilmente raggiungibile con il pollice;
+* avere icona + label;
+* evidenziare chiaramente la pagina attiva;
+* rispettare la safe area degli smartphone;
+* non coprire il contenuto.
+
+Se alcune sezioni esistenti hanno nomi diversi, mantieni le route e la logica attuale.
+
+---
+
+# 4. HEADER MOBILE
+
+Riduci drasticamente l'altezza dell'header.
+
+Su smartphone mostra principalmente:
+
+* logo/nome FantaMotoGP;
+* eventuale titolo della pagina;
+* eventuale azione primaria.
+
+Evita header molto alti o pieni di informazioni.
+
+Per le pagine secondarie usa eventualmente:
+
+```text
+←  Titolo pagina
+```
+
+con un'area touch sufficientemente grande.
+
+---
+
+# 5. HOME
+
+La Home mobile deve essere immediatamente comprensibile.
+
+Organizza il contenuto in card compatte:
+
+### Prossimo GP
+
+Mostra:
+
+* nome GP;
+* data;
+* countdown se già disponibile;
+* stato;
+* pulsante principale "Fai pronostico" quando disponibile.
+
+### Le mie leghe
+
+Mostra le leghe dell'utente in card compatte.
+
+### Ultimi risultati
+
+Mostra il risultato più recente con:
+
+```text
+GP
+Punteggio
+Posizione in classifica
+```
+
+Evita tabelle desktop.
+
+---
+
+# 6. PAGINA LEGA
+
+Questa è una delle pagine più importanti.
+
+La classifica deve essere facilmente leggibile su smartphone.
+
+NON utilizzare una tabella larga che richiede scrolling orizzontale.
+
+Utilizza card/ranking verticali.
+
+Esempio concettuale:
+
+```text
+🏆 CLASSIFICA
+
+🥇 Nicholas       184
+🥈 Alessandro     171
+🥉 Marty          165
+
+4  Simo           158
+5  Marino         151
+```
+
+Ogni partecipante deve essere selezionabile con un tap.
+
+---
+
+# 7. DETTAGLIO PARTECIPANTE
+
+Quando l'utente seleziona un partecipante, mostra:
+
+```text
+Nome utente
+Punteggio totale
+Posizione
+```
+
+e sotto:
+
+### Storico GP
+
+Utilizza card espandibili.
+
+Esempio:
+
+```text
+🇹🇭 Thailandia
+21 punti                         ▼
+
+Qualifica       8
+Sprint          3
+Gara           10
+Bonus           0
+Malus           0
+────────────────
+Totale         21
+```
+
+All'interno della card espansa mostra anche i singoli piloti pronosticati e i relativi punti.
+
+Deve essere possibile leggere chiaramente:
+
+```text
+Pilota       Pronostico    Punti
+Marc Marquez     1°           5
+...
+```
+
+Non usare tabelle che richiedono scrolling orizzontale.
+
+---
+
+# 8. "I MIEI RISULTATI"
+
+Riprogetta `/miei-risultati` come una vera schermata mobile.
+
+Ogni GP deve essere una card:
+
+```text
+🇹🇭 Thailandia
+
+21 punti
+Qualifica 8 · Sprint 3 · Gara 10
+
+▼ Dettagli
+```
+
+Espandendo:
+
+```text
+QUALIFICA
+Pole       ...
+Tempo      ...
+Totale      8
+
+SPRINT
+1. ...
+2. ...
+3. ...
+
+GARA
+1. ...
+2. ...
+3. ...
+4. ...
+5. ...
+
+BONUS       +...
+MALUS       -...
+TOTALE       21
+```
+
+Mantieni la distinzione esistente tra:
+
+* `0`
+* `—`
+* `Attesa`
+
+Non trasformare `—` in `0`.
+
+---
+
+# 9. PRONOSTICI
+
+La schermata dei pronostici deve essere ottimizzata per il touch.
+
+I 5 piloti devono essere selezionabili facilmente.
+
+Evita:
+
+* dropdown piccoli;
+* elementi troppo ravvicinati;
+* tabelle;
+* campi difficili da usare con il pollice.
+
+Preferisci:
+
+* card pilota;
+* selettori grandi;
+* numeri posizione ben visibili;
+* drag & drop solo se realmente utile;
+* feedback visivo immediato.
+
+Ogni elemento interattivo deve avere almeno circa 44 px di area touch.
+
+---
+
+# 10. GP / RISULTATI
+
+I risultati di ogni sessione devono essere facilmente consultabili da smartphone.
+
+Utilizza:
+
+```text
+QUALIFICA | SPRINT | GARA
+```
+
+come tab orizzontali facilmente tappabili.
+
+Per ogni pilota:
+
+```text
+1   Marc Marquez
+    Ducati
+    +0.000
+```
+
+Evita tabelle con troppe colonne.
+
+---
+
+# 11. COLORI E DESIGN SYSTEM
+
+Dai all'app un'identità visiva moderna da fantasy sport app.
+
+Il design dovrebbe comunicare:
+
+* MotoGP;
+* competizione;
+* velocità;
+* classifica;
+* gaming.
+
+Mantieni però un'interfaccia pulita e professionale.
+
+Utilizza:
+
+* card con bordi arrotondati;
+* gerarchia tipografica forte;
+* numeri grandi per i punteggi;
+* badge per GP/sessioni/stati;
+* icone semplici;
+* spazio bianco sufficiente.
+
+Non rendere l'interfaccia eccessivamente colorata.
+
+---
+
+# 12. CLASSIFICHE
+
+Per le classifiche utilizza una gerarchia visiva forte.
+
+I primi tre devono essere immediatamente riconoscibili.
+
+Esempio:
+
+```text
+🥇 NIKYTURETS       184
+🥈 ALESSANDRO       171
+🥉 MARTY            165
+```
+
+Per l'utente corrente:
+
+* evidenzia chiaramente la propria posizione;
+* mantieni visibile il punteggio;
+* non usare colori troppo aggressivi.
+
+---
+
+# 13. CARD E COMPONENTI
+
+Standardizza le card dell'app.
+
+Devono avere:
+
+* padding coerente;
+* bordi/radius coerenti;
+* tipografia coerente;
+* spaziature coerenti;
+* stato normale;
+* stato pressed;
+* stato disabled;
+* stato loading.
+
+Evita che ogni pagina sembri progettata separatamente.
+
+---
+
+# 14. RESPONSIVE DESKTOP
+
+Il redesign mobile non deve peggiorare desktop.
+
+Breakpoint indicativi:
+
+```text
+< 640px      Mobile
+640–1024px   Tablet
+> 1024px     Desktop
+```
+
+Su desktop:
+
+* puoi utilizzare più colonne;
+* le card possono essere affiancate;
+* la classifica può tornare a una tabella quando appropriato.
+
+Su mobile:
+
+* una colonna;
+* card verticali;
+* niente horizontal scrolling per il contenuto principale.
+
+---
+
+# 15. TOUCH & UX
+
+Ottimizza esplicitamente per smartphone:
+
+* touch target ≥ 44px;
+* nessun hover indispensabile;
+* feedback al tap;
+* pulsanti facilmente raggiungibili;
+* font leggibili;
+* contrasto sufficiente;
+* niente testi troppo piccoli;
+* niente elementi sovrapposti.
+
+Gestisci correttamente:
+
+```text
+env(safe-area-inset-top)
+env(safe-area-inset-bottom)
+```
+
+quando necessario.
+
+---
+
+# 16. LOADING / EMPTY / ERROR STATES
+
+Ogni pagina deve avere stati coerenti:
+
+### Loading
+
+Skeleton/card placeholder invece di schermate vuote quando possibile.
+
+### Empty
+
+Messaggio chiaro e azione suggerita.
+
+### Error
+
+Messaggio leggibile e pulsante "Riprova".
+
+Non mostrare errori tecnici all'utente finale.
+
+---
+
+# 17. ANIMAZIONI
+
+Utilizza micro-animazioni leggere per:
+
+* apertura/chiusura card;
+* cambio tab;
+* selezione;
+* aggiornamento classifica.
+
+NON usare animazioni pesanti.
+
+L'app deve rimanere veloce anche su smartphone meno potenti.
+
+---
+
+# 18. ACCESSIBILITÀ
+
+Verifica:
+
+* contrasto;
+* focus;
+* aria-label per icone;
+* navigazione da tastiera su desktop;
+* touch target;
+* testo leggibile;
+* non dipendere esclusivamente dal colore per comunicare uno stato.
+
+---
+
+# 19. PERFORMANCE
+
+Non introdurre librerie pesanti se non necessarie.
+
+Evita:
+
+* immagini inutilmente grandi;
+* rendering ripetuti;
+* animazioni costose;
+* richieste Supabase aggiuntive non necessarie.
+
+Mantieni le query esistenti.
+
+Questo task NON deve introdurre nuove query al database se non strettamente necessarie alla UI.
+
+---
+
+# 20. VERIFICA DELLE PAGINE
+
+Dopo il redesign verifica almeno:
+
+```text
+/
+ /leghe
+ /leghe/:leagueId
+ /miei-risultati
+ /pronostici
+ /risultati
+```
+
+e tutte le altre route già presenti nel progetto.
+
+Verifica che nessuna funzionalità esistente sia stata persa.
+
+---
+
+# 21. TEST MOBILE
+
+Verifica visivamente almeno a:
+
+```text
+360x800
+390x844
+393x873
+412x915
+```
+
+Controlla in particolare:
+
+* nessun overflow orizzontale;
+* nessuna card tagliata;
+* nessun testo sovrapposto;
+* bottom navigation corretta;
+* pulsanti facilmente tappabili;
+* classifica leggibile;
+* dettaglio GP leggibile;
+* pronostici utilizzabili con una mano;
+* punteggi chiaramente visibili.
+
+---
+
+# 22. TEST DESKTOP
+
+Verifica almeno:
+
+```text
+1366x768
+1920x1080
+```
+
+Assicurati che il redesign non rompa la versione desktop.
+
+---
+
+# 23. REGOLA SUI DATI
+
+Questo task è un redesign UI/UX.
+
+NON modificare:
+
+```text
+predictions
+prediction_entries
+session_results
+leagues
+league_members
+profiles
+```
+
+e nessun'altra tabella.
+
+Nessun INSERT.
+
+Nessun UPDATE.
+
+Nessun DELETE.
+
+Nessun UPSERT.
+
+Nessuna RPC di scoring.
+
+---
+
+# 24. VERIFICHE FINALI
+
+Esegui:
+
+```text
+npm run typecheck
+npm run build
+git diff --check
+```
+
+e gli eventuali test già presenti.
+
+Controlla inoltre la console browser su mobile e desktop.
+
+Devono esserci:
+
+```text
+Typecheck: PASS
+Build: PASS
+git diff --check: PASS
+Browser console errors: 0
+Database writes: 0
+Scoring RPC calls: 0
+```
+
+---
+
+# 25. OUTPUT FINALE
+
+Crea:
+
+```text
+.agents/outputs/task-40-mobile-first-redesign.md
+```
+
+Il report deve contenere:
+
+1. pagine modificate;
+2. componenti modificati;
+3. nuovo sistema di navigazione;
+4. principali modifiche mobile;
+5. principali modifiche desktop;
+6. breakpoint utilizzati;
+7. verifica delle route;
+8. test mobile;
+9. test desktop;
+10. risultati typecheck/build;
+11. eventuali problemi residui.
+
+## IMPORTANTISSIMO
+
+NON modificare dati o scoring.
+
+Questo Task deve terminare dopo il redesign e la verifica UI.
+
+Non eseguire alcun ricalcolo dei punteggi.
+
+Non applicare modifiche al database.
+
+Il risultato deve essere una FantaMotoGP più moderna, pulita e soprattutto **comoda da usare da smartphone**, mantenendo tutte le funzionalità attuali.

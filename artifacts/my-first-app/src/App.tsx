@@ -258,6 +258,13 @@ function MainPageLayout({
     { path: '/regolamento', label: 'Regolamento', icon: BookOpen },
     { path: '/impostazioni', label: 'Impostazioni', icon: Settings },
   ];
+  const primarySections = [
+    sections[0],
+    sections[1],
+    { path: '/miei-risultati', label: 'I miei', icon: Target },
+    sections[3],
+    sections[4],
+  ];
 
   return (
     <main
@@ -276,7 +283,7 @@ function MainPageLayout({
               return (
                 <button
                   className={`desktop-nav-item${isActive ? ' is-active' : ''}`}
-                  key={path}
+                  key={`${path}-${label}`}
                   type="button"
                   onClick={() => navigate(path)}
                   aria-current={isActive ? 'page' : undefined}
@@ -329,9 +336,27 @@ function MainPageLayout({
               })}
             </nav>
           </details>
-          <div className="bottom-nav" aria-hidden="true">
-            <span>FANTA MOTOGP</span><span>RACE WEEKEND / 2026</span>
-          </div>
+          <nav className="bottom-nav" aria-label="Navigazione rapida" data-testid="bottom-navigation">
+            {primarySections.map(({ path, label, icon: Icon }) => {
+              const isActive =
+                location === path ||
+                (path === '/leghe' && location.startsWith('/leghe/')) ||
+                (path === '/profilo' && location === '/profilo');
+              return (
+                <button
+                  className={`bottom-nav-item${isActive ? ' is-active' : ''}`}
+                  key={path}
+                  type="button"
+                  data-testid={`bottom-nav-${label.toLowerCase().replace(/\s+/g, '-')}`}
+                  onClick={() => navigate(path)}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <Icon size={18} strokeWidth={isActive ? 2.6 : 2} aria-hidden="true" />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </nav>
         </>
       )}
     </main>
@@ -490,6 +515,28 @@ function HomePage() {
               return <div className={`dashboard-session${open ? ' is-open' : ''}`} key={type}><span>{resultSessionLabel(type)}</span><strong>{session?.session_date ? (open ? 'Aperta' : 'Chiusa') : 'Da definire'}</strong><small>{session?.session_date ? formatItalianDateTime(session.session_date) : 'Sessione non disponibile'}</small></div>;
             })}
           </div>
+           <div className="home-quick-grid" aria-label="Accessi rapidi">
+             <button
+               className="home-quick-card"
+               type="button"
+               data-testid="button-home-leagues"
+               onClick={() => navigate('/leghe')}
+             >
+               <span className="home-quick-index">01</span>
+               <span className="home-quick-copy"><strong>Le tue leghe</strong><small>Classifica, amici e codici invito</small></span>
+               <ArrowRight size={17} aria-hidden="true" />
+             </button>
+             <button
+               className="home-quick-card"
+               type="button"
+               data-testid="button-home-results"
+               onClick={() => navigate('/miei-risultati')}
+             >
+               <span className="home-quick-index">02</span>
+               <span className="home-quick-copy"><strong>Race log</strong><small>Controlla i tuoi punteggi GP dopo GP</small></span>
+               <ArrowRight size={17} aria-hidden="true" />
+             </button>
+           </div>
         </div>
       )}
       {!isLoading && !errorMessage && (

@@ -1,23 +1,21 @@
-import { Card, CardContent } from '@/components/ui/card';
-import { AlertCircle } from 'lucide-react';
+import { useLocation } from 'wouter';
+import { ArrowLeft, FlagTriangleRight } from 'lucide-react';
 
 export default function NotFound() {
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">
-              404 Page Not Found
-            </h1>
-          </div>
+  const [, navigate] = useLocation();
 
-          <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+  return (
+    <main className="not-found-page" data-testid="page-not-found">
+      <div className="not-found-card">
+        <span className="not-found-mark" aria-hidden="true"><FlagTriangleRight size={24} /></span>
+        <p className="eyebrow">Fanta MotoGP · fuori pista</p>
+        <h1>Questa curva<br /><em>non esiste.</em></h1>
+        <p className="not-found-copy">La pagina che cerchi ha lasciato il circuito. Torna al paddock e riparti da lì.</p>
+        <button className="start-button" type="button" data-testid="button-not-found-home" onClick={() => navigate('/home')}>
+          <ArrowLeft size={17} aria-hidden="true" />
+          Torna alla home
+        </button>
+      </div>
+    </main>
   );
 }
