@@ -148,6 +148,12 @@ Restano da eseguire dopo l’applicazione della migrazione:
 - Dati e punteggi modificati: NO.
 - Scoring invocato: NO.
 
-Typecheck e build devono essere eseguiti dopo il merge/applicazione locale della
-migrazione. Il criterio PASS completo del Task 43 richiede inoltre
-l’applicazione reale in Supabase e i test autenticati positivi e negativi.
+## 8. Build e typecheck
+
+- `pnpm run typecheck`: PASS.
+- `PORT=21367 BASE_PATH=/my-first-app/ pnpm run build`: PASS.
+- Build del mockup, API server e web app: PASS.
+- Warning non bloccanti: chunk web principale sopra 500 kB.
+
+Il criterio PASS completo del Task 43 richiede inoltre l’applicazione reale in
+Supabase e i test autenticati positivi e negativi.
