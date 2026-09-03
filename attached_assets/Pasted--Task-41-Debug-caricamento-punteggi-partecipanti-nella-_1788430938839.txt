@@ -1,0 +1,526 @@
+# Task 41 — Debug caricamento punteggi partecipanti nella Lega
+
+## PROBLEMA
+
+Nella pagina di dettaglio della lega `/leghe/:leagueId`:
+
+* Nicholas visualizza correttamente i propri punteggi GP;
+* gli altri partecipanti della stessa lega non visualizzano i propri pronostici/punteggi;
+* la UI mostra quindi correttamente la struttura, ma i dati degli altri partecipanti risultano vuoti.
+
+Il problema è da trattare come **bug di data loading / mapping**, NON come problema di design.
+
+## OBIETTIVO
+
+Individuare perché i punteggi/prediction degli altri membri della lega non vengono associati correttamente ai rispettivi partecipanti.
+
+NON modificare il database.
+
+NON modificare i punteggi.
+
+NON modificare lo scoring.
+
+NON creare nuove prediction.
+
+---
+
+# 1. PRIMA COSA DA VERIFICARE
+
+Analizza il codice attuale della pagina:
+
+```text
+/leghe/:leagueId
+```
+
+e ricostruisci esattamente questo flusso:
+
+```text
+league
+  ↓
+league_members
+  ↓
+partecipanti
+  ↓
+prediction / prediction_entries
+  ↓
+GP
+  ↓
+punteggio
+  ↓
+participant × GP
+```
+
+Individua esattamente dove i dati vengono persi.
+
+---
+
+# 2. VERIFICA DEI PARTECIPANTI
+
+La pagina deve prima recuperare tutti i membri della lega tramite:
+
+```text
+league_id
+```
+
+Verifica che vengano recuperati TUTTI i membri di `TEST01`.
+
+Non usare l'utente corrente come filtro.
+
+Non filtrare i partecipanti sulla base di:
+
+```text
+auth.uid()
+```
+
+ad eccezione del normale controllo che l'utente corrente appartenga alla lega.
+
+Il controllo deve essere:
+
+```text
+utente corrente appartiene alla lega?
+    ↓
+SI → carica tutti i membri della lega
+NO → accesso negato
+```
+
+NON:
+
+```text
+utente corrente appartiene alla lega?
+    ↓
+SI → carica solo i dati dell'utente corrente
+```
+
+---
+
+# 3. VERIFICA DELLE PREDICTION
+
+Verifica come vengono caricate le prediction.
+
+Le prediction devono essere associate agli utenti tramite:
+
+```text
+predictions.user_id
+```
+
+e al GP tramite:
+
+```text
+predictions.grand_prix_id
+```
+
+NON assumere che `prediction_entries` contenga direttamente `user_id`.
+
+La relazione corretta è:
+
+```text
+league_members.user_id
+        ↓
+predictions.user_id
+        ↓
+predictions.id
+        ↓
+prediction_entries.prediction_id
+```
+
+e:
+
+```text
+predictions.grand_prix_id
+        ↓
+grand_prix.id
+```
+
+---
+
+# 4. POSSIBILE BUG DA CERCARE
+
+Cerca esplicitamente codice simile a:
+
+```text
+predictions.filter(...)
+```
+
+o:
+
+```text
+prediction.user_id === currentUser.id
+```
+
+o:
+
+```text
+user_id === currentUserId
+```
+
+o:
+
+```text
+participantIds.includes(...)
+```
+
+o qualsiasi filtro che utilizzi l'utente autenticato dopo aver già verificato l'appartenenza alla lega.
+
+Questo tipo di filtro NON deve eliminare le prediction degli altri membri.
+
+---
+
+# 5. VERIFICA CON DATI REALI
+
+Usa la lega:
+
+```text
+TEST01
+```
+
+e stampa/logga temporaneamente, senza modificare il DB:
+
+```text
+Current user ID
+League ID
+League members
+Member user IDs
+Predictions loaded
+Prediction user IDs
+Prediction GP IDs
+Prediction totals
+```
+
+Il debug deve permettere di verificare:
+
+```text
+membro A → prediction A → GP → punteggio
+membro B → prediction B → GP → punteggio
+membro C → prediction C → GP → punteggio
+```
+
+NON limitarti a verificare che la query ritorni HTTP 200.
+
+Controlla il contenuto effettivamente restituito.
+
+---
+
+# 6. VERIFICA SPECIFICA DEGLI UTENTI
+
+Controlla esplicitamente almeno:
+
+```text
+Nicholas
+Alessandro
+Marty
+Simo
+Marino
+```
+
+se presenti nella lega TEST01.
+
+Per ciascuno mostra:
+
+```text
+user_id
+numero prediction
+GP con prediction
+totale punti
+```
+
+L'obiettivo è capire se:
+
+### Caso A
+
+Le prediction degli altri utenti arrivano dalla query ma vengono perse nel mapping.
+
+oppure:
+
+### Caso B
+
+La query restituisce solo le prediction di Nicholas.
+
+oppure:
+
+### Caso C
+
+Le prediction esistono nel DB ma il mapping `user_id → participant` è errato.
+
+oppure:
+
+### Caso D
+
+I dati vengono caricati correttamente ma la UI usa una chiave sbagliata.
+
+---
+
+# 7. NON CAMBIARE LA QUERY SENZA CAPIRE IL BUG
+
+Prima individua il punto preciso in cui i dati vengono persi.
+
+Se la query attuale è già corretta e restituisce tutti i partecipanti/prediction, correggi solamente il mapping frontend.
+
+Se invece la query applica erroneamente un filtro sull'utente corrente, rimuovi SOLO quel filtro.
+
+Non introdurre query aggiuntive se non necessarie.
+
+---
+
+# 8. STRUTTURA DATI ATTESA
+
+La struttura finale utilizzata dalla UI deve concettualmente essere:
+
+```text
+participants = [
+  {
+    userId: "...",
+    name: "Nicholas",
+    scores: {
+      thailand: 21,
+      brazil: 25,
+      ...
+    }
+  },
+  {
+    userId: "...",
+    name: "Alessandro",
+    scores: {
+      brazil: 18,
+      ...
+    }
+  },
+  ...
+]
+```
+
+Ogni score deve essere indicizzato almeno per:
+
+```text
+user_id + grand_prix_id
+```
+
+NON solamente:
+
+```text
+grand_prix_id
+```
+
+e NON solamente:
+
+```text
+current_user_id + grand_prix_id
+```
+
+---
+
+# 9. STATI DA MANTENERE
+
+Mantieni esattamente gli stati già definiti:
+
+```text
+—       = nessun pronostico
+Attesa  = pronostico presente ma non ancora conteggiato
+numero  = punteggio disponibile
+```
+
+Non trasformare:
+
+```text
+— → 0
+Attesa → 0
+```
+
+---
+
+# 10. NESSUN CAMBIAMENTO DATABASE
+
+Questo task è READ-ONLY.
+
+VIETATO:
+
+```text
+INSERT
+UPDATE
+DELETE
+UPSERT
+RPC di scoring
+migration
+modifica schema
+modifica RLS
+```
+
+Non modificare alcun punteggio.
+
+Non ricalcolare alcun punteggio.
+
+Non modificare `predictions`.
+
+Non modificare `prediction_entries`.
+
+---
+
+# 11. FIX
+
+Dopo aver individuato il bug, applica esclusivamente la correzione frontend necessaria.
+
+La correzione deve permettere alla pagina Lega di mostrare:
+
+```text
+tutti i membri
++
+tutti i loro GP
++
+i relativi punteggi
+```
+
+senza cambiare il modo in cui vengono calcolati i punteggi.
+
+---
+
+# 12. VERIFICA CRITICA
+
+Dopo il fix, verifica la lega TEST01.
+
+Deve essere possibile vedere contemporaneamente:
+
+```text
+Nicholas       → propri punteggi
+Alessandro     → propri punteggi
+Marty          → propri punteggi
+Simo           → propri punteggi
+Marino         → propri punteggi
+...
+```
+
+Ogni utente deve vedere i propri dati storici associati al proprio `user_id`.
+
+NON è necessario che tutti abbiano un pronostico per ogni GP.
+
+Per i GP senza prediction deve comparire:
+
+```text
+—
+```
+
+---
+
+# 13. TEST DESKTOP
+
+Verifica:
+
+```text
+1366x768
+1920x1080
+```
+
+La matrice deve essere:
+
+```text
+partecipante × GP
+```
+
+e ogni cella deve utilizzare il punteggio del corretto partecipante.
+
+---
+
+# 14. TEST MOBILE
+
+Verifica almeno:
+
+```text
+390x844
+393x873
+412x915
+```
+
+Ogni partecipante deve avere la propria card.
+
+La card di Alessandro deve mostrare i punteggi di Alessandro.
+
+La card di Marty deve mostrare i punteggi di Marty.
+
+ecc.
+
+NON riutilizzare accidentalmente lo stesso array di punteggi per tutti i partecipanti.
+
+---
+
+# 15. TEST DI REGRESSIONE
+
+Verifica che Nicholas continui a visualizzare correttamente i propri punteggi.
+
+Questo è fondamentale:
+
+```text
+FIX altri utenti ≠ rompere Nicholas
+```
+
+---
+
+# 16. VERIFICHE FINALI
+
+Esegui:
+
+```text
+npm run typecheck
+npm run build
+git diff --check
+```
+
+Controlla anche la console browser.
+
+Risultato atteso:
+
+```text
+Typecheck: PASS
+Build: PASS
+Browser errors: 0
+Database writes: 0
+Scoring calls: 0
+```
+
+---
+
+# 17. REPORT
+
+Crea:
+
+```text
+.agents/outputs/task-41-league-participant-scores-debug.md
+```
+
+Il report deve indicare:
+
+1. causa esatta del bug;
+2. file interessati;
+3. filtro/mapping errato individuato;
+4. correzione effettuata;
+5. verifica Nicholas;
+6. verifica Alessandro;
+7. verifica degli altri partecipanti;
+8. numero prediction caricate per ogni membro;
+9. test desktop;
+10. test mobile;
+11. typecheck/build;
+12. conferma che il database non è stato modificato.
+
+## IMPORTANTE
+
+NON limitarti a dire "i dati ora sono visibili".
+
+Dimostra nel report che:
+
+```text
+user_id del partecipante
+        ↓
+prediction.user_id
+        ↓
+prediction.id
+        ↓
+prediction_entries
+        ↓
+GP
+        ↓
+punteggio
+```
+
+è corretto per almeno 3 partecipanti diversi.
+
+Il task termina dopo il fix e la verifica.
+
+NON modificare alcun dato del database.
