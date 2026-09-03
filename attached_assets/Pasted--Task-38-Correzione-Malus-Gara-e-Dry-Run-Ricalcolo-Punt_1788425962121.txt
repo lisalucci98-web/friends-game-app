@@ -1,0 +1,438 @@
+# Task 38 — Correzione Malus Gara e Dry-Run Ricalcolo Punteggi Storici
+
+## OBIETTIVO
+
+Correggere e verificare la logica del **Malus Gara** secondo il regolamento ufficiale di FantaMotoGP e preparare un dry-run completo del ricalcolo dei punteggi storici.
+
+**QUESTO TASK DEVE ESSERE ESCLUSIVAMENTE READ-ONLY.**
+
+L'obiettivo è capire esattamente quali punteggi cambierebbero prima di autorizzare qualsiasi modifica al database.
+
+---
+
+# 1. REGOLA UFFICIALE DEL MALUS
+
+La tabella del regolamento rappresenta delle **soglie**, non valori distinti per ogni numero di NC.
+
+La regola corretta è:
+
+| Piloti pronosticati NC | Malus Gara |
+| ---------------------: | ---------: |
+|                      0 |          0 |
+|                      1 |         -1 |
+|                      2 |         -1 |
+|                      3 |         -5 |
+|                      4 |         -5 |
+|                      5 |        -10 |
+
+Quindi:
+
+```text
+0 NC      →   0
+1–2 NC    →  -1
+3–4 NC    →  -5
+5 NC      → -10
+```
+
+## IMPORTANTE
+
+Il numero di NC NON deve essere calcolato contando tutti i piloti `NOT_CLASSIFIED` presenti nei risultati ufficiali della Gara.
+
+Deve essere calcolato esclusivamente sui **5 piloti pronosticati dall'utente**.
+
+Per ciascuno dei 5 piloti pronosticati:
+
+* se il pilota è presente nella lista `Out`/non classificati → conta come NC;
+* se non è presente → non conta come NC.
+
+Mantieni inoltre la logica già verificata nel Task 32 relativa a `L`:
+
+> `L` conta i piloti pronosticati in Gara trovati nella stringa `Out`.
+
+Non sostituire questa definizione con il semplice conteggio dei `NOT_CLASSIFIED` della sessione.
+
+---
+
+# 2. PRIMA FASE — ANALISI DEL CODICE
+
+Individua tutte le implementazioni della logica del malus nel progetto.
+
+Cerca almeno:
+
+* scorer storico;
+* scorer live;
+* `score_prediction`;
+* eventuali RPC correlate;
+* utility condivise;
+* script di scoring;
+* script di import storico;
+* test;
+* eventuale codice frontend che calcola o mostra il malus.
+
+Determina quale implementazione è realmente utilizzata in produzione dalla app.
+
+Non modificare ancora il database.
+
+---
+
+# 3. CORREZIONE DELLO SCORER
+
+Se la logica attuale non applica correttamente le soglie, prepara la modifica necessaria affinché lo scorer utilizzi:
+
+```text
+function calculateMalus(nc) {
+  if (nc >= 5) return -10;
+  if (nc >= 3) return -5;
+  if (nc >= 1) return -1;
+  return 0;
+}
+```
+
+La funzione può essere implementata diversamente se il progetto utilizza un'architettura differente, ma il comportamento deve essere esattamente quello sopra.
+
+NON modificare altre regole di scoring.
+
+Devono rimanere invariati:
+
+* Pole;
+* Qualifica;
+* tempo Qualifica;
+* Sprint;
+* punti posizione Gara;
+* bonus Top 5;
+* bonus posizioni esatte;
+* bonus OUT;
+* altre regole già validate nel Task 32.
+
+---
+
+# 4. TEST OBBLIGATORI
+
+Crea o aggiorna i test automatici per verificare almeno:
+
+```text
+0 NC →   0
+1 NC →  -1
+2 NC →  -1
+3 NC →  -5
+4 NC →  -5
+5 NC → -10
+```
+
+Aggiungi anche test specifici per verificare che:
+
+```text
+NC = numero dei 5 piloti pronosticati presenti in Out
+```
+
+e NON:
+
+```text
+NC = numero totale dei NOT_CLASSIFIED della sessione
+```
+
+Esegui inoltre tutti i test già presenti per lo scorer storico Task 32.
+
+Il risultato deve essere:
+
+```text
+Task 32 historical scorer: PASS
+Malus threshold tests: PASS
+Special cases: PASS
+```
+
+Se un test esistente fallisce a causa della modifica, NON correggere automaticamente il test assumendo che il nuovo comportamento sia corretto.
+
+Segnala il conflitto nel report.
+
+---
+
+# 5. NON TOCCARE IL DATABASE
+
+Durante TUTTO questo Task è VIETATO eseguire:
+
+* INSERT
+* UPDATE
+* DELETE
+* UPSERT
+* RPC che effettuano scritture
+* migration
+* modifica dello schema
+* modifica RLS
+* modifica di prediction
+* modifica di prediction_entries
+* modifica di session_results
+* modifica dei punteggi persistiti.
+
+In particolare:
+
+```text
+score_prediction = NON CHIAMARE
+```
+
+Anche se la RPC è normalmente utilizzata per lo scoring, in questo task deve rimanere inutilizzata.
+
+Usare esclusivamente:
+
+* SELECT;
+* query read-only;
+* calcolo offline;
+* replay dello scorer;
+* dati Excel già disponibili.
+
+---
+
+# 6. DRY-RUN COMPLETO DELLO STORICO
+
+Dopo aver corretto/verificato lo scorer, esegui un ricalcolo **offline** di tutte le prediction storiche della lega:
+
+```text
+league_id = TEST01
+```
+
+Non scrivere il risultato nel database.
+
+Per ogni prediction completa calcola:
+
+* Qualifica;
+* Sprint;
+* Gara;
+* Bonus;
+* Malus;
+* Totale.
+
+Confronta:
+
+```text
+DATABASE
+vs
+NUOVO SCORING
+vs
+EXCEL STORICO
+```
+
+---
+
+# 7. REPORT DELLE DIFFERENZE
+
+Produci una tabella completa con almeno:
+
+```text
+Utente
+GP
+Prediction ID
+DB Qualifica
+Nuova Qualifica
+DB Sprint
+Nuovo Sprint
+DB Gara
+Nuova Gara
+DB Bonus
+Nuovo Bonus
+DB Malus
+Nuovo Malus
+DB Totale
+Nuovo Totale
+Excel Totale (se disponibile)
+Delta DB → Nuovo
+Delta Excel → Nuovo
+Stato
+```
+
+Classifica ogni prediction in una delle categorie:
+
+```text
+MATCH
+MALUS_RULE_CHANGE
+OTHER_SCORING_DIFFERENCE
+DATA_DIFFERENCE
+HISTORICAL_UNCERTAIN
+MISSING_DATA
+PARTIAL
+```
+
+---
+
+# 8. CASI OBBLIGATORI DA VERIFICARE
+
+Verifica esplicitamente questi casi storici già analizzati nei Task precedenti:
+
+* Niky / Thailandia → atteso storico **21**
+* Niky / Brasile → **25**
+* Niky / Francia → **18**
+* Niky / Aragon → verifica disponibilità
+* Marty / Italia → **30**
+* Marty / Catalogna → **13**
+* Simo / Thailandia → **26**
+* Alessandro / Spagna → **19**
+* Alessandro / UK → **22**
+* Marino / Aragon → verificare il workbook Excel
+
+Per ogni caso mostra il breakdown completo:
+
+```text
+Qualifica
+Sprint
+Gara
+Bonus
+Malus
+Totale
+```
+
+---
+
+# 9. VERIFICA SPECIFICA DEI CASI CON 2 NC
+
+Cerca esplicitamente tutte le prediction storiche nelle quali:
+
+```text
+NC = 2
+```
+
+Per ciascuna mostra:
+
+```text
+Utente
+GP
+5 piloti pronosticati
+Piloti presenti in Out
+NC = 2
+Malus attualmente persistito
+Malus corretto
+Differenza
+Nuovo totale
+```
+
+Il malus corretto deve essere:
+
+```text
+-1
+```
+
+NON `-5`.
+
+Questa verifica è particolarmente importante perché è la modifica regolamentare oggetto del Task.
+
+---
+
+# 10. EXCEL COME RIFERIMENTO STORICO
+
+Utilizza i file Excel già disponibili nel Drive/Replit come riferimento per i punteggi storici quando disponibili.
+
+Non modificare i file Excel.
+
+Per i GP presenti nei workbook:
+
+* confronta il nuovo scoring con il valore Excel;
+* segnala eventuali differenze;
+* non assumere automaticamente che il DB sia corretto.
+
+Il Task 32 ha già validato il reverse engineering delle formule Excel: riutilizza quella specifica invece di inventare una nuova formula.
+
+---
+
+# 11. NESSUN RICALCOLO AUTOMATICO DEI DATI PERSISTITI
+
+Il dry-run deve produrre solamente risultati in memoria/file/report.
+
+NON deve:
+
+* aggiornare `predictions`;
+* aggiornare `prediction_entries`;
+* impostare `scored_at`;
+* modificare `points`;
+* modificare `total_points`;
+* modificare Qualifica/Sprint/Gara/Bonus/Malus persistiti.
+
+---
+
+# 12. OUTPUT RICHIESTI
+
+Crea un report:
+
+```text
+.agents/outputs/task-38-maluss-threshold-dry-run.md
+```
+
+Il report deve contenere:
+
+1. regola Malus precedente;
+2. regola Malus corretta;
+3. file/funzioni modificati;
+4. test eseguiti;
+5. risultato dei test;
+6. numero totale prediction analizzate;
+7. numero prediction complete;
+8. numero prediction partial;
+9. numero prediction con 0/1/2/3/4/5 NC;
+10. numero prediction il cui malus cambia;
+11. numero prediction il cui totale cambia;
+12. confronto con Excel;
+13. tabella completa delle differenze;
+14. casi obbligatori Task 38;
+15. eventuali anomalie;
+16. conferma che il database non è stato modificato.
+
+Crea anche, se utile:
+
+```text
+.agents/outputs/task-38-maluss-threshold-dry-run.csv
+```
+
+con una riga per ogni prediction analizzata.
+
+---
+
+# 13. VERIFICHE FINALI
+
+Prima di terminare esegui:
+
+```text
+npm run typecheck
+npm run build
+git diff --check
+```
+
+o gli equivalenti già utilizzati dal progetto.
+
+Verifica inoltre esplicitamente:
+
+```text
+RPC score_prediction chiamate: 0
+INSERT: 0
+UPDATE: 0
+DELETE: 0
+UPSERT: 0
+Migration: 0
+Modifiche DB: 0
+```
+
+---
+
+# 14. REGOLA FONDAMENTALE
+
+NON procedere in alcun modo alla fase di APPLY.
+
+Al termine del Task devi fermarti.
+
+Non chiedere all'utente di approvare automaticamente una modifica.
+
+Il risultato finale deve essere unicamente:
+
+> "Dry-run completato. Nessun dato è stato modificato."
+
+Dopo aver prodotto il report, attendi una mia successiva istruzione per decidere se e come applicare i risultati al database.
+
+## CRITERIO DI SUCCESSO
+
+Task 38 è PASS solo se:
+
+* la nuova regola Malus è implementata nello scorer;
+* 0/1/2/3/4/5 NC producono rispettivamente 0/-1/-1/-5/-5/-10;
+* il conteggio NC viene effettuato sui 5 piloti pronosticati;
+* i test Task 32 continuano a passare, salvo conflitti esplicitamente documentati;
+* viene prodotto il dry-run storico completo;
+* vengono evidenziati tutti i punteggi che cambierebbero;
+* nessuna scrittura viene effettuata sul database;
+* `score_prediction` non viene chiamata;
+* il report finale viene salvato nel percorso indicato.
