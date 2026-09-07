@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 
-import { buildPlan } from './task-39-scoring-apply.mjs';
 import {
+  aggregateTotal,
+  buildMalusPreflight,
+  buildPlan,
+} from './task-39-scoring-apply.mjs';
+import {
+  auditRaceMalus,
   REQUIRED_CASES,
   countPredictedNc,
   parseExcelTime,
@@ -202,6 +207,149 @@ const predictedNc = countPredictedNc(
 );
 assert.equal(predictedNc, 2);
 assert.equal(malusFromNcCount(predictedNc), -1);
+
+function raceEntries(riderIds) {
+  return riderIds.map((rider_id, index) => ({
+    prediction_type: 'RACE',
+    position: index + 1,
+    rider_id,
+  }));
+}
+
+function raceResults(outRiderIds) {
+  return [
+    ...outRiderIds.map((rider_id, index) => ({
+      rider_id,
+      position: index + 6,
+      status: index === 0 ? 'NOT_CLASSIFIED' : 'DNF',
+    })),
+    { rider_id: 'classified-rider', position: 1, status: 'CLASSIFIED' },
+  ];
+}
+
+// Le soglie sono cumulative e coprono esplicitamente entrambi i confini.
+const malusFixtures = [
+  { label: '0 NC', out: [], expected: 0 },
+  { label: '1 NC', out: ['r1'], expected: -1 },
+  { label: '2 NC', out: ['r1', 'r2'], expected: -1 },
+  { label: '3 NC', out: ['r1', 'r2', 'r3'], expected: -5 },
+  { label: '4 NC', out: ['r1', 'r2', 'r3', 'r4'], expected: -5 },
+  { label: '5+ NC', out: ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'], expected: -10 },
+];
+for (const fixture of malusFixtures) {
+  const audit = auditRaceMalus(
+    raceEntries(['r1', 'r2', 'r3', 'r4', 'r5']),
+    raceResults(fixture.out),
+  );
+  assert.equal(audit.ncCount, Math.min(fixture.out.length, 5), fixture.label);
+  assert.equal(audit.expectedMalus, fixture.expected, fixture.label);
+}
+
+// Anche una prediction parziale (solo i cinque entry Gara) riceve il malus
+// corretto: la completezza di Sprint/Qualifica non è una condizione del gate.
+const partialRaceAudit = auditRaceMalus(
+  raceEntries(['r1', 'r2', 'r3', 'r4', 'r5']),
+  raceResults(['r1', 'r2']),
+);
+assert.equal(partialRaceAudit.ncCount, 2);
+assert.equal(partialRaceAudit.expectedMalus, -1);
+
+const malusPredictionId = '55555555-5555-4555-8555-555555555555';
+const malusPreflight = buildMalusPreflight(
+  {
+    candidates: [{
+      predictionId: malusPredictionId,
+      score: {
+        qualifying_points: 1,
+        sprint_points: 2,
+        race_points: 3,
+        bonus_points: 4,
+        malus_points: -5,
+        total_points: 5,
+      },
+    }],
+  },
+  {
+    predictions: [{
+      id: malusPredictionId,
+      grand_prix_id: '66666666-6666-4666-8666-666666666666',
+      malus_points: 0,
+    }],
+    entries: raceEntries(['r1', 'r2', 'r3', 'r4', 'r5']).map((entry) => ({
+      ...entry,
+      prediction_id: malusPredictionId,
+    })),
+    raceSessions: [{
+      id: '77777777-7777-4777-8777-777777777777',
+      grand_prix_id: '66666666-6666-4666-8666-666666666666',
+      type: 'RAC',
+      status: 'FINISHED',
+    }],
+    raceResults: raceResults(['r1', 'r2', 'r3']).map((result) => ({
+      ...result,
+      session_id: '77777777-7777-4777-8777-777777777777',
+    })),
+  },
+);
+assert.equal(malusPreflight.rows[0].ncCount, 3);
+assert.equal(malusPreflight.rows[0].expectedMalus, -5);
+assert.equal(malusPreflight.rows[0].currentMalus, 0);
+assert.equal(malusPreflight.currentDivergences.length, 1);
+assert.equal(malusPreflight.failures.length, 0);
+
+const blockedPreflight = buildMalusPreflight(
+  {
+    candidates: [{
+      predictionId: malusPredictionId,
+      score: {
+        qualifying_points: 1,
+        sprint_points: 2,
+        race_points: 3,
+        bonus_points: 4,
+        malus_points: -1,
+        total_points: 9,
+      },
+    }],
+  },
+  {
+    predictions: [{
+      id: malusPredictionId,
+      grand_prix_id: '66666666-6666-4666-8666-666666666666',
+      malus_points: 0,
+    }],
+    entries: raceEntries(['r1', 'r2', 'r3', 'r4', 'r5']).map((entry) => ({
+      ...entry,
+      prediction_id: malusPredictionId,
+    })),
+    raceSessions: [{
+      id: '77777777-7777-4777-8777-777777777777',
+      grand_prix_id: '66666666-6666-4666-8666-666666666666',
+      type: 'RAC',
+      status: 'FINISHED',
+    }],
+    raceResults: raceResults(['r1', 'r2', 'r3']).map((result) => ({
+      ...result,
+      session_id: '77777777-7777-4777-8777-777777777777',
+    })),
+  },
+);
+assert.equal(blockedPreflight.failures.length, 1);
+assert.equal(blockedPreflight.failures[0].reason, 'report-malus-diverges-from-official-RAC');
+
+assert.equal(aggregateTotal({
+  qualifying_points: 1,
+  sprint_points: 2,
+  race_points: 3,
+  bonus_points: 4,
+  malus_points: -5,
+}), 5);
+assert.notEqual(aggregateTotal({
+  qualifying_points: 1,
+  sprint_points: 2,
+  race_points: 3,
+  bonus_points: 4,
+  malus_points: -1,
+}), 5);
 
 console.log(`PASS | casi obbligatori: ${REQUIRED_CASES.length}/10`);
 console.log('PASS | casi speciali Qualifying Time, blank, #N/A, NC pronosticati e malus');

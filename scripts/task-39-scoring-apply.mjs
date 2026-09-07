@@ -14,6 +14,10 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
+import {
+  auditRaceMalus,
+} from './historical-scoring-spec.mjs';
+
 const INPUT_REPORT = '.agents/outputs/task-38-excel-db-mapping.md';
 const OUTPUT_REPORT = '.agents/outputs/task-39-scoring-apply-final.md';
 const SEASON_YEAR = 2026;
@@ -26,7 +30,20 @@ const PREDICTION_FIELDS = [
   'malus_points',
   'total_points',
 ];
-const ENTRY_FIELDS = ['id', 'prediction_id', 'prediction_type', 'position', 'points'];
+const ENTRY_FIELDS = [
+  'id',
+  'prediction_id',
+  'prediction_type',
+  'position',
+  'rider_id',
+  'points',
+];
+const CLOSED_SESSION_STATUSES = new Set([
+  'FINISHED',
+  'COMPLETED',
+  'CLASSIFIED',
+  'CLOSED',
+]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const EXPECTED_CASES = [
@@ -274,7 +291,26 @@ async function loadDbSnapshot(client, leagueId) {
     predictions.map((prediction) => prediction.id),
     (ids) => `/prediction_entries?prediction_id=in.(${ids.join(',')})&select=${entrySelect()}`,
   );
-  return { predictions, entries };
+  const grandPrixIds = [...new Set(
+    predictions.map((prediction) => prediction.grand_prix_id).filter(Boolean),
+  )];
+  if (!grandPrixIds.length) {
+    return { predictions, entries, raceSessions: [], raceResults: [] };
+  }
+  const raceSessions = await client.get(
+    `/sessions?grand_prix_id=in.(${grandPrixIds.join(',')})`
+      + '&type=eq.RAC&select=id,grand_prix_id,type,status,session_date,number',
+  );
+  const raceSessionIds = raceSessions.map((session) => session.id);
+  const raceResults = raceSessionIds.length
+    ? await getChunks(
+      client,
+      raceSessionIds,
+      (ids) => `/session_results?session_id=in.(${ids.join(',')})`
+        + '&select=id,session_id,rider_id,position,status',
+    )
+    : [];
+  return { predictions, entries, raceSessions, raceResults };
 }
 
 function mapById(rows) {
@@ -283,6 +319,116 @@ function mapById(rows) {
 
 function snapshotRows(rows) {
   return new Map(rows.map((row) => [row.id, JSON.parse(JSON.stringify(row))]));
+}
+
+function resultsBySession(rows) {
+  const grouped = new Map();
+  for (const row of rows) {
+    const current = grouped.get(row.session_id) ?? [];
+    current.push(row);
+    grouped.set(row.session_id, current);
+  }
+  return grouped;
+}
+
+function chooseOfficialRaceSession(sessions, resultsBySessionMap, grandPrixId) {
+  return sessions
+    .filter((session) => (
+      session.grand_prix_id === grandPrixId
+      && session.type === 'RAC'
+      && CLOSED_SESSION_STATUSES.has(String(session.status ?? '').toUpperCase())
+    ))
+    .map((session) => ({
+      session,
+      results: resultsBySessionMap.get(session.id) ?? [],
+    }))
+    .filter(({ results }) => results.length > 0)
+    .sort((left, right) => {
+      if (right.results.length !== left.results.length) {
+        return right.results.length - left.results.length;
+      }
+      return String(right.session.session_date ?? '')
+        .localeCompare(String(left.session.session_date ?? ''));
+    })[0] ?? null;
+}
+
+function raceEntriesForPrediction(entries, predictionId) {
+  return entries.filter((entry) => (
+    entry.prediction_id === predictionId && entry.prediction_type === 'RACE'
+  ));
+}
+
+/**
+ * Gate indipendente dal report Excel: il malus proposto deve essere quello
+ * ricavabile dagli entry RACE e dagli esiti ufficiali della sessione RAC.
+ */
+export function buildMalusPreflight(report, snapshot) {
+  const predictionsById = mapById(snapshot.predictions);
+  const groupedResults = resultsBySession(snapshot.raceResults ?? []);
+  const rows = [];
+  const failures = [];
+
+  for (const candidate of report.candidates) {
+    const prediction = predictionsById.get(candidate.predictionId);
+    const officialSession = prediction
+      ? chooseOfficialRaceSession(
+        snapshot.raceSessions ?? [],
+        groupedResults,
+        prediction.grand_prix_id,
+      )
+      : null;
+    const raceEntries = raceEntriesForPrediction(
+      snapshot.entries,
+      candidate.predictionId,
+    );
+    if (!prediction || !officialSession) {
+      failures.push({
+        predictionId: candidate.predictionId,
+        reason: !prediction ? 'prediction-missing' : 'official-RAC-missing',
+      });
+      rows.push({
+        predictionId: candidate.predictionId,
+        ncCount: null,
+        expectedMalus: null,
+        proposedMalus: candidate.score.malus_points,
+        currentMalus: prediction?.malus_points ?? null,
+        status: 'BLOCKED',
+      });
+      continue;
+    }
+
+    const audit = auditRaceMalus(raceEntries, officialSession.results);
+    const row = {
+      predictionId: candidate.predictionId,
+      grandPrixId: prediction.grand_prix_id,
+      sessionId: officialSession.session.id,
+      ncCount: audit.ncCount,
+      ncRiderIds: audit.ncRiderIds,
+      expectedMalus: audit.expectedMalus,
+      proposedMalus: candidate.score.malus_points,
+      currentMalus: prediction.malus_points,
+      status: audit.expectedMalus === candidate.score.malus_points ? 'PASS' : 'FAIL',
+    };
+    rows.push(row);
+    if (row.status === 'FAIL') {
+      failures.push({
+        predictionId: candidate.predictionId,
+        reason: 'report-malus-diverges-from-official-RAC',
+        ncCount: row.ncCount,
+        expectedMalus: row.expectedMalus,
+        proposedMalus: row.proposedMalus,
+      });
+    }
+  }
+
+  return {
+    rows,
+    failures,
+    currentDivergences: rows.filter((row) => (
+      row.status === 'PASS'
+      && numberOrZero(row.currentMalus) !== row.expectedMalus
+    )),
+  };
 }
 
 export function buildPlan(report, snapshot) {
@@ -351,6 +497,12 @@ function comparePredictionFields(row, desired) {
 
 function compareEntryPoints(row, desired) {
   return strictNumber(row?.points) === desired;
+}
+
+export function aggregateTotal(row) {
+  return PREDICTION_FIELDS
+    .filter((field) => field !== 'total_points')
+    .reduce((total, field) => total + numberOrZero(row?.[field]), 0);
 }
 
 async function fetchOne(client, table, id, select) {
@@ -470,6 +622,7 @@ function buildReport({
   errors,
   verification,
   task38Verification,
+  malusPreflight,
   rollbackStatus,
   obsoleteEntries,
 }) {
@@ -537,16 +690,17 @@ function buildReport({
     ];
   });
 
-  const malusRows = task38Verification.map((row) => {
+  const malusRows = malusPreflight.rows.map((row) => {
     const after = postSnapshot.predictions.find((prediction) => prediction.id === row.predictionId);
-    const expectedMalus = row.ncCount >= 5 ? -10 : row.ncCount >= 3 ? -5 : row.ncCount >= 1 ? -1 : 0;
     return [
       row.predictionId,
       row.ncCount,
-      row.correctedMalus,
+      row.proposedMalus,
+      row.currentMalus ?? '—',
       after?.malus_points ?? '—',
-      expectedMalus,
-      after && numberOrZero(after.malus_points) === expectedMalus ? 'PASS' : 'FAIL',
+      row.expectedMalus ?? '—',
+      after && row.expectedMalus !== null
+        && numberOrZero(after.malus_points) === row.expectedMalus ? 'PASS' : 'FAIL',
     ];
   });
 
@@ -607,11 +761,22 @@ function buildReport({
     '',
     '## Controllo Malus Gara per NC',
     '',
-    'La classificazione NC e il malus corretto sono riletti dalla tabella dry-run del Task 38; '
-      + 'non è stata introdotta una nuova interpretazione.',
+    'La classificazione NC è ricalcolata confrontando i cinque entry RACE con gli esiti '
+      + 'non classificati della sessione ufficiale RAC. Il valore del report Task 38 deve '
+      + 'coincidere con la soglia calcolata prima di ogni scrittura.',
     malusRows.length
-      ? mdTable(['Prediction ID', 'NC Task 38', 'Malus Task 38', 'Malus DB post', 'Malus da soglia', 'Esito'], malusRows)
+      ? mdTable([
+        'Prediction ID',
+        'NC calcolati',
+        'Malus report',
+        'Malus DB pre',
+        'Malus DB post',
+        'Malus da soglia',
+        'Esito',
+      ], malusRows)
       : 'Nessuna riga NC con variazione nel report Task 38.',
+    '',
+    `- Divergenze malus già presenti nel DB e candidate alla correzione: **${malusPreflight.currentDivergences.length}**`,
     '',
     '## Verifiche di integrità',
     '',
@@ -620,6 +785,9 @@ function buildReport({
     `- Entry obsolete escluse dal controllo di conformità: **${verification.obsoleteEntryFailures.length === 0 ? 'PASS' : 'FAIL'}**`,
     `- Prediction fuori perimetro invariate: **${verification.outOfScopeFailures.length === 0 ? 'PASS' : 'FAIL'}**`,
     `- Prediction partial invariate: **${verification.partialFailures.length === 0 ? 'PASS' : 'FAIL'}**`,
+    `- Malus Gara preflight da entry RACE + sessione RAC: **${malusPreflight.failures.length === 0 ? 'PASS' : 'FAIL'}**`,
+    `- Malus Gara post-apply verificati: **${verification.malusFailures.length === 0 ? 'PASS' : 'FAIL'}**`,
+    `- Totali post-apply autosommanti: **${verification.totalFailures.length === 0 ? 'PASS' : 'FAIL'}**`,
     `- Record Marino / Aragon creati: **NO**`,
     `- Schema/RLS/session_results modificati dallo script: **NO**`,
     `- Niky / Thailandia = 21: **${caseRows[0]?.[5] ?? 'FAIL'}**`,
@@ -660,12 +828,27 @@ async function verifyAfter({
   const postEntriesById = mapById(postSnapshot.entries);
   const candidateFailures = [];
   const entryFailures = [];
+  const malusFailures = [];
+  const totalFailures = [];
+  const postMalus = buildMalusPreflight(report, postSnapshot);
   const obsoleteEntryIds = new Set(obsoleteEntries.map((entry) => entry.entryId));
   const obsoleteEntryFailures = [];
   for (const candidate of report.candidates) {
     const after = postPredictionsById.get(candidate.predictionId);
     if (!after || !comparePredictionFields(after, expectedFromCandidate(candidate))) {
       candidateFailures.push(candidate.predictionId);
+    }
+    const malusRow = postMalus.rows.find((row) => row.predictionId === candidate.predictionId);
+    if (
+      !after
+      || !malusRow
+      || malusRow.expectedMalus === null
+      || numberOrZero(after.malus_points) !== malusRow.expectedMalus
+    ) {
+      malusFailures.push(candidate.predictionId);
+    }
+    if (!after || numberOrZero(after.total_points) !== aggregateTotal(after)) {
+      totalFailures.push(candidate.predictionId);
     }
     for (const entry of candidate.entries) {
       if (obsoleteEntryIds.has(entry.id)) continue;
@@ -713,14 +896,22 @@ async function verifyAfter({
   }
   if (outOfScopeFailures.length) postErrors.push(`record fuori perimetro modificati: ${outOfScopeFailures.length}`);
   if (partialFailures.length) postErrors.push(`partial modificate: ${partialFailures.length}`);
+  if (postMalus.failures.length) {
+    postErrors.push(`malus post-apply non coerenti con il report: ${postMalus.failures.length}`);
+  }
+  if (malusFailures.length) postErrors.push(`malus Gara post-apply non conformi: ${malusFailures.length}`);
+  if (totalFailures.length) postErrors.push(`totali post-apply non autosommanti: ${totalFailures.length}`);
   return {
     candidateFailures,
     entryFailures,
+    malusFailures,
+    totalFailures,
     obsoleteEntryFailures,
     outOfScopeFailures,
     partialFailures,
     postErrors,
     planCount: plan.length,
+    postMalus,
   };
 }
 
@@ -741,6 +932,24 @@ async function main() {
 
   const preSnapshot = await loadDbSnapshot(client, leagueId);
   const { plan, obsoleteEntries } = buildPlan(report, preSnapshot);
+  const malusPreflight = buildMalusPreflight(report, preSnapshot);
+  if (malusPreflight.failures.length) {
+    const details = malusPreflight.failures.map((failure) => {
+      const suffix = failure.ncCount === undefined
+        ? ''
+        : ` (${failure.ncCount} NC: atteso ${failure.expectedMalus}, report ${failure.proposedMalus})`;
+      return `${failure.predictionId}: ${failure.reason}${suffix}`;
+    }).join('; ');
+    throw new Error(
+      `Task 39 BLOCCATO prima delle scritture: malus Gara non verificabile/coerente. ${details}`,
+    );
+  }
+  if (malusPreflight.currentDivergences.length) {
+    console.warn(
+      `Task 39 preflight: ${malusPreflight.currentDivergences.length} malus Gara DB `
+        + 'divergenti; saranno corretti nel piano autorizzato.',
+    );
+  }
   let applied = [];
   let skipped = [];
   let errors = [];
@@ -780,6 +989,7 @@ async function main() {
     errors,
     verification,
     task38Verification,
+    malusPreflight,
     rollbackStatus,
     obsoleteEntries,
   });

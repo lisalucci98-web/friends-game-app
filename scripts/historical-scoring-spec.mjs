@@ -123,6 +123,55 @@ export function malusFromNcCount(ncCount) {
   return 0;
 }
 
+/**
+ * Estrae i cinque piloti pronosticati per la Gara dagli entry DB.
+ *
+ * Gli entry mancanti sono rappresentati come null: una prediction parziale
+ * non deve trasformare un campo assente in un pilota o in un NC.
+ */
+export function raceRiderIdsFromEntries(raceEntries) {
+  const byPosition = new Map();
+  for (const entry of raceEntries ?? []) {
+    const position = Number(entry.position);
+    if (!Number.isInteger(position) || position < 1 || position > 5) continue;
+    if (!byPosition.has(position)) byPosition.set(position, entry.rider_id ?? null);
+  }
+  return [1, 2, 3, 4, 5].map((position) => byPosition.get(position) ?? null);
+}
+
+/**
+ * Restituisce gli identificativi dei piloti classificati come OUT/NC nella
+ * sessione ufficiale della Gara.
+ */
+export function officialOutRiderIds(sessionResults) {
+  return new Set(
+    (sessionResults ?? [])
+      .filter((result) => isNonClassifiedStatus(result.status))
+      .map((result) => result.rider_id)
+      .filter(riderPresent),
+  );
+}
+
+/**
+ * Audit indipendente del malus Gara: conta solo l'intersezione tra i cinque
+ * entry RACE e i risultati non classificati della sessione RAC.
+ */
+export function auditRaceMalus(raceEntries, sessionResults) {
+  const raceRiderIds = raceRiderIdsFromEntries(raceEntries);
+  const officialOut = officialOutRiderIds(sessionResults);
+  const ncRiderIds = raceRiderIds.filter((riderId) => (
+    riderPresent(riderId) && officialOut.has(riderId)
+  ));
+  const ncCount = ncRiderIds.length;
+  return {
+    raceRiderIds,
+    officialOutRiderIds: [...officialOut],
+    ncRiderIds,
+    ncCount,
+    expectedMalus: malusFromNcCount(ncCount),
+  };
+}
+
 // Alias mantenuto per compatibilità con i report storici che chiamavano NC "L".
 export function malusFromL(L) {
   return malusFromNcCount(L);
