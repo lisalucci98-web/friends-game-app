@@ -1,0 +1,313 @@
+## TASK 44 — Audit completo per migrazione da Replit a GitHub
+
+### OBIETTIVO
+
+Preparare la migrazione completa dell'app FantaMotoGP da Replit a GitHub, senza modificare né il database Supabase né il comportamento dell'app.
+
+In questa fase NON devi effettuare alcuna migrazione e NON devi modificare codice, database, RPC, RLS, prediction, entries, risultati o configurazioni operative.
+
+Questa è una fase esclusivamente READ-ONLY / AUDIT.
+
+---
+
+## 1. REPOSITORY GIT
+
+Analizza e documenta:
+
+* se il progetto è già sotto Git;
+* repository remoto attualmente configurato;
+* branch attuale;
+* branch principale;
+* ultimo commit;
+* eventuali branch locali;
+* eventuali modifiche non committate;
+* eventuali file untracked;
+* eventuali file ignorati ma necessari al funzionamento.
+
+NON eseguire:
+
+* git push;
+* git reset;
+* git clean;
+* git checkout distruttivi;
+* cancellazioni;
+* merge;
+* rebase.
+
+---
+
+## 2. STRUTTURA DEL PROGETTO
+
+Analizza e documenta la struttura completa necessaria per eseguire l'app.
+
+In particolare verifica:
+
+* package.json;
+* package-lock.json / altro lockfile;
+* vite.config.*;
+* tsconfig.*;
+* src/;
+* public/;
+* scripts/;
+* eventuali server/edge functions;
+* eventuali API routes;
+* eventuali cron/job;
+* eventuali configurazioni di build;
+* eventuali file necessari per il deploy.
+
+Individua anche eventuali dipendenze specifiche di Replit.
+
+NON modificare nulla.
+
+---
+
+## 3. RIFERIMENTI A REPLIT
+
+Cerca in tutto il progetto riferimenti a:
+
+* Replit;
+* replit;
+* REPLIT;
+* `.replit`;
+* `replit.nix`;
+* configurazioni Replit;
+* URL Replit;
+* porte o path specifici di Replit;
+* `/my-first-app`;
+* BASE_PATH;
+* eventuali workaround introdotti esclusivamente per Replit.
+
+Per ogni riferimento indica:
+
+FILE | RIGA/AREA | SCOPO | NECESSARIO FUORI DA REPLIT? | AZIONE CONSIGLIATA
+
+NON modificare nulla.
+
+---
+
+## 4. VARIABILI D'AMBIENTE E SECRET
+
+Analizza esclusivamente i NOMI delle variabili utilizzate dal progetto.
+
+NON mostrare mai valori di secret.
+
+Individua:
+
+* VITE_SUPABASE_URL;
+* VITE_SUPABASE_ANON_KEY;
+* eventuali SUPABASE_SERVICE_ROLE_KEY;
+* eventuale DATABASE_URL;
+* eventuali altre variabili;
+* dove vengono utilizzate;
+* se sono client-side o server-side;
+* se sono indispensabili per il deploy.
+
+IMPORTANTE:
+
+NON stampare, non salvare e non mostrare valori di:
+
+* API key;
+* password;
+* token;
+* service role key;
+* DATABASE_URL;
+* credenziali.
+
+Verifica inoltre che nessun secret sia già committato nel repository Git.
+
+NON modificare nulla.
+
+---
+
+## 5. SUPABASE
+
+Verifica come l'app utilizza Supabase.
+
+Documenta:
+
+* client Supabase;
+* URL configurato tramite env;
+* autenticazione;
+* query principali;
+* RPC utilizzate;
+* eventuali Edge Functions;
+* eventuali storage;
+* eventuali Realtime;
+* eventuali chiamate server-side.
+
+NON modificare:
+
+* database;
+* schema;
+* RLS;
+* RPC;
+* migration;
+* dati;
+* utenti;
+* prediction;
+* entries;
+* risultati.
+
+Esegui esclusivamente verifiche read-only.
+
+---
+
+## 6. SCORING FANTAMOTOGP
+
+Individua tutti i file relativi a:
+
+* scoring;
+* historical scoring;
+* Task 32;
+* Task 33;
+* Task 34;
+* Task 37;
+* Task 38;
+* eventuali script di audit;
+* import storico;
+* prediction;
+* prediction_entries.
+
+Verifica che siano presenti nel repository tutti gli script necessari per mantenere il sistema attuale.
+
+In particolare verifica la presenza e integrità della specifica canonica dello scoring storico derivata dagli Excel.
+
+NON modificare lo scoring.
+
+---
+
+## 7. FILE EXCEL / DRIVE
+
+Individua eventuali riferimenti ai file Excel utilizzati per la ricostruzione storica dei punteggi.
+
+NON copiare o committare automaticamente file contenenti dati sensibili o inutilmente grandi.
+
+Indica:
+
+* quali file sono necessari;
+* quali sono solo materiale storico;
+* quali sono già presenti nel repository;
+* quali devono eventualmente essere conservati separatamente.
+
+NON modificare i file.
+
+---
+
+## 8. BUILD E TEST
+
+Esegui solamente verifiche non distruttive:
+
+* npm install / verifica dipendenze solo se non modifica il lockfile;
+* typecheck;
+* build;
+* eventuali test esistenti;
+* git diff --check.
+
+Se una verifica richiedesse una modifica, NON effettuarla: segnalala soltanto.
+
+---
+
+## 9. DEPLOY FUORI DA REPLIT
+
+Determina cosa serve per eseguire l'app fuori da Replit.
+
+Produci una tabella:
+
+| Elemento              | Presente | Necessario per deploy | Note |
+| --------------------- | -------- | --------------------- | ---- |
+| Node.js               |          |                       |      |
+| npm                   |          |                       |      |
+| Vite                  |          |                       |      |
+| React                 |          |                       |      |
+| Supabase              |          |                       |      |
+| Environment variables |          |                       |      |
+| Build command         |          |                       |      |
+| Output directory      |          |                       |      |
+| SPA routing           |          |                       |      |
+| Server functions      |          |                       |      |
+| Cron                  |          |                       |      |
+
+Indica inoltre se l'app può essere deployata come normale SPA statica oppure necessita di componenti server-side.
+
+---
+
+## 10. GITIGNORE E SICUREZZA
+
+Controlla `.gitignore`.
+
+Verifica che siano esclusi almeno:
+
+* `.env`;
+* `.env.*`;
+* secret locali;
+* build artifacts;
+* node_modules;
+* eventuali file temporanei;
+* eventuali file contenenti credenziali.
+
+NON modificare `.gitignore` in questa fase.
+
+Se trovi un problema, segnalalo.
+
+---
+
+## 11. CRITERIO DI SICUREZZA
+
+Questa attività deve essere 100% READ-ONLY.
+
+È VIETATO:
+
+* modificare Supabase;
+* chiamare RPC di scoring;
+* modificare prediction;
+* modificare prediction_entries;
+* modificare risultati;
+* modificare schema;
+* modificare RLS;
+* modificare migration;
+* modificare utenti;
+* modificare codice;
+* modificare package.json;
+* modificare lockfile;
+* modificare env;
+* fare git push;
+* creare repository GitHub;
+* collegare account GitHub;
+* fare deploy.
+
+---
+
+## OUTPUT RICHIESTO
+
+Crea esclusivamente un report:
+
+`.agents/outputs/task-44-replit-to-github-audit.md`
+
+Il report deve contenere:
+
+1. stato Git attuale;
+2. struttura del progetto;
+3. dipendenze;
+4. riferimenti Replit;
+5. variabili d'ambiente necessarie, SOLO NOMI;
+6. integrazione Supabase;
+7. scoring e script storici;
+8. file Excel/Drive rilevanti;
+9. risultato typecheck/build/test;
+10. requisiti per il deploy fuori da Replit;
+11. problemi/blocchi;
+12. piano di migrazione consigliato;
+13. checklist finale pre-migrazione.
+
+Alla fine del report scrivere chiaramente:
+
+* FILE MODIFICATI: 0 oppure elenco;
+* SCRITTURE SUPABASE: 0;
+* RPC DI SCORING: 0;
+* INSERT/UPDATE/DELETE/UPSERT: 0;
+* GIT PUSH: 0;
+* DEPLOY: 0.
+
+Non procedere alla migrazione.
+
+Attendi la mia approvazione esplicita prima di qualsiasi modifica.
