@@ -128,6 +128,31 @@ export function malusFromL(L) {
   return malusFromNcCount(L);
 }
 
+/**
+ * Mappa il risultato dello scorer nei campi aggregati della tabella
+ * predictions.
+ *
+ * `scorePrediction().race` è la categoria Gara storica completa e include
+ * bonus/malus. Il database, invece, espone bonus_points e malus_points in
+ * colonne separate: race_points deve quindi contenere solo racePosition.
+ */
+export function predictionAggregateFromScore(score) {
+  const qualifying = Number(score.qualifying ?? 0);
+  const sprint = Number(score.sprint ?? 0);
+  const racePosition = Number(score.racePosition ?? 0);
+  const bonus = Number(score.bonus ?? 0);
+  const malus = Number(score.malus ?? 0);
+
+  return {
+    qualifying,
+    sprint,
+    race: racePosition,
+    bonus,
+    malus,
+    total: qualifying + sprint + racePosition + bonus + malus,
+  };
+}
+
 export function scorePrediction(prediction, officialResults) {
   rejectNa(prediction.pole, 'Pole');
   for (const [index, rider] of prediction.sprint.entries()) {

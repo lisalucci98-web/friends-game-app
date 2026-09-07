@@ -10,7 +10,11 @@ import { execFileSync } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
-import { parseExcelTime, scorePrediction } from './historical-scoring-spec.mjs';
+import {
+  parseExcelTime,
+  predictionAggregateFromScore,
+  scorePrediction,
+} from './historical-scoring-spec.mjs';
 import {
   createReadOnlyClient,
   entryAudit,
@@ -627,14 +631,7 @@ function malusDryRunRows(rows) {
 }
 
 function proposedAggregate(score) {
-  return {
-    qualifying: score.qualifying,
-    sprint: score.sprint,
-    race: score.race,
-    bonus: score.bonus,
-    malus: score.malus,
-    total: score.total,
-  };
+  return predictionAggregateFromScore(score);
 }
 
 function riderLabel(riderId, ridersById) {
@@ -771,9 +768,11 @@ function verifiedDetail(row, ridersById) {
     `- Scoring canonico: Qualifica **${row.score.qualifying}** `
       + `(pole ${row.score.polePoints} + tempo ${row.score.qualifyingTime}); `
       + `Sprint **${row.score.sprint}** [${row.score.sprintSlots.join(', ')}]; `
-      + `Gara **${row.score.race}** [posizioni ${row.score.racePosition}; bonus ${row.score.bonus}; malus ${row.score.malus}; `
+      + `Gara **${row.proposed.race}** [posizioni ${row.score.racePosition}; bonus ${row.score.bonus}; malus ${row.score.malus}; `
       + `OUT ${row.score.outBonus}]`,
-    `- Totale storico ricostruito: **${row.proposed.total}** = ${row.proposed.qualifying} + ${row.proposed.sprint} + ${row.proposed.race}.`,
+    `- Totale storico ricostruito: **${row.proposed.total}** = `
+      + `${row.proposed.qualifying} + ${row.proposed.sprint} + ${row.proposed.race} `
+      + `+ ${row.proposed.bonus} + ${row.proposed.malus}.`,
   ].join('\n');
 }
 

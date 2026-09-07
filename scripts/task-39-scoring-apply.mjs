@@ -150,14 +150,17 @@ function parseTask38Report(markdown) {
       throw new Error(`${predictionId}: punti entry non interi nel report Task 38.`);
     }
 
-    candidates.push({
+    const candidate = {
       predictionId,
       user: heading[1].trim(),
       gp: heading[2].trim(),
       score: {
         qualifying_points: Number(scoreLine[1]),
         sprint_points: Number(scoreLine[2]),
-        race_points: Number(scoreLine[3]),
+        // Il quarto numero è la Gara completa storica e comprende
+        // bonus/malus. Nel database questi valori hanno colonne separate:
+        // race_points deve contenere soltanto le posizioni Gara.
+        race_points: Number(scoreLine[4]),
         racePosition: Number(scoreLine[4]),
         bonus_points: Number(scoreLine[5]),
         malus_points: Number(scoreLine[6]),
@@ -165,7 +168,21 @@ function parseTask38Report(markdown) {
         total_points: Number(total),
       },
       entries,
-    });
+    };
+    const expectedTotal = candidate.score.qualifying_points
+      + candidate.score.sprint_points
+      + candidate.score.race_points
+      + candidate.score.bonus_points
+      + candidate.score.malus_points;
+    if (expectedTotal !== candidate.score.total_points) {
+      throw new Error(
+        `${predictionId}: totale non autosommante: `
+          + `${candidate.score.qualifying_points} + ${candidate.score.sprint_points} + `
+          + `${candidate.score.race_points} + ${candidate.score.bonus_points} + `
+          + `${candidate.score.malus_points} != ${candidate.score.total_points}.`,
+      );
+    }
+    candidates.push(candidate);
   }
 
   if (candidates.length !== 81) {

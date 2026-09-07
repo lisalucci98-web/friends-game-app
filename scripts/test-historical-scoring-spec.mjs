@@ -4,6 +4,7 @@ import {
   REQUIRED_CASES,
   countPredictedNc,
   parseExcelTime,
+  predictionAggregateFromScore,
   qualifyingTimePoints,
   malusFromNcCount,
   malusFromL,
@@ -104,6 +105,28 @@ for (const [nc, expected] of [[0, 0], [1, -1], [2, -1], [3, -5], [4, -5], [5, -1
   assert.equal(malusFromNcCount(nc), expected, `${nc} NC`);
   assert.equal(malusFromL(nc), expected, `alias L con ${nc} NC`);
 }
+
+// I campi aggregati del database tengono Gara, Bonus e Malus separati.
+// Il totale deve quindi essere autosommante senza contare due volte bonus/malus.
+assert.deepEqual(
+  predictionAggregateFromScore({
+    qualifying: 1,
+    sprint: 2,
+    racePosition: 1,
+    bonus: 2,
+    malus: -1,
+    race: 2,
+    total: 5,
+  }),
+  {
+    qualifying: 1,
+    sprint: 2,
+    race: 1,
+    bonus: 2,
+    malus: -1,
+    total: 5,
+  },
+);
 
 // La gara può avere più NC ufficiali, ma conta solo l'intersezione con la
 // Top 5 pronosticata: 2 NC tra i 5 pick restano -1 anche con 7 NC ufficiali.
