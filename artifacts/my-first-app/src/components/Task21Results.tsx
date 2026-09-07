@@ -178,15 +178,6 @@ const closedStatuses = new Set([
   'CLOSED',
 ]);
 
-const scoringFields: Array<keyof PredictionScore> = [
-  'qualifying_points',
-  'sprint_points',
-  'race_points',
-  'bonus_points',
-  'malus_points',
-  'total_points',
-];
-
 function toNumber(value: number | string | null | undefined) {
   if (value === null || value === undefined || value === '') return null;
   const parsed = Number(value);
@@ -196,8 +187,8 @@ function toNumber(value: number | string | null | undefined) {
 function hasScore(prediction: PredictionScore | undefined) {
   return Boolean(
     prediction &&
-      (prediction.scored_at !== null ||
-        scoringFields.some((field) => prediction[field] !== null)),
+      prediction.scored_at !== null &&
+      prediction.scored_at !== undefined,
   );
 }
 
