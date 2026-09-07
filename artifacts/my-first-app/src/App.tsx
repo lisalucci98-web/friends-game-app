@@ -3118,6 +3118,7 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
                  </div>
                  <div className="prediction-summary" aria-label="Riepilogo pronostico">
                    <div><span>Pole</span><strong>{poleRiderId ? predictionRiderName(roster.find((rider) => rider.id === poleRiderId) ?? null) : 'Da scegliere'}</strong></div>
+                   <div data-testid="prediction-qualifying-time"><span>Tempo pole</span><strong>{poleTimeValid ? poleTime : 'Da inserire'}</strong></div>
                    <div><span>Sprint</span><strong>{sprintRiderIds.filter(Boolean).length}/3 selezionati</strong></div>
                    <div><span>Gara</span><strong>{raceRiderIds.filter(Boolean).length}/5 selezionati</strong></div>
                    <div><span>OUT</span><strong>{raceOutRiderId ? predictionRiderName(roster.find((rider) => rider.id === raceOutRiderId) ?? null) : 'Da scegliere'}</strong></div>
