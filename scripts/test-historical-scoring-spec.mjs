@@ -5,6 +5,7 @@ import {
   applyPlan,
   buildMalusPreflight,
   buildPlan,
+  buildSprintPreflight,
   verifyAfter,
 } from './task-39-scoring-apply.mjs';
 import {
@@ -173,6 +174,125 @@ assert.equal(partial.outBonus, 2); // SEARCH("", Out)
 assert.equal(partial.ncCount, 0);
 assert.equal(partial.L, 0);
 assert.equal(partial.malus, 0);
+
+// Sprint: P1/P2/P3 corretti ricevono i punti della matrice; un pilota
+// ufficiale P4 resta fuori dalla Top 3 anche se il fixture contiene la
+// classifica completa. Le posizioni vuote della prediction partial valgono 0.
+const sprintOfficialWithFullClassification = {
+  pole: 'P1',
+  secondQualifying: 'P2',
+  qualifyingTimeSeconds: 100,
+  sprintTopThree: ['P1', 'P2', 'P3', 'P4', 'P5'],
+  raceTopFive: [],
+  outText: 'P9',
+};
+assert.equal(
+  scorePrediction(
+    { pole: '', qualifyingTime: '', sprint: ['P1', 'P2', 'P3'], raceTopFive: [], out: '' },
+    sprintOfficialWithFullClassification,
+  ).sprint,
+  9,
+);
+assert.equal(
+  scorePrediction(
+    { pole: '', qualifyingTime: '', sprint: ['P4', '', ''], raceTopFive: [], out: '' },
+    sprintOfficialWithFullClassification,
+  ).sprint,
+  0,
+);
+assert.equal(
+  scorePrediction(
+    { pole: '', qualifyingTime: '', sprint: ['P1', '', ''], raceTopFive: [], out: '' },
+    sprintOfficialWithFullClassification,
+  ).sprint,
+  3,
+);
+
+// Il preflight Sprint controlla sia la somma delle entry Sprint sia il totale
+// autosommante, senza richiedere tre entry a una prediction partial.
+const sprintPreflightPredictionId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const sprintPreflight = buildSprintPreflight(
+  {
+    candidates: [{
+      predictionId: sprintPreflightPredictionId,
+      score: {
+        qualifying_points: 1,
+        sprint_points: 3,
+        race_points: 0,
+        bonus_points: 0,
+        malus_points: 0,
+        total_points: 4,
+      },
+      entries: [{
+        id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        prediction_type: 'SPRINT',
+        proposedPoints: 3,
+      }],
+    }],
+  },
+  {
+    predictions: [{
+      id: sprintPreflightPredictionId,
+      sprint_points: 0,
+      total_points: 0,
+    }],
+  },
+);
+assert.equal(sprintPreflight.failures.length, 0);
+assert.equal(sprintPreflight.rows[0].entrySprintPoints, 3);
+assert.equal(sprintPreflight.rows[0].expectedTotalPoints, 4);
+assert.equal(sprintPreflight.currentDivergences.length, 1);
+
+const sprintAggregateMismatch = buildSprintPreflight(
+  {
+    candidates: [{
+      predictionId: sprintPreflightPredictionId,
+      score: {
+        qualifying_points: 0,
+        sprint_points: 1,
+        race_points: 0,
+        bonus_points: 0,
+        malus_points: 0,
+        total_points: 1,
+      },
+      entries: [{
+        id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        prediction_type: 'SPRINT',
+        proposedPoints: 0,
+      }],
+    }],
+  },
+  { predictions: [{ id: sprintPreflightPredictionId }] },
+);
+assert.equal(sprintAggregateMismatch.failures.length, 1);
+assert.equal(
+  sprintAggregateMismatch.failures[0].reason,
+  'report-sprint-aggregate-diverges-from-entries',
+);
+
+const totalAggregateMismatch = buildSprintPreflight(
+  {
+    candidates: [{
+      predictionId: sprintPreflightPredictionId,
+      score: {
+        qualifying_points: 1,
+        sprint_points: 0,
+        race_points: 0,
+        bonus_points: 0,
+        malus_points: 0,
+        total_points: 9,
+      },
+      entries: [],
+    }],
+  },
+  { predictions: [{ id: sprintPreflightPredictionId }] },
+);
+assert.equal(totalAggregateMismatch.failures.length, 1);
+assert.equal(
+  totalAggregateMismatch.failures[0].reason,
+  'report-total-diverges-from-aggregates',
+);
+console.log('PASS | Sprint Top 3, pilota P4 e prediction partial verificati');
 
 for (const [nc, expected] of [[0, 0], [1, -1], [2, -1], [3, -5], [4, -5], [5, -10]]) {
   assert.equal(malusFromNcCount(nc), expected, `${nc} NC`);

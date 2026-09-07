@@ -425,6 +425,93 @@ export function buildMalusPreflight(report, snapshot) {
   };
 }
 
+/**
+ * Gate indipendente per lo Sprint: le entry Sprint devono autosommare
+ * l'aggregato sprint_points del report e il totale deve autosommare tutti gli
+ * aggregati della prediction prima di autorizzare qualsiasi PATCH.
+ *
+ * Le prediction partial sono ammesse: contano solo le entry Sprint presenti.
+ * Una partial con Sprint non valorizzato deve quindi avere sprint_points = 0;
+ * una partial con un solo pick valido deve invece autosommare quel pick.
+ */
+export function buildSprintPreflight(report, snapshot) {
+  const predictionsById = mapById(snapshot.predictions);
+  const rows = [];
+  const failures = [];
+  const currentDivergences = [];
+
+  for (const candidate of report.candidates) {
+    const prediction = predictionsById.get(candidate.predictionId);
+    const sprintEntries = candidate.entries.filter((entry) =>
+      entry.prediction_type === 'SPRINT');
+    const entrySprintPoints = sprintEntries.reduce(
+      (total, entry) => total + numberOrZero(entry.proposedPoints),
+      0,
+    );
+    const proposedSprintPoints = numberOrZero(candidate.score.sprint_points);
+    const proposedTotalPoints = numberOrZero(candidate.score.total_points);
+    const expectedTotalPoints = [
+      candidate.score.qualifying_points,
+      candidate.score.sprint_points,
+      candidate.score.race_points,
+      candidate.score.bonus_points,
+      candidate.score.malus_points,
+    ].reduce((total, points) => total + numberOrZero(points), 0);
+    const sprintMatches = entrySprintPoints === proposedSprintPoints;
+    const totalMatches = expectedTotalPoints === proposedTotalPoints;
+    const row = {
+      predictionId: candidate.predictionId,
+      sprintEntryCount: sprintEntries.length,
+      entrySprintPoints,
+      proposedSprintPoints,
+      expectedTotalPoints,
+      proposedTotalPoints,
+      currentSprintPoints: prediction?.sprint_points ?? null,
+      currentTotalPoints: prediction?.total_points ?? null,
+      sprintMatches,
+      totalMatches,
+      status: prediction && sprintMatches && totalMatches ? 'PASS' : 'FAIL',
+    };
+    rows.push(row);
+
+    if (!prediction) {
+      failures.push({
+        predictionId: candidate.predictionId,
+        reason: 'prediction-missing',
+      });
+      continue;
+    }
+    if (!sprintMatches) {
+      failures.push({
+        predictionId: candidate.predictionId,
+        reason: 'report-sprint-aggregate-diverges-from-entries',
+        entrySprintPoints,
+        proposedSprintPoints,
+      });
+    }
+    if (!totalMatches) {
+      failures.push({
+        predictionId: candidate.predictionId,
+        reason: 'report-total-diverges-from-aggregates',
+        expectedTotalPoints,
+        proposedTotalPoints,
+      });
+    }
+    if (numberOrZero(prediction.sprint_points) !== proposedSprintPoints
+      || numberOrZero(prediction.total_points) !== proposedTotalPoints) {
+      currentDivergences.push({
+        predictionId: candidate.predictionId,
+        currentSprintPoints: numberOrZero(prediction.sprint_points),
+        proposedSprintPoints,
+        currentTotalPoints: numberOrZero(prediction.total_points),
+        proposedTotalPoints,
+      });
+    }
+  }
+
+  return { rows, failures, currentDivergences };
+}
+
 export function buildPlan(report, snapshot) {
   const predictionsById = mapById(snapshot.predictions);
   const entriesById = mapById(snapshot.entries);
@@ -617,6 +704,7 @@ function buildReport({
   verification,
   task38Verification,
   malusPreflight,
+  sprintPreflight,
   rollbackStatus,
   obsoleteEntries,
 }) {
@@ -718,6 +806,8 @@ function buildReport({
     `- Entry obsolete escluse: **${obsoleteEntries.length}**`,
     `- Record esclusi dal perimetro: **${excludedIds.length}**`,
     `- Prediction partial escluse: **${report.partialIds.length}**`,
+    `- Sprint preflight entry/aggregato: **${sprintPreflight.failures.length === 0 ? 'PASS' : 'FAIL'}**`,
+    `- Divergenze Sprint/totale già presenti nel DB e candidate alla correzione: **${sprintPreflight.currentDivergences.length}**`,
     `- Errori: **${errors.length}**`,
     `- PATCH aggregate pianificate: **${plan.filter((item) => item.kind === 'prediction').length}**`,
     `- PATCH entry pianificate: **${plan.filter((item) => item.kind === 'entry').length}**`,
@@ -780,6 +870,7 @@ function buildReport({
     `- Prediction fuori perimetro invariate: **${verification.outOfScopeFailures.length === 0 ? 'PASS' : 'FAIL'}**`,
     `- Prediction partial invariate: **${verification.partialFailures.length === 0 ? 'PASS' : 'FAIL'}**`,
     `- Malus Gara preflight da entry RACE + sessione RAC: **${malusPreflight.failures.length === 0 ? 'PASS' : 'FAIL'}**`,
+    `- Sprint preflight entry/aggregato: **${sprintPreflight.failures.length === 0 ? 'PASS' : 'FAIL'}**`,
     `- Malus Gara post-apply verificati: **${verification.malusFailures.length === 0 ? 'PASS' : 'FAIL'}**`,
     `- Totali post-apply autosommanti: **${verification.totalFailures.length === 0 ? 'PASS' : 'FAIL'}**`,
     `- Record Marino / Aragon creati: **NO**`,
@@ -926,6 +1017,29 @@ async function main() {
 
   const preSnapshot = await loadDbSnapshot(client, leagueId);
   const { plan, obsoleteEntries } = buildPlan(report, preSnapshot);
+  const sprintPreflight = buildSprintPreflight(report, preSnapshot);
+  if (sprintPreflight.failures.length) {
+    const details = sprintPreflight.failures.map((failure) => {
+      if (failure.reason === 'report-sprint-aggregate-diverges-from-entries') {
+        return `${failure.predictionId}: Sprint entry ${failure.entrySprintPoints} `
+          + `!= aggregato ${failure.proposedSprintPoints}`;
+      }
+      if (failure.reason === 'report-total-diverges-from-aggregates') {
+        return `${failure.predictionId}: totale atteso ${failure.expectedTotalPoints} `
+          + `!= report ${failure.proposedTotalPoints}`;
+      }
+      return `${failure.predictionId}: ${failure.reason}`;
+    }).join('; ');
+    throw new Error(
+      `Task 39 BLOCCATO prima delle scritture: Sprint/totale non verificabili. ${details}`,
+    );
+  }
+  if (sprintPreflight.currentDivergences.length) {
+    console.warn(
+      `Task 39 preflight: ${sprintPreflight.currentDivergences.length} aggregati `
+        + 'Sprint/totale DB divergenti; saranno corretti nel piano autorizzato.',
+    );
+  }
   const malusPreflight = buildMalusPreflight(report, preSnapshot);
   if (malusPreflight.failures.length) {
     const details = malusPreflight.failures.map((failure) => {
@@ -984,6 +1098,7 @@ async function main() {
     verification,
     task38Verification,
     malusPreflight,
+    sprintPreflight,
     rollbackStatus,
     obsoleteEntries,
   });

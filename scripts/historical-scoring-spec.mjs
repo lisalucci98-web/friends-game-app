@@ -14,6 +14,8 @@ export const SPRINT_MATRIX = [
   [0, 1, 3],
 ];
 
+export const SPRINT_OFFICIAL_TOP_N = 3;
+
 export const RACE_MATRIX = [
   [5, 3, 1, 1, 1],
   [3, 5, 3, 1, 1],
@@ -219,7 +221,12 @@ export function scorePrediction(prediction, officialResults) {
   const qualifying = polePoints + qualifyingTime;
 
   const sprint = prediction.sprint.reduce((total, rider, index) => {
-    const officialPosition = indexOfRider(officialResults.sprintTopThree, rider);
+    // Sprint assegna punti solo contro la Top 3 ufficiale. Il limite è
+    // esplicito anche quando un fixture contiene la classifica completa:
+    // un rider ufficiale P4 o oltre non può entrare nella matrice Sprint.
+    const officialTopThree = (officialResults.sprintTopThree ?? [])
+      .slice(0, SPRINT_OFFICIAL_TOP_N);
+    const officialPosition = indexOfRider(officialTopThree, rider);
     return total + positionPoints(SPRINT_MATRIX, index + 1, officialPosition);
   }, 0);
 

@@ -20,3 +20,16 @@ un'associazione diversa potrebbe scrivere sulla prediction sbagliata.
 **How to apply:** Completa il preflight di tutte le entry prima di qualsiasi scrittura,
 riporta le obsolete separatamente, escludile dalla verifica dei punti e conserva il
 rollback per le PATCH effettivamente eseguite.
+
+Per lo Sprint, la fonte dei punti è esclusivamente la Top 3 ufficiale: un pilota
+classificato P4 o oltre deve contribuire zero, anche se una fixture contiene la
+classifica completa. Prima dell'apply, la somma delle entry Sprint deve coincidere
+con `sprint_points` e `total_points` deve essere autosommante.
+
+**Why:** Un confronto non limitato alla Top 3 può assegnare punti a un pilota
+fuori podio; verificare solo l'aggregato può lasciare un dettaglio entry incoerente
+con il punteggio salvato.
+
+**How to apply:** Mantieni il limite Top 3 nel calcolo e usa un preflight separato
+per bloccare mismatch Sprint o totale prima di qualsiasi PATCH, senza escludere le
+prediction partial valide.
