@@ -285,11 +285,12 @@ function snapshotRows(rows) {
   return new Map(rows.map((row) => [row.id, JSON.parse(JSON.stringify(row))]));
 }
 
-function buildPlan(report, snapshot) {
+export function buildPlan(report, snapshot) {
   const predictionsById = mapById(snapshot.predictions);
   const entriesById = mapById(snapshot.entries);
   const candidateIds = new Set(report.candidates.map((candidate) => candidate.predictionId));
   const plan = [];
+  const obsoleteEntries = [];
 
   for (const candidate of report.candidates) {
     const prediction = predictionsById.get(candidate.predictionId);
@@ -314,7 +315,19 @@ function buildPlan(report, snapshot) {
 
     for (const proposedEntry of candidate.entries) {
       const entry = entriesById.get(proposedEntry.id);
-      if (!entry || entry.prediction_id !== candidate.predictionId) {
+      if (!entry) {
+        obsoleteEntries.push({
+          predictionId: candidate.predictionId,
+          user: candidate.user,
+          gp: candidate.gp,
+          entryId: proposedEntry.id,
+          predictionType: proposedEntry.prediction_type,
+          proposedPoints: proposedEntry.proposedPoints,
+          reason: 'missing-from-preflight',
+        });
+        continue;
+      }
+      if (entry.prediction_id !== candidate.predictionId) {
         throw new Error(`${proposedEntry.id}: entry non presente o fuori prediction autorizzata.`);
       }
       if (strictNumber(entry.points) !== proposedEntry.proposedPoints) {
@@ -329,7 +342,7 @@ function buildPlan(report, snapshot) {
       }
     }
   }
-  return { plan, candidateIds };
+  return { plan, candidateIds, obsoleteEntries };
 }
 
 function comparePredictionFields(row, desired) {
@@ -346,7 +359,7 @@ async function fetchOne(client, table, id, select) {
   return rows[0];
 }
 
-async function applyPlan(client, plan, candidatesById) {
+async function applyPlan(client, plan) {
   const applied = [];
   const skipped = [];
   try {
@@ -458,6 +471,7 @@ function buildReport({
   verification,
   task38Verification,
   rollbackStatus,
+  obsoleteEntries,
 }) {
   const candidateIds = new Set(report.candidates.map((candidate) => candidate.predictionId));
   const changedPredictionIds = new Set(
@@ -477,6 +491,15 @@ function buildReport({
     change.field,
     change.before,
     change.after,
+  ]);
+  const obsoleteEntryRows = obsoleteEntries.map((entry) => [
+    entry.predictionId,
+    entry.user,
+    entry.gp,
+    entry.entryId,
+    entry.predictionType,
+    entry.proposedPoints,
+    entry.reason,
   ]);
   const candidateRows = report.candidates.map((candidate) => {
     const before = snapshot.predictions.find((row) => row.id === candidate.predictionId);
@@ -536,6 +559,7 @@ function buildReport({
     `- Fonte autorizzativa: **${INPUT_REPORT}**`,
     `- RPC \`score_prediction\`: **0**`,
     `- Stato rollback: **${rollbackStatus}**`,
+    `- Preflight completato prima delle scritture: **SI**`,
     '',
     '## Riepilogo',
     '',
@@ -543,12 +567,22 @@ function buildReport({
     `- Prediction aggiornate: **${changedPredictionIds.size}**`,
     `- Prediction già corrette: **${report.candidates.length - changedPredictionIds.size}**`,
     `- Entry aggiornate: **${changedEntryIds.size}**`,
+    `- Entry obsolete escluse: **${obsoleteEntries.length}**`,
     `- Record esclusi dal perimetro: **${excludedIds.length}**`,
     `- Prediction partial escluse: **${report.partialIds.length}**`,
     `- Errori: **${errors.length}**`,
     `- PATCH aggregate pianificate: **${plan.filter((item) => item.kind === 'prediction').length}**`,
     `- PATCH entry pianificate: **${plan.filter((item) => item.kind === 'entry').length}**`,
     `- Record saltati dopo recheck: **${skipped.length}**`,
+    '',
+    '## Entry obsolete escluse dal preflight',
+    '',
+    obsoleteEntryRows.length
+      ? mdTable(
+        ['Prediction ID', 'Utente', 'GP', 'Entry ID', 'Tipo', 'Punti proposti', 'Motivo'],
+        obsoleteEntryRows,
+      )
+      : 'Nessuna entry obsolete rilevata.',
     '',
     '## Tabella completa delle modifiche',
     '',
@@ -583,6 +617,7 @@ function buildReport({
     '',
     `- Prediction candidate conformi al totale atteso: **${verification.candidateFailures.length === 0 ? 'PASS' : 'FAIL'}**`,
     `- Entry candidate conformi ai punti attesi: **${verification.entryFailures.length === 0 ? 'PASS' : 'FAIL'}**`,
+    `- Entry obsolete escluse dal controllo di conformità: **${verification.obsoleteEntryFailures.length === 0 ? 'PASS' : 'FAIL'}**`,
     `- Prediction fuori perimetro invariate: **${verification.outOfScopeFailures.length === 0 ? 'PASS' : 'FAIL'}**`,
     `- Prediction partial invariate: **${verification.partialFailures.length === 0 ? 'PASS' : 'FAIL'}**`,
     `- Record Marino / Aragon creati: **NO**`,
@@ -590,6 +625,7 @@ function buildReport({
     `- Niky / Thailandia = 21: **${caseRows[0]?.[5] ?? 'FAIL'}**`,
     `- Marty / Catalogna = 13: **${caseRows[4]?.[5] ?? 'FAIL'}**`,
     `- Errori post-apply: **${verification.postErrors.length}**`,
+    `- Verifica rollback: **${rollbackStatus === 'NON NECESSARIO' || rollbackStatus === 'COMPLETATO' ? 'PASS' : 'FAIL'}**`,
     '',
     '## Verifica Excel',
     '',
@@ -618,21 +654,30 @@ async function verifyAfter({
   preSnapshot,
   postSnapshot,
   plan,
+  obsoleteEntries,
 }) {
   const postPredictionsById = mapById(postSnapshot.predictions);
   const postEntriesById = mapById(postSnapshot.entries);
   const candidateFailures = [];
   const entryFailures = [];
+  const obsoleteEntryIds = new Set(obsoleteEntries.map((entry) => entry.entryId));
+  const obsoleteEntryFailures = [];
   for (const candidate of report.candidates) {
     const after = postPredictionsById.get(candidate.predictionId);
     if (!after || !comparePredictionFields(after, expectedFromCandidate(candidate))) {
       candidateFailures.push(candidate.predictionId);
     }
     for (const entry of candidate.entries) {
+      if (obsoleteEntryIds.has(entry.id)) continue;
       const afterEntry = postEntriesById.get(entry.id);
       if (!afterEntry || !compareEntryPoints(afterEntry, entry.proposedPoints)) {
         entryFailures.push(entry.id);
       }
+    }
+  }
+  for (const obsoleteEntry of obsoleteEntries) {
+    if (postEntriesById.has(obsoleteEntry.entryId)) {
+      obsoleteEntryFailures.push(obsoleteEntry.entryId);
     }
   }
 
@@ -644,7 +689,6 @@ async function verifyAfter({
     const after = postPredictionsById.get(prediction.id);
     if (!after || !jsonEqual(prediction, after)) outOfScopeFailures.push(prediction.id);
   }
-  const preEntriesById = mapById(preSnapshot.entries);
   const candidateEntryIds = new Set(report.candidates.flatMap((candidate) =>
     candidate.entries.map((entry) => entry.id)));
   for (const entry of preSnapshot.entries) {
@@ -664,11 +708,15 @@ async function verifyAfter({
   const postErrors = [];
   if (candidateFailures.length) postErrors.push(`prediction candidate non conformi: ${candidateFailures.length}`);
   if (entryFailures.length) postErrors.push(`entry candidate non conformi: ${entryFailures.length}`);
+  if (obsoleteEntryFailures.length) {
+    postErrors.push(`entry obsolete riapparse dopo il preflight: ${obsoleteEntryFailures.length}`);
+  }
   if (outOfScopeFailures.length) postErrors.push(`record fuori perimetro modificati: ${outOfScopeFailures.length}`);
   if (partialFailures.length) postErrors.push(`partial modificate: ${partialFailures.length}`);
   return {
     candidateFailures,
     entryFailures,
+    obsoleteEntryFailures,
     outOfScopeFailures,
     partialFailures,
     postErrors,
@@ -692,7 +740,7 @@ async function main() {
   const leagueId = safeUuid(leagues[0].id, 'League ID');
 
   const preSnapshot = await loadDbSnapshot(client, leagueId);
-  const { plan } = buildPlan(report, preSnapshot);
+  const { plan, obsoleteEntries } = buildPlan(report, preSnapshot);
   let applied = [];
   let skipped = [];
   let errors = [];
@@ -715,6 +763,7 @@ async function main() {
     preSnapshot,
     postSnapshot,
     plan,
+    obsoleteEntries,
   });
   errors.push(...verification.postErrors);
   const finishedAt = new Date().toISOString();
@@ -732,6 +781,7 @@ async function main() {
     verification,
     task38Verification,
     rollbackStatus,
+    obsoleteEntries,
   });
   await mkdir('.agents/outputs', { recursive: true });
   await writeFile(OUTPUT_REPORT, finalReport, 'utf8');

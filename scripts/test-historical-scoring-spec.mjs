@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 
+import { buildPlan } from './task-39-scoring-apply.mjs';
 import {
   REQUIRED_CASES,
   countPredictedNc,
@@ -10,6 +11,71 @@ import {
   malusFromL,
   scorePrediction,
 } from './historical-scoring-spec.mjs';
+
+const predictionId = '11111111-1111-4111-8111-111111111111';
+const existingEntryId = '22222222-2222-4222-8222-222222222222';
+const obsoleteEntryId = '33333333-3333-4333-8333-333333333333';
+
+const applyReport = {
+  candidates: [{
+    predictionId,
+    user: 'Test',
+    gp: 'GP',
+    score: {
+      qualifying_points: 1,
+      sprint_points: 2,
+      race_points: 3,
+      bonus_points: 4,
+      malus_points: -1,
+      total_points: 9,
+    },
+    entries: [
+      {
+        id: existingEntryId,
+        prediction_type: 'SPRINT',
+        proposedPoints: 5,
+      },
+      {
+        id: obsoleteEntryId,
+        prediction_type: 'RACE',
+        proposedPoints: 4,
+      },
+    ],
+  }],
+};
+
+const preflight = buildPlan(applyReport, {
+  predictions: [{
+    id: predictionId,
+    league_id: '44444444-4444-4444-8444-444444444444',
+    qualifying_points: 0,
+    sprint_points: 0,
+    race_points: 0,
+    bonus_points: 0,
+    malus_points: 0,
+    total_points: 0,
+  }],
+  entries: [{
+    id: existingEntryId,
+    prediction_id: predictionId,
+    prediction_type: 'SPRINT',
+    position: 1,
+    points: 0,
+  }],
+});
+
+assert.equal(preflight.obsoleteEntries.length, 1);
+assert.equal(preflight.obsoleteEntries[0].entryId, obsoleteEntryId);
+assert.equal(preflight.obsoleteEntries[0].reason, 'missing-from-preflight');
+assert.deepEqual(
+  preflight.plan.map((item) => item.kind),
+  ['prediction', 'entry'],
+);
+assert.equal(
+  preflight.plan.some((item) => item.entryId === obsoleteEntryId),
+  false,
+);
+console.log('PASS | preflight entry obsolete classificata senza PATCH pianificata');
 
 const componentKeys = [
   'polePoints',
