@@ -14,6 +14,11 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import {
+  isRaceSessionType,
+  pairRaceSessions,
+} from './race-results-utils.mjs';
+
 const API_BASE = 'https://api.motogp.pulselive.com/motogp/v1';
 const SEASON_ID = 'e88b4e43-2209-47aa-8e83-0e0b1cedde6e';
 const SEASON_YEAR = 2026;
@@ -244,8 +249,16 @@ function statusFromValue(value, sectionName, hasPosition) {
   if (raw.includes('DISQUAL')) return 'DSQ';
   if (raw.includes('DID NOT START') || raw === 'DNS') return 'DNS';
   if (raw.includes('DID NOT FINISH') || raw === 'DNF' || raw === 'RETIRED') return 'DNF';
-  if (sectionName === 'NOT CLASSIFIED' || raw === 'NOT CLASSIFIED' || raw === 'NC') {
+  if (raw.includes('NOT ON RESTART GRID')) return 'NOT_ON_RESTART_GRID';
+  if (
+    sectionName === 'NOT CLASSIFIED'
+    || raw === 'NOT CLASSIFIED'
+    || raw === 'NC'
+  ) {
     return 'NOT_CLASSIFIED';
+  }
+  if (sectionName === 'NOT ON RESTART GRID' || raw === 'NOT ON RESTART GRID') {
+    return 'NOT_ON_RESTART_GRID';
   }
   return hasPosition ? 'CLASSIFIED' : null;
 }
@@ -281,6 +294,7 @@ function parsePdfRows(text, riders, sourceUrl, context) {
     const line = rawLine.replace(/\u00a0/g, ' ');
     const upper = normalizeText(line);
     if (upper.includes('NOT CLASSIFIED')) sectionName = 'NOT CLASSIFIED';
+    if (upper.includes('NOT ON RESTART GRID')) sectionName = 'NOT ON RESTART GRID';
     if (upper.includes('CLASSIFICATION') || upper.includes('QUALIFYING RESULTS')) {
       // Non azzerare NOT CLASSIFIED: la sezione può comparire dopo l'intestazione.
       if (!upper.includes('NOT CLASSIFIED')) sectionName = '';
@@ -323,7 +337,9 @@ function parsePdfRows(text, riders, sourceUrl, context) {
     }
 
     const totalTime = timeToken(line);
-    const explicitStatus = line.match(/\b(?:DNF|DNS|DSQ|NC|NOT CLASSIFIED|RETIRED)\b/i)?.[0] ?? first;
+    const explicitStatus = line.match(
+      /\b(?:DNF|DNS|DSQ|NC|NOT CLASSIFIED|NOT ON RESTART GRID|RETIRED)\b/i,
+    )?.[0] ?? first;
     const status = statusFromValue(explicitStatus, sectionName, position !== null);
     const pointsMatch = hasRaceColumns
       ? { 1: start[2] }
@@ -391,8 +407,9 @@ function criticalErrors(expected) {
     errors.push(`GP elaborati ${expected.gpCount}/${expected.expectedGpCount}.`);
   }
   for (const type of ['Q', 'SPR', 'RAC']) {
-    if (expected.sessionCounts[type] !== expected.expectedGpCount) {
-      errors.push(`${type}: ${expected.sessionCounts[type]}/${expected.expectedGpCount} sessioni elaborate.`);
+    const expectedCount = expected.expectedSessionCounts?.[type] ?? expected.expectedGpCount;
+    if (expected.sessionCounts[type] !== expectedCount) {
+      errors.push(`${type}: ${expected.sessionCounts[type]}/${expectedCount} sessioni elaborate.`);
     }
   }
   if (counters.missingPdfFuture) errors.push(`PDF mancanti: ${counters.missingPdfFuture}.`);
@@ -513,9 +530,23 @@ try {
       }`,
     );
   }
+  const seasonRiderIds = new Set(seasonRiders.map(rider => rider.id));
+  const wildcardRiders = apiRoster
+    .map(apiRider => {
+      const fullName = normalizeText(`${apiRider.name ?? ''} ${apiRider.surname ?? ''}`);
+      const dbRider = riders.find(rider =>
+        normalizeText(`${rider.name ?? ''} ${rider.surname ?? ''}`) === fullName,
+      );
+      const number = Number(apiRider.current_career_step?.number ?? apiRider.number);
+      return dbRider && !seasonRiderIds.has(dbRider.id) && Number.isFinite(number)
+        ? { ...dbRider, number }
+        : null;
+    })
+    .filter(Boolean);
+  const parseRiders = [...seasonRiders, ...wildcardRiders];
   console.log(`GP reali in Supabase: ${selectedGrandPrixRows.length}${GP_FILTER ? ` (filtro ${GP_FILTER})` : ''}`);
   console.log(`Sessioni candidate: ${dbSessions.length}`);
-  console.log(`Piloti disponibili per matching: ${seasonRiders.length}`);
+  console.log(`Piloti disponibili per matching: ${parseRiders.length}`);
 
   section('1 · EVENTI E SESSIONI API');
   const eventMap = new Map();
@@ -537,6 +568,7 @@ try {
   const allResults = [];
   const sessionCounts = { Q: 0, SPR: 0, RAC: 0 };
   const resultCounts = { Q: 0, SPR: 0, RAC: 0 };
+  const expectedSessionCounts = { Q: 0, SPR: 0, RAC: 0 };
   const reportRows = [];
   const disputedGps = [];
   const now = new Date();
@@ -556,15 +588,25 @@ try {
       Q: apiSessions.filter(row => sessionType(row) === 'Q')
         .sort((a, b) => (sessionNumber(a) ?? 0) - (sessionNumber(b) ?? 0)),
       SPR: apiSessions.filter(row => sessionType(row) === 'SPR'),
-      RAC: apiSessions.filter(row => sessionType(row) === 'RAC'),
+      RAC: apiSessions.filter(row => isRaceSessionType(sessionType(row))),
     };
-    const selected = {};
-    const gpReport = { name: gp.name, circuit: gp.circuit, sessions: {}, results: {}, nonClassified: {} };
-    const dbRace = dbForGp.find(row => row.type === 'RAC');
+    expectedSessionCounts.Q += candidates.Q.length > 0 ? 1 : 0;
+    expectedSessionCounts.SPR += candidates.SPR.length > 0 ? 1 : 0;
+    expectedSessionCounts.RAC += candidates.RAC.length;
+    const gpReport = {
+      name: gp.name,
+      circuit: gp.circuit,
+      sessions: {},
+      results: {},
+      nonClassified: {},
+      raceOutRiderIds: [],
+    };
+    const dbRace = dbForGp.find(row => isRaceSessionType(row.type));
     const isDisputed = isPastDate(dbRace?.session_date, now) || isPastDate(gp.date_end, now);
     if (isDisputed) disputedGps.push(gp.id);
 
-    for (const type of ['Q', 'SPR', 'RAC']) {
+    const jobs = [];
+    for (const type of ['Q', 'SPR']) {
       const dbCandidates = dbForGp.filter(row => row.type === type);
       const dbSession = dbCandidates.sort((a, b) => Number(b.number ?? 0) - Number(a.number ?? 0))[0];
       if (!dbSession || candidates[type].length === 0) {
@@ -573,9 +615,40 @@ try {
         gpReport.sessions[type] = 'MANCANTE';
         continue;
       }
-      const apiSession = type === 'Q'
-        ? candidates[type].at(-1)
-        : candidates[type][0];
+      jobs.push({
+        type,
+        apiSession: type === 'Q' ? candidates[type].at(-1) : candidates[type][0],
+        dbSession,
+      });
+    }
+    const raceDbSessions = dbForGp.filter(row => isRaceSessionType(row.type));
+    const racePairs = pairRaceSessions(candidates.RAC, raceDbSessions);
+    if (racePairs.length === 0) {
+      counters.missingSessions += 1;
+      details.missingSessions.push({
+        gp: gp.name,
+        type: 'RAC',
+        db: raceDbSessions.length > 0,
+        api: candidates.RAC.length,
+      });
+      gpReport.sessions.RAC = 'MANCANTE';
+    }
+    for (const { apiSession, dbSession } of racePairs) {
+      if (!dbSession) {
+        counters.missingSessions += 1;
+        details.missingSessions.push({
+          gp: gp.name,
+          type: 'RAC',
+          number: sessionNumber(apiSession),
+          db: false,
+          api: true,
+        });
+        continue;
+      }
+      jobs.push({ type: 'RAC', apiSession, dbSession });
+    }
+
+    for (const { type, apiSession, dbSession } of jobs) {
       const descriptor = await apiGet(`/results/sessions/${sessionId(apiSession)}`);
       const files = descriptorFilesFor(apiSession, descriptor);
       const pdfUrl = type === 'Q' ? files.qualifyingResults : files.classification;
@@ -587,7 +660,9 @@ try {
           counters.missingPdfFuture += 1;
           details.missingPdfFuture.push({ gp: gp.name, type, session_id: dbSession.id });
         }
-        gpReport.sessions[type] = 'PDF ASSENTE';
+        gpReport.sessions[type] = type === 'RAC'
+          ? [...(gpReport.sessions.RAC ?? []), dbSession.id]
+          : 'PDF ASSENTE';
         continue;
       }
       let extracted;
@@ -599,10 +674,11 @@ try {
       } catch (error) {
         counters.unreadablePdf += 1;
         details.unreadablePdf.push({ gp: gp.name, type, error: error.message });
-        gpReport.sessions[type] = 'PDF NON LEGGIBILE';
+        gpReport.sessions[type] = type === 'RAC'
+          ? [...(gpReport.sessions.RAC ?? []), dbSession.id]
+          : 'PDF NON LEGGIBILE';
         continue;
       }
-      const parseRiders = seasonRiders;
       const parsed = parsePdfRows(extracted.text, parseRiders, extracted.sourceUrl, {
         gp: gp.name,
         type,
@@ -617,7 +693,7 @@ try {
             files.classification,
             `${String(gpIndex + 1).padStart(2, '0')}-q2-pole-${dbSession.id}`,
           );
-          const poleRows = parsePdfRows(polePdf.text, seasonRiders, polePdf.sourceUrl, {
+          const poleRows = parsePdfRows(polePdf.text, parseRiders, polePdf.sourceUrl, {
             gp: gp.name,
             type,
             sessionId: dbSession.id,
@@ -632,13 +708,25 @@ try {
           details.unreadablePdf.push({ gp: gp.name, type: 'Q2 pole', error: error.message });
         }
       }
-      selected[type] = dbSession.id;
       sessionCounts[type] += 1;
       resultCounts[type] += rows.length;
       allResults.push(...rows);
-      gpReport.sessions[type] = dbSession.id;
-      gpReport.results[type] = rows.length;
-      gpReport.nonClassified[type] = rows.filter(row => row.status !== 'CLASSIFIED').length;
+      gpReport.sessions[type] = type === 'RAC'
+        ? [...(gpReport.sessions.RAC ?? []), dbSession.id]
+        : dbSession.id;
+      gpReport.results[type] = (gpReport.results[type] ?? 0) + rows.length;
+      gpReport.nonClassified[type] = (
+        gpReport.nonClassified[type] ?? 0
+      ) + rows.filter(row => row.status !== 'CLASSIFIED').length;
+      if (type === 'RAC') {
+        gpReport.raceOutRiderIds = [...new Set([
+          ...gpReport.raceOutRiderIds,
+          ...rows
+            .filter(row => row.status !== 'CLASSIFIED')
+            .map(row => row.rider_id)
+            .filter(Boolean),
+        ])];
+      }
       if (type === 'Q') {
         const pole = rows.find(row => row.position === 1);
         gpReport.pole = pole
@@ -652,7 +740,7 @@ try {
       `Circuito: ${gp.circuit ?? '—'} | ` +
       `Q ${gpReport.results.Q ?? 0} (pole ${gpReport.pole?.total_time ?? '—'}) | ` +
       `SPR ${gpReport.results.SPR ?? 0} (NC ${gpReport.nonClassified.SPR ?? 0}) | ` +
-      `RAC ${gpReport.results.RAC ?? 0} (NC ${gpReport.nonClassified.RAC ?? 0})`,
+      `RAC ${gpReport.results.RAC ?? 0} (OUT ${gpReport.raceOutRiderIds.length})`,
     );
   }
 
@@ -661,6 +749,7 @@ try {
     gpCount: selectedGrandPrixRows.length,
     expectedGpCount: selectedGrandPrixRows.length,
     sessionCounts,
+    expectedSessionCounts,
   };
   const errors = criticalErrors(expected);
   counters.criticalErrors = errors.length;
@@ -724,7 +813,7 @@ try {
     console.log(`Verifica post-import: ${verification.stored.length} righe rileggibili.`);
     await markSessionsFinished(
       dbSessions
-        .filter(row => ['Q', 'SPR', 'RAC'].includes(row.type))
+        .filter(row => ['Q', 'SPR'].includes(row.type) || isRaceSessionType(row.type))
         .map(row => row.id),
     );
     console.log('Stato sessioni Q/SPR/RAC: FINISHED.');

@@ -15,6 +15,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
 import { auditRaceMalus } from './historical-scoring-spec.mjs';
+import { chooseOfficialRaceSessions } from './race-results-utils.mjs';
 
 export const INPUT_REPORT = '.agents/outputs/task-38-excel-db-mapping.md';
 export const OUTPUT_REPORT = '.agents/outputs/task-57-partial-malus-audit.md';
@@ -172,7 +173,7 @@ async function loadSnapshot(client, leagueId) {
   }
   const raceSessions = await client.get(
     `/rest/v1/sessions?grand_prix_id=in.(${grandPrixIds.join(',')})`
-      + '&type=eq.RAC&select=id,grand_prix_id,type,status,session_date,number',
+      + '&type=in.(RAC,RAC2)&select=id,grand_prix_id,type,status,session_date,number',
   );
   const raceSessionIds = raceSessions.map((session) => session.id);
   const raceResults = raceSessionIds.length
@@ -201,24 +202,13 @@ function resultsBySession(rows) {
 }
 
 export function chooseOfficialRaceSession(sessions, groupedResults, grandPrixId) {
-  return sessions
-    .filter((session) => (
-      session.grand_prix_id === grandPrixId
-      && session.type === 'RAC'
-      && CLOSED_SESSION_STATUSES.has(String(session.status ?? '').toUpperCase())
-    ))
-    .map((session) => ({
-      session,
-      results: groupedResults.get(session.id) ?? [],
-    }))
-    .filter(({ results }) => results.length > 0)
-    .sort((left, right) => {
-      if (right.results.length !== left.results.length) {
-        return right.results.length - left.results.length;
-      }
-      return String(right.session.session_date ?? '')
-        .localeCompare(String(left.session.session_date ?? ''));
-    })[0] ?? null;
+  const coverage = chooseOfficialRaceSessions(sessions, groupedResults, grandPrixId);
+  if (!coverage.length) return null;
+  return {
+    session: coverage[0].session,
+    sessions: coverage.map((item) => item.session),
+    results: coverage.flatMap((item) => item.results),
+  };
 }
 
 function raceEntriesForPrediction(entries, predictionId) {

@@ -3,6 +3,11 @@
  * workbook Excel 2026. Non importa moduli dell'app e non usa Supabase.
  */
 
+import {
+  flattenRaceResults,
+  isRaceOutStatus,
+} from './race-results-utils.mjs';
+
 export const SPRINT_MATRIX = [
   [3, 1, 0],
   [1, 3, 1],
@@ -57,16 +62,7 @@ function riderPresent(value) {
 }
 
 export function isNonClassifiedStatus(status) {
-  return [
-    'NC',
-    'NOT CLASSIFIED',
-    'NOT_CLASSIFIED',
-    'DNF',
-    'DNS',
-    'DSQ',
-    'RETIRED',
-    'WITHDRAWN',
-  ].includes(String(status ?? '').trim().toUpperCase());
+  return isRaceOutStatus(status);
 }
 
 /**
@@ -145,7 +141,7 @@ export function raceRiderIdsFromEntries(raceEntries) {
  */
 export function officialOutRiderIds(sessionResults) {
   return new Set(
-    (sessionResults ?? [])
+    flattenRaceResults(sessionResults)
       .filter((result) => isNonClassifiedStatus(result.status))
       .map((result) => result.rider_id)
       .filter(riderPresent),
@@ -154,7 +150,7 @@ export function officialOutRiderIds(sessionResults) {
 
 /**
  * Audit indipendente del malus Gara: conta solo l'intersezione tra i cinque
- * entry RACE e i risultati non classificati della sessione RAC.
+ * entry RACE e l'unione degli OUT di tutte le classifiche RAC della Gara.
  */
 export function auditRaceMalus(raceEntries, sessionResults) {
   const raceRiderIds = raceRiderIdsFromEntries(raceEntries);
@@ -237,11 +233,16 @@ export function scorePrediction(prediction, officialResults) {
   const topFiveBonus = raceTopFive.every((rider) =>
     officialResults.raceTopFive.includes(rider)) ? 2 : 0;
   const exactOrderBonus = exactBonus(exactPositions);
-  const outBonus = excelSearch(prediction.out, officialResults.outText) ? 2 : 0;
+  const officialOut = officialResults.outRiderIds ?? officialResults.outText;
+  const outBonus = officialResults.outText !== undefined
+    ? excelSearch(prediction.out, officialResults.outText)
+      ? 2
+      : 0
+    : officialOut instanceof Set && officialOut.has(prediction.out) ? 2 : 0;
   const bonus = topFiveBonus + exactOrderBonus + outBonus;
   const outPenalty = raceTopFive.some((rider) => rider === prediction.out) ? -2 : 0;
 
-  const ncCount = countPredictedNc(raceTopFive, officialResults.outText);
+  const ncCount = countPredictedNc(raceTopFive, officialOut);
   const malus = malusFromNcCount(ncCount);
   const noOpFormulaTerm = 0;
   const race = racePosition + outPenalty + bonus + malus + noOpFormulaTerm;

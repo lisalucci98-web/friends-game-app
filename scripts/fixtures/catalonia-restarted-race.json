@@ -1,0 +1,59 @@
+{
+  "grandPrix": "CAT",
+  "sessions": [
+    {
+      "id": "58452c1f-d739-49a3-aa71-046010b64ff1",
+      "type": "RAC",
+      "number": null,
+      "status": "FINISHED",
+      "part": 1,
+      "results": [
+        {
+          "rider_id": "41195f0f-9817-4a4d-913e-c1fbbb351d9b",
+          "rider_number": 73,
+          "status": "NOT_CLASSIFIED"
+        },
+        {
+          "rider_id": "00db2312-15f2-4333-be5c-4bbff9d17aec",
+          "rider_number": 23,
+          "status": "NOT_CLASSIFIED"
+        }
+      ]
+    },
+    {
+      "id": "96d63c76-6917-40e9-9fb7-2261d9d96d57",
+      "type": "RAC",
+      "number": 2,
+      "status": "FINISHED",
+      "part": 2,
+      "results": [
+        {
+          "rider_id": "e2479f8e-dad8-4191-9a6c-9d4aafa8c3a3",
+          "rider_number": 89,
+          "status": "NOT_CLASSIFIED"
+        },
+        {
+          "rider_id": "ea39a0af-95d3-4a37-81a7-f332efdb9216",
+          "rider_number": 37,
+          "status": "NOT_CLASSIFIED"
+        },
+        {
+          "rider_id": "41195f0f-9817-4a4d-913e-c1fbbb351d9b",
+          "rider_number": 73,
+          "status": "NOT_ON_RESTART_GRID"
+        },
+        {
+          "rider_id": "00db2312-15f2-4333-be5c-4bbff9d17aec",
+          "rider_number": 23,
+          "status": "NOT_ON_RESTART_GRID"
+        },
+        {
+          "rider_id": "4a439bde-305a-4995-b3e7-783fa99f784a",
+          "rider_number": 5,
+          "status": "NOT_ON_RESTART_GRID"
+        }
+      ]
+    }
+  ],
+  "expectedOutRiderNumbers": [73, 23, 89, 37, 5]
+}

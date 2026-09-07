@@ -14,6 +14,10 @@ import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { scorePrediction } from './historical-scoring-spec.mjs';
+import {
+  chooseOfficialRaceSessions,
+  isRaceOutStatus,
+} from './race-results-utils.mjs';
 
 const SOURCE =
   'attached_assets/Pasted-GP-Utente-Pole-position-tempo-pole-1-sprint-2-sprint-3-_1788342259417.txt';
@@ -235,6 +239,17 @@ function selectHistoricalPredictions(rows, context) {
 }
 
 function chooseOfficialSession(sessions, resultsBySession, gpId, type) {
+  if (type === 'RAC') {
+    const coverage = chooseOfficialRaceSessions(sessions, resultsBySession, gpId);
+    if (!coverage.length) return null;
+    const finalSession = coverage.at(-1);
+    return {
+      session: finalSession.session,
+      results: finalSession.results,
+      sessions: coverage.map((item) => item.session),
+      allResults: coverage.flatMap((item) => item.results),
+    };
+  }
   return sessions
     .filter((session) => session.grand_prix_id === gpId && session.type === type)
     .map((session) => ({
@@ -262,16 +277,24 @@ function parseOfficialTime(value) {
 }
 
 function orderedResults(results) {
-  return [...results].sort((left, right) => Number(left.position) - Number(right.position));
+  return [...results].sort((left, right) => {
+    const leftPosition = Number(left.position);
+    const rightPosition = Number(right.position);
+    if (!Number.isFinite(leftPosition) && !Number.isFinite(rightPosition)) return 0;
+    if (!Number.isFinite(leftPosition)) return 1;
+    if (!Number.isFinite(rightPosition)) return -1;
+    return leftPosition - rightPosition;
+  });
 }
 
 export function buildOfficialResults(coverage, ridersById) {
   const qualifyingResults = orderedResults(coverage.qualifying.results);
   const sprintResults = orderedResults(coverage.sprint.results);
   const raceResults = orderedResults(coverage.race.results);
+  const raceOutResults = coverage.race.allResults ?? raceResults;
   const name = (result) => riderFullName(ridersById.get(result.rider_id));
-  const nonClassified = raceResults
-    .filter((result) => result.status !== 'CLASSIFIED')
+  const nonClassified = raceOutResults
+    .filter((result) => isRaceOutStatus(result.status))
     .map(name)
     .filter(Boolean);
 
@@ -286,6 +309,7 @@ export function buildOfficialResults(coverage, ridersById) {
     sprintTopThree: sprintResults.slice(0, 3).map(name),
     raceTopFive: raceResults.slice(0, 5).map(name),
     outText: nonClassified.join(', '),
+    outRiderIds: new Set(nonClassified),
   };
 }
 

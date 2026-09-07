@@ -9,6 +9,7 @@ import {
 const predictionId = '55555555-5555-4555-8555-555555555555';
 const grandPrixId = '66666666-6666-4666-8666-666666666666';
 const sessionId = '77777777-7777-4777-8777-777777777777';
+const sessionIdPart2 = '77777777-7777-4777-8777-777777777778';
 const raceEntries = ['r1', 'r2', 'r3', 'r4', 'r5'].map((rider_id, index) => ({
   id: `88888888-8888-4888-8888-88888888888${index}`,
   prediction_id: predictionId,
@@ -37,31 +38,42 @@ const rows = auditPartialRows(
       total_points: 10,
     }],
     entries: raceEntries,
-    raceSessions: [{
-      id: sessionId,
-      grand_prix_id: grandPrixId,
-      type: 'RAC',
-      status: 'FINISHED',
-      session_date: '2026-01-01T00:00:00Z',
-    }],
-    raceResults: ['r1', 'r2', 'classified'].map((rider_id, index) => ({
-      id: `99999999-9999-4999-8999-99999999999${index}`,
-      session_id: sessionId,
-      rider_id,
-      position: index + 1,
-      status: rider_id === 'classified' ? 'CLASSIFIED' : 'NOT_CLASSIFIED',
-    })),
+    raceSessions: [
+      {
+        id: sessionId,
+        grand_prix_id: grandPrixId,
+        type: 'RAC',
+        status: 'FINISHED',
+        session_date: '2026-01-01T00:00:00Z',
+        number: null,
+      },
+      {
+        id: sessionIdPart2,
+        grand_prix_id: grandPrixId,
+        type: 'RAC',
+        status: 'FINISHED',
+        session_date: '2026-01-01T00:00:00Z',
+        number: 2,
+      },
+    ],
+    raceResults: [
+      { id: '99999999-9999-4999-8999-999999999990', session_id: sessionId, rider_id: 'r1', position: null, status: 'NOT_CLASSIFIED' },
+      { id: '99999999-9999-4999-8999-999999999991', session_id: sessionId, rider_id: 'classified', position: 1, status: 'CLASSIFIED' },
+      { id: '99999999-9999-4999-8999-999999999992', session_id: sessionIdPart2, rider_id: 'r2', position: null, status: 'NOT_CLASSIFIED' },
+      { id: '99999999-9999-4999-8999-999999999993', session_id: sessionIdPart2, rider_id: 'r1', position: null, status: 'NOT_ON_RESTART_GRID' },
+      { id: '99999999-9999-4999-8999-999999999994', session_id: sessionIdPart2, rider_id: 'r3', position: null, status: 'NOT_ON_RESTART_GRID' },
+    ],
   },
 );
 
 assert.equal(rows.length, 1);
 assert.equal(rows[0].status, 'AUDITABLE');
 assert.equal(rows[0].raceEntryCount, 5);
-assert.equal(rows[0].ncCount, 2);
-assert.equal(rows[0].expectedMalus, -1);
+assert.equal(rows[0].ncCount, 3);
+assert.equal(rows[0].expectedMalus, -5);
 assert.equal(rows[0].dbMalus, 0);
 assert.equal(rows[0].dbTotal, 10);
-assert.equal(rows[0].expectedTotal, 9);
+assert.equal(rows[0].expectedTotal, 5);
 
 const report = buildReport({
   partialRows: [{ predictionId }],
@@ -70,7 +82,7 @@ const report = buildReport({
 });
 assert.match(report, /PATCH Supabase eseguite: \*\*0\*\*/);
 assert.match(report, /BLOCCATO — nessuna prediction partial è candidata a modifica/);
-assert.match(report, /\|fixture-user\|FRA\|55555555-5555-4555-8555-555555555555\|5\|2\|-1\|0\|10\|9\|AUDITABLE\|/);
+assert.match(report, /\|fixture-user\|FRA\|55555555-5555-4555-8555-555555555555\|5\|3\|-5\|0\|10\|5\|AUDITABLE\|/);
 
 const parsed = parsePartialRows([
   '## Prediction partial escluse',

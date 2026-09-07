@@ -8,6 +8,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:carry-over": "node ./test-prediction-carry-over.mjs",
     "test:results-status": "node ./test-results-status.mjs",
+    "test:restarted-race": "node ./test-restarted-race.mjs",
     "test:score-historical-predictions": "node ./test-score-historical-predictions.mjs",
     "test:motogp-results-import": "node ./test-motogp-results-import-2026.mjs",
     "import:historical-table": "node ./import-historical-predictions-table.mjs",

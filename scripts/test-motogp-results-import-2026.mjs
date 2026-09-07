@@ -81,6 +81,10 @@ function sessionForType(rows, type) {
   return sortSessionRows(rows.filter(row => row.type === type))[0] ?? null;
 }
 
+function sessionsForType(rows, type) {
+  return sortSessionRows(rows.filter(row => row.type === type));
+}
+
 function canonicalRows(rows) {
   return rows
     .map(row => ({
@@ -168,7 +172,7 @@ assertCondition(grandPrixRows.length === 1, `GP ${GP_CODE} non trovato in Supaba
 const grandPrix = grandPrixRows[0];
 const sessions = listFrom(await supabaseGet(
   `/sessions?grand_prix_id=eq.${encodeURIComponent(grandPrix.id)}` +
-  '&type=in.(Q,SPR,RAC)&select=id,type,status,number&order=number.desc',
+  '&type=in.(Q,SPR,RAC,RAC2)&select=id,type,status,number&order=number.desc',
 ));
 
 for (const type of ['Q', 'SPR', 'RAC']) {
@@ -178,7 +182,27 @@ for (const type of ['Q', 'SPR', 'RAC']) {
   );
 }
 
-const selectedSessions = ['Q', 'SPR', 'RAC'].map(type => sessionForType(sessions, type));
+const raceSessions = [
+  ...sessionsForType(sessions, 'RAC'),
+  ...sessionsForType(sessions, 'RAC2'),
+];
+assertCondition(raceSessions.length >= 1, `Nessuna sessione Gara per ${grandPrix.name ?? GP_CODE}.`);
+if (GP_CODE === 'CAT') {
+  assertCondition(
+    raceSessions.length === 2,
+    `Il Catalogna deve conservare RAC Part 1 e RAC2 Part 2, trovate ${raceSessions.length}.`,
+  );
+  assertCondition(
+    new Set(raceSessions.map(row => row.id)).size === 2,
+    'RAC Part 1 e RAC2 condividono lo stesso session_id.',
+  );
+}
+const selectedSessions = [
+  sessionForType(sessions, 'Q'),
+  sessionForType(sessions, 'SPR'),
+  ...raceSessions,
+].filter(Boolean);
+const expectedRaceSessionCount = raceSessions.length;
 const beforeDryRun = await readState(grandPrix.id, sessions);
 const dryRunOutput = runImporter();
 assertImporterOutput(
@@ -187,6 +211,7 @@ assertImporterOutput(
     'Modalità dry-run: nessuna scrittura Supabase.',
     'GP elaborati: 1 (filtro',
     'sessioni: 1 / 1',
+    `GARA\nsessioni: ${expectedRaceSessionCount} / 1`,
     'PDF mancanti futuri: 0',
     'errori critici: 0',
     'Scritture Supabase: NESSUNA',
@@ -256,5 +281,5 @@ assertCondition(
   'Il secondo import ha modificato gli stati delle sessioni.',
 );
 
-console.log(`\n✓ Import mirato ${GP_CODE}: dry-run, 3 sessioni, upsert idempotente e FINISHED verificati.`);
+console.log(`\n✓ Import mirato ${GP_CODE}: dry-run, ${selectedSessions.length} sessioni, upsert idempotente e FINISHED verificati.`);
 console.log(`  Risultati verificati: ${afterSecondImport.results.length}`);

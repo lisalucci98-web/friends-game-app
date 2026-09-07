@@ -835,7 +835,13 @@ function resultStatusLabel(status: string | null, position: number | string | nu
   if (['FINISHED', 'CLASSIFIED', 'CLASSIFICATO', 'OK'].includes(normalized)) {
     return 'Classificato';
   }
-  if (['NOT CLASSIFIED', 'NOT_CLASSIFIED', 'NC'].includes(normalized)) {
+  if ([
+    'NOT CLASSIFIED',
+    'NOT_CLASSIFIED',
+    'NC',
+    'NOT ON RESTART GRID',
+    'NOT_ON_RESTART_GRID',
+  ].includes(normalized)) {
     return 'Non classificato';
   }
   return normalized || 'Non disponibile';
@@ -846,7 +852,18 @@ function isResultClassified(result: RawSessionResult) {
   const normalized = String(result.status ?? '').trim().toUpperCase();
   return (
     position !== null &&
-    !['DNF', 'DNS', 'DSQ', 'NC', 'NOT CLASSIFIED', 'NOT_CLASSIFIED', 'RETIRED', 'WITHDRAWN'].includes(
+    ![
+      'DNF',
+      'DNS',
+      'DSQ',
+      'NC',
+      'NOT CLASSIFIED',
+      'NOT_CLASSIFIED',
+      'NOT ON RESTART GRID',
+      'NOT_ON_RESTART_GRID',
+      'RETIRED',
+      'WITHDRAWN',
+    ].includes(
       normalized,
     )
   );
@@ -1344,7 +1361,7 @@ function ResultsPage() {
             .from('sessions')
             .select('id, grand_prix_id, type, status, session_date, number')
             .in('grand_prix_id', grandPrixIds)
-            .in('type', ['Q', 'SPR', 'RAC'])
+            .in('type', ['Q', 'SPR', 'RAC', 'RAC2'])
             .order('session_date', { ascending: true })
         : { data: [], error: null };
 
@@ -1425,7 +1442,10 @@ function ResultsPage() {
 
   const selectedGrandPrix = grandPrix.find((item) => item.id === selectedGrandPrixId) ?? null;
   const selectedGrandPrixSessions = sessions.filter(
-    (item) => item.grand_prix_id === selectedGrandPrixId && item.type === activeSession,
+    (item) => item.grand_prix_id === selectedGrandPrixId && (
+      item.type === activeSession ||
+      (activeSession === 'RAC' && item.type === 'RAC2')
+    ),
   );
   const selectedSession =
     activeSession === 'Q'
@@ -1434,7 +1454,12 @@ function ResultsPage() {
           results.some((result) => result.session_id === item.id),
         ) ??
         null
-      : selectedGrandPrixSessions[0] ?? null;
+      : activeSession === 'RAC'
+        ? selectedGrandPrixSessions.find((item) => String(item.number) === '2') ??
+          [...selectedGrandPrixSessions]
+            .sort((left, right) => Number(right.number ?? 0) - Number(left.number ?? 0))[0] ??
+          null
+        : selectedGrandPrixSessions[0] ?? null;
   const teamById = new Map(teams.map((team) => [team.id, team.name ?? 'Team non disponibile']));
   const teamIdByRider = new Map(riderSeasons.map((item) => [item.rider_id, item.team_id]));
   const riderById = new Map(riders.map((rider) => [rider.id, rider]));

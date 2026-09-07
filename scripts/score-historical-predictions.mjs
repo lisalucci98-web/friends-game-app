@@ -18,6 +18,8 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { chooseOfficialRaceSessions } from './race-results-utils.mjs';
+
 const SOURCE =
   'attached_assets/Pasted-GP-Utente-Pole-position-tempo-pole-1-sprint-2-sprint-3-_1788342259417.txt';
 const DEFAULT_REPORT = '.agents/outputs/historical-scoring-report.md';
@@ -260,6 +262,17 @@ function buildPredictionSelection(rows, context) {
 }
 
 function chooseOfficialSession(sessions, resultsBySession, gpId, type) {
+  if (type === 'RAC') {
+    const coverage = chooseOfficialRaceSessions(sessions, resultsBySession, gpId);
+    if (!coverage.length) return null;
+    const finalSession = coverage.at(-1);
+    return {
+      session: finalSession.session,
+      results: finalSession.results,
+      sessions: coverage.map((item) => item.session),
+      allResults: coverage.flatMap((item) => item.results),
+    };
+  }
   return sessions
     .filter((session) => session.grand_prix_id === gpId && session.type === type)
     .map((session) => ({
