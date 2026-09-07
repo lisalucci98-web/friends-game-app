@@ -511,7 +511,7 @@ async function fetchOne(client, table, id, select) {
   return rows[0];
 }
 
-async function applyPlan(client, plan) {
+export async function applyPlan(client, plan) {
   const applied = [];
   const skipped = [];
   try {
@@ -816,7 +816,7 @@ function buildReport({
   ].join('\n');
 }
 
-async function verifyAfter({
+export async function verifyAfter({
   client,
   report,
   preSnapshot,

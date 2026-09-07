@@ -25,3 +25,4 @@
 - [Historical apply source](historical-apply-source.md) — usa il report Task 38 persistente come gate dell’apply; i workbook sotto /tmp sono evidenza effimera.
 - [League member visibility](league-member-visibility.md) — la lettura diretta delle membership è RLS-scoped all’utente corrente; per tutti i membri usare la RPC autorizzata.
 - [Partial prediction malus](partial-prediction-malus.md) — una prediction parziale può comunque richiedere il malus Gara se i suoi cinque piloti intersecano gli OUT ufficiali.
+- [Apply rollback verification](apply-rollback-verification.md) — simula errori dopo scritture aggregate ed entry e verifica separatamente l’autosomma dei totali.

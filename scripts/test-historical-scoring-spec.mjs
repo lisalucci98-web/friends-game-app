@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 
 import {
   aggregateTotal,
+  applyPlan,
   buildMalusPreflight,
   buildPlan,
+  verifyAfter,
 } from './task-39-scoring-apply.mjs';
 import {
   auditRaceMalus,
@@ -350,6 +352,214 @@ assert.notEqual(aggregateTotal({
   bonus_points: 4,
   malus_points: -1,
 }), 5);
+
+// Un PATCH fallito dopo due scritture deve lasciare il client simulato
+// esattamente nello snapshot iniziale: sia gli aggregati (incluso il malus)
+// sia l'entry già aggiornata devono essere ripristinati.
+const rollbackPredictionId = '88888888-8888-4888-8888-888888888888';
+const failedPredictionId = '99999999-9999-4999-8999-999999999999';
+const rollbackEntryId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const initialRollbackPrediction = {
+  id: rollbackPredictionId,
+  qualifying_points: 10,
+  sprint_points: 20,
+  race_points: 30,
+  bonus_points: 0,
+  malus_points: -5,
+  total_points: 59,
+};
+const initialFailedPrediction = {
+  id: failedPredictionId,
+  qualifying_points: 6,
+  sprint_points: 7,
+  race_points: 8,
+  bonus_points: 1,
+  malus_points: 0,
+  total_points: 22,
+};
+const initialRollbackEntry = {
+  id: rollbackEntryId,
+  prediction_id: rollbackPredictionId,
+  prediction_type: 'RACE',
+  points: 0,
+};
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function createFailingSupabaseClient({ predictions, entries, failOnPatch }) {
+  const state = { predictions: clone(predictions), entries: clone(entries) };
+  let patchCount = 0;
+  let successfulPatchCount = 0;
+  const patchLog = [];
+
+  function parseTarget(path) {
+    const match = path.match(/^\/(predictions|prediction_entries)\?id=eq\.([^&]+)/);
+    assert.ok(match, `path PATCH inatteso: ${path}`);
+    return { table: match[1], id: match[2] };
+  }
+
+  function stateTable(table) {
+    return table === 'prediction_entries' ? 'entries' : table;
+  }
+
+  return {
+    state,
+    patchLog,
+    get patchCount() {
+      return patchCount;
+    },
+    get successfulPatchCount() {
+      return successfulPatchCount;
+    },
+    async get(path) {
+      const { table, id } = parseTarget(path);
+      const row = state[stateTable(table)].find((candidate) => candidate.id === id);
+      return row ? [clone(row)] : [];
+    },
+    async patch(path, body) {
+      patchCount += 1;
+      patchLog.push({ path, body: clone(body) });
+      if (patchCount === failOnPatch) {
+        throw new Error('simulated PATCH failure');
+      }
+      const { table, id } = parseTarget(path);
+      const row = state[stateTable(table)].find((candidate) => candidate.id === id);
+      assert.ok(row, `record PATCH non trovato: ${table}/${id}`);
+      Object.assign(row, body);
+      successfulPatchCount += 1;
+      return [clone(row)];
+    },
+  };
+}
+
+const failingClient = createFailingSupabaseClient({
+  predictions: [initialRollbackPrediction, initialFailedPrediction],
+  entries: [initialRollbackEntry],
+  // Prediction, entry e poi il PATCH che deve fallire: almeno due modifiche
+  // sono quindi state applicate prima di avviare il rollback.
+  failOnPatch: 3,
+});
+await assert.rejects(
+  () => applyPlan(failingClient, [
+    {
+      kind: 'prediction',
+      predictionId: rollbackPredictionId,
+      user: 'Test',
+      gp: 'GP',
+      desired: {
+        qualifying_points: 1,
+        sprint_points: 2,
+        race_points: 3,
+        bonus_points: 4,
+        malus_points: -1,
+        total_points: 9,
+      },
+    },
+    {
+      kind: 'entry',
+      predictionId: rollbackPredictionId,
+      entryId: rollbackEntryId,
+      user: 'Test',
+      gp: 'GP',
+      desired: { points: 7 },
+    },
+    {
+      kind: 'prediction',
+      predictionId: failedPredictionId,
+      user: 'Test',
+      gp: 'GP 2',
+      desired: {
+        qualifying_points: 1,
+        sprint_points: 1,
+        race_points: 1,
+        bonus_points: 0,
+        malus_points: -1,
+        total_points: 2,
+      },
+    },
+  ]),
+  /simulated PATCH failure\. Rollback completato\./,
+);
+assert.equal(failingClient.successfulPatchCount >= 2, true);
+assert.equal(failingClient.patchCount, 10);
+assert.deepEqual(
+  failingClient.state.predictions.find((row) => row.id === rollbackPredictionId),
+  initialRollbackPrediction,
+);
+assert.deepEqual(
+  failingClient.state.predictions.find((row) => row.id === failedPredictionId),
+  initialFailedPrediction,
+);
+assert.deepEqual(
+  failingClient.state.entries.find((row) => row.id === rollbackEntryId),
+  initialRollbackEntry,
+);
+console.log('PASS | PATCH fallito dopo modifiche: aggregate, malus ed entry ripristinati');
+
+// La verifica post-apply deve distinguere un totale non autosommante anche
+// quando gli altri campi e il malus Gara sono coerenti.
+const totalCheckPredictionId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const totalCheckSessionId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const totalCheckReport = {
+  candidates: [{
+    predictionId: totalCheckPredictionId,
+    user: 'Test',
+    gp: 'GP',
+    score: {
+      qualifying_points: 1,
+      sprint_points: 2,
+      race_points: 3,
+      bonus_points: 4,
+      malus_points: 0,
+      total_points: 9,
+    },
+    entries: [],
+  }],
+  partialIds: [],
+};
+const totalCheckSnapshot = {
+  predictions: [{
+    id: totalCheckPredictionId,
+    grand_prix_id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    qualifying_points: 1,
+    sprint_points: 2,
+    race_points: 3,
+    bonus_points: 4,
+    malus_points: 0,
+    // 1 + 2 + 3 + 4 + 0 = 10, quindi 9 è volutamente errato.
+    total_points: 9,
+  }],
+  entries: [],
+  raceSessions: [{
+    id: totalCheckSessionId,
+    grand_prix_id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    type: 'RAC',
+    status: 'FINISHED',
+  }],
+  raceResults: [{
+    id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+    session_id: totalCheckSessionId,
+    rider_id: 'classified-rider',
+    position: 1,
+    status: 'CLASSIFIED',
+  }],
+};
+const postApplyVerification = await verifyAfter({
+  client: {},
+  report: totalCheckReport,
+  preSnapshot: totalCheckSnapshot,
+  postSnapshot: totalCheckSnapshot,
+  plan: [],
+  obsoleteEntries: [],
+});
+assert.deepEqual(postApplyVerification.totalFailures, [totalCheckPredictionId]);
+assert.ok(
+  postApplyVerification.postErrors.some((error) =>
+    error.includes('totali post-apply non autosommanti: 1')),
+);
+console.log('PASS | verifica post-apply segnala il totale non autosommante');
 
 console.log(`PASS | casi obbligatori: ${REQUIRED_CASES.length}/10`);
 console.log('PASS | casi speciali Qualifying Time, blank, #N/A, NC pronosticati e malus');
