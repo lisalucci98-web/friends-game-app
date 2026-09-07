@@ -203,6 +203,23 @@ function formatTotal(value: number | string | null | undefined) {
   return parsed === null ? '—' : `${parsed}`;
 }
 
+function displayedRacePoints(prediction: PredictionScore) {
+  const values = [
+    prediction.qualifying_points,
+    prediction.sprint_points,
+    prediction.bonus_points,
+    prediction.malus_points,
+    prediction.total_points,
+  ].map(toNumber);
+  const race = toNumber(prediction.race_points);
+
+  if (race === null || values.some((value) => value === null)) return prediction.race_points;
+
+  const [qualifying, sprint, bonus, malus, total] = values as number[];
+  const derivedRace = total - qualifying - sprint - bonus - malus;
+  return derivedRace;
+}
+
 function formatPredictedTime(value: number | string | null | undefined) {
   if (value === null || value === undefined || value === '') return '—';
   const text = String(value).trim();
@@ -390,15 +407,15 @@ function scoreComponentsMatchTotal(prediction: PredictionScore) {
   const values = [
     prediction.qualifying_points,
     prediction.sprint_points,
-    prediction.race_points,
     prediction.bonus_points,
     prediction.malus_points,
     prediction.total_points,
   ].map(toNumber);
 
   if (values.some((value) => value === null)) return null;
-  const [qualifying, sprint, race, bonus, malus, total] = values as number[];
-  return qualifying + sprint + race + bonus + malus === total;
+  const [qualifying, sprint, bonus, malus, total] = values as number[];
+  const race = toNumber(displayedRacePoints(prediction));
+  return race === null ? null : qualifying + sprint + race + bonus + malus === total;
 }
 
 function StatusBadge({
@@ -734,6 +751,7 @@ function PredictionDetail({
   grandPrix?: GrandPrix[];
 }) {
   const riderMap = new Map(riders.map((rider) => [rider.id, rider]));
+  const racePoints = prediction ? displayedRacePoints(prediction) : null;
   const byType = (type: string) =>
     entries
       .filter((entry) => entry.prediction_type === type)
@@ -863,7 +881,7 @@ function PredictionDetail({
           </div>
           <div className="task35-section-total">
             <span>Totale Gara</span>
-            <strong>{formatPoints(prediction.race_points)}</strong>
+            <strong>{formatPoints(racePoints)}</strong>
           </div>
         </div>
       </div>
@@ -927,7 +945,7 @@ function PredictionHistoryCard({
           {[
             ['Qualifica', prediction?.qualifying_points],
             ['Sprint', prediction?.sprint_points],
-            ['Gara', prediction?.race_points],
+            ['Gara', prediction ? displayedRacePoints(prediction) : null],
             ['Bonus', prediction?.bonus_points],
             ['Malus', prediction?.malus_points],
           ].map(([label, value]) => (
