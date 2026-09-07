@@ -24,3 +24,4 @@
 - [Race malus NC](race-malus-nc-rule.md) — il malus usa soglie cumulative sull’intersezione tra Top 5 pronosticata e Out ufficiali.
 - [Historical apply source](historical-apply-source.md) — usa il report Task 38 persistente come gate dell’apply; i workbook sotto /tmp sono evidenza effimera.
 - [League member visibility](league-member-visibility.md) — la lettura diretta delle membership è RLS-scoped all’utente corrente; per tutti i membri usare la RPC autorizzata.
+- [Partial prediction malus](partial-prediction-malus.md) — una prediction parziale può comunque richiedere il malus Gara se i suoi cinque piloti intersecano gli OUT ufficiali.
