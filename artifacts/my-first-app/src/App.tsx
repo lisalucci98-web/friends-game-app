@@ -1132,19 +1132,28 @@ function authErrorMessage(error: { message?: string | null } | null, mode: 'logi
 }
 
 function poleTimeToSeconds(value: string) {
-  const match = value.trim().match(/^(\d{2}):([0-5]\d)\.(\d{3})$/);
+  const match = value.trim().match(/^(\d{2}):([0-5]\d)[.,](\d{3})$/);
   if (!match) return null;
   return Number(match[1]) * 60 + Number(match[2]) + Number(match[3]) / 1000;
 }
 
 function formatPoleTime(value: string | number | null) {
   if (value === null || value === '') return '';
-  if (typeof value === 'string' && /^\d{2}:[0-5]\d\.\d{3}$/.test(value)) return value;
+  if (typeof value === 'string' && /^\d{2}:[0-5]\d[.,]\d{3}$/.test(value.trim())) {
+    return value.trim().replace('.', ',');
+  }
   const seconds = Number(value);
   if (!Number.isFinite(seconds) || seconds < 0) return '';
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds - minutes * 60;
-  return `${String(minutes).padStart(2, '0')}:${remainingSeconds.toFixed(3).padStart(6, '0')}`;
+  return `${String(minutes).padStart(2, '0')}:${remainingSeconds.toFixed(3).padStart(6, '0').replace('.', ',')}`;
+}
+
+function formatPoleTimeInput(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 7);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}:${digits.slice(2, 4)},${digits.slice(4)}`;
 }
 
 function resultTiming(result: RawSessionResult) {
@@ -2960,7 +2969,7 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
   const hasDuplicateSprint = sprintRiderIds.filter(Boolean).length !== new Set(sprintRiderIds.filter(Boolean)).size;
   const hasDuplicateRace = raceRiderIds.filter(Boolean).length !== new Set(raceRiderIds.filter(Boolean)).size;
   const outInRace = Boolean(raceOutRiderId) && raceRiderIds.includes(raceOutRiderId);
-  const poleTimeValid = /^\d{2}:\d{2}\.\d{3}$/.test(poleTime);
+  const poleTimeValid = /^\d{2}:[0-5]\d[.,]\d{3}$/.test(poleTime);
   const canSave =
     Boolean(selectedGrandPrixId && selectedLeagueId && poleRiderId && poleTimeValid) &&
     sprintRiderIds.every(Boolean) &&
@@ -3093,10 +3102,10 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
               <div className="predictions-form">
                 <PredictionSection icon={<Flag size={18} strokeWidth={2} />} title="Qualifiche" prompt="Pronostico tempo e pilota della pole." deadline={deadlineState.qualifying} open={qualifyingOpen} status={qualifyingStatus}>
                   <div className="prediction-podium-fields prediction-qualifying-fields">
-                    <label><span>Tempo pole</span><input className="prediction-rider-select" value={poleTime} onChange={(event) => { setPoleTime(event.target.value); clearSaveFeedback(); }} placeholder="01:27.756" inputMode="numeric" pattern="\d{2}:\d{2}\.\d{3}" disabled={!qualifyingOpen || isSaving} /></label>
+                    <label><span>Tempo pole</span><input className="prediction-rider-select" value={poleTime} onChange={(event) => { setPoleTime(formatPoleTimeInput(event.target.value)); clearSaveFeedback(); }} placeholder="01:27,756" inputMode="numeric" pattern="\d{2}:\d{2},\d{3}" disabled={!qualifyingOpen || isSaving} /></label>
                     <label><span>Pilota pole</span><select className="prediction-rider-select" value={poleRiderId} onChange={(event) => { setPoleRiderId(event.target.value); clearSaveFeedback(); }} disabled={!qualifyingOpen || isSaving}>{riderOptions()}</select></label>
                   </div>
-                  {poleTime && !poleTimeValid && <p className="prediction-field-error" role="alert">Formato richiesto: MM:SS.mmm</p>}
+                  {poleTime && !poleTimeValid && <p className="prediction-field-error" role="alert">Inserisci 7 cifre: MM:SS,mmm</p>}
                 </PredictionSection>
                 <PredictionSection icon={<Trophy size={18} strokeWidth={2} />} title="Sprint" prompt="Scegli i primi tre classificati." deadline={deadlineState.sprint} open={sprintOpen} status={sprintStatus}>
                   <div className="prediction-podium-fields">
