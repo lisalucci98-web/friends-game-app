@@ -659,6 +659,22 @@
 .task21-mobile-score-cell strong { overflow: hidden; color: hsl(var(--foreground)); font-family: var(--app-font-mono); font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
 .task21-mobile-score-cell.is-empty strong { color: hsl(var(--muted-foreground) / .65); font-weight: 500; }
 .task21-mobile-score-cell.is-pending strong { color: hsl(30 70% 38%); font-size: .6rem; }
+.task21-austria-list { display: grid; }
+.task21-austria-card { border-top: 1px solid hsl(var(--foreground) / .08); }
+.task21-austria-card:first-child { border-top: 0; }
+.task21-austria-card.is-current { border-left: 3px solid hsl(var(--primary)); }
+.task21-austria-card[open] > .task21-austria-summary { background: hsl(var(--primary) / .035); }
+.task21-austria-summary { display: grid; grid-template-columns: 34px 34px minmax(130px, 1fr) minmax(130px, .8fr) minmax(310px, 1.8fr) 72px 17px; gap: 11px; align-items: center; padding: 14px 17px; cursor: pointer; list-style: none; }
+.task21-austria-summary::-webkit-details-marker { display: none; }
+.task21-austria-summary:hover { background: hsl(var(--primary) / .035); }
+.task21-austria-score-line { display: grid; grid-template-columns: repeat(5, minmax(42px, 1fr)); gap: 7px; }
+.task21-austria-score-line span, .task21-austria-total { display: grid; gap: 4px; min-width: 0; }
+.task21-austria-score-line small, .task21-austria-total small { color: hsl(var(--muted-foreground)); font-family: var(--app-font-mono); font-size: .54rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.task21-austria-score-line strong { font-family: var(--app-font-mono); font-size: .74rem; }
+.task21-austria-total { justify-items: end; }
+.task21-austria-total strong { color: hsl(var(--primary)); font-family: var(--app-font-mono); font-size: 1rem; }
+.task21-austria-card[open] .task21-row-chevron { transform: rotate(90deg); color: hsl(var(--primary)); }
+.task21-austria-card-content { border-top: 1px solid hsl(var(--foreground) / .08); background: hsl(var(--muted) / .22); }
 .task21-all-members-panel { display: grid; gap: 0; }
 .task21-all-members { display: grid; }
 .task21-member-detail { border-top: 1px solid hsl(var(--foreground) / .08); }

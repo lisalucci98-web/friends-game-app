@@ -1009,6 +1009,7 @@ export function LeagueResultsContent({
   const [memberDetailRiders, setMemberDetailRiders] = useState<Rider[]>([]);
   const [isMemberDetailLoading, setIsMemberDetailLoading] = useState(false);
   const [memberDetailError, setMemberDetailError] = useState<string | null>(null);
+  const [openAustriaMemberId, setOpenAustriaMemberId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
@@ -1111,6 +1112,10 @@ export function LeagueResultsContent({
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (user?.id) setOpenAustriaMemberId(user.id);
+  }, [user?.id]);
+
   const seasonGrandPrix = useMemo(
     () =>
       grandPrix.filter((grandPrixItem) => grandPrixItem.season_id === season?.id),
@@ -1138,6 +1143,15 @@ export function LeagueResultsContent({
     }
     return indexed;
   }, [seasonPredictions]);
+  const austriaGrandPrix = useMemo(
+    () =>
+      seasonGrandPrix.find((item) => {
+        const shortName = item.short_name?.trim().toUpperCase();
+        const name = item.name?.trim().toLocaleLowerCase('it-IT') || '';
+        return shortName === 'AUT' || name.includes('austria');
+      }),
+    [seasonGrandPrix],
+  );
 
   const leaderboard = useMemo(() => {
     const rows = members.map((member, index) => {
@@ -1461,6 +1475,108 @@ export function LeagueResultsContent({
               “—” indica che non è presente un pronostico; “Attesa” indica un pronostico non ancora conteggiato.
             </p>
           </section>
+          {austriaGrandPrix && (
+            <section className="task21-panel task21-austria-panel" aria-labelledby="task21-austria-title">
+              <div className="task21-panel-heading">
+                <div>
+                  <span className="task21-kicker">GP Austria · pronostici e punteggi</span>
+                  <h2 id="task21-austria-title">{gpName(austriaGrandPrix)}</h2>
+                  <p className="task35-panel-subtitle">
+                    Apri un partecipante per vedere Pole, Sprint, Top 5 Gara, OUT e punti assegnati.
+                  </p>
+                </div>
+                <Flag size={24} aria-hidden="true" className="task21-panel-icon" />
+              </div>
+              <div className="task21-austria-list" aria-label="Pronostici e punteggi del GP Austria">
+                {leaderboard.map((row) => {
+                  const prediction = seasonPredictionsByMemberAndGp.get(
+                    predictionMapKey(row.member.user_id, austriaGrandPrix.id),
+                  );
+                  const predictionEntries = prediction
+                    ? memberDetailEntries.filter((entry) => entry.prediction_id === prediction.id)
+                    : [];
+                  const status = statusForPrediction(
+                    prediction,
+                    isGpClosed(austriaGrandPrix.id, sessions),
+                  );
+                  const StatusIcon = status.icon;
+                  const isCurrentUser = row.member.user_id === user?.id;
+
+                  return (
+                    <details
+                      className={`task21-austria-card${isCurrentUser ? ' is-current' : ''}`}
+                      key={row.member.user_id}
+                      open={openAustriaMemberId === row.member.user_id}
+                      onToggle={(event) => {
+                        setOpenAustriaMemberId(
+                          event.currentTarget.open ? row.member.user_id : null,
+                        );
+                      }}
+                    >
+                      <summary className="task21-austria-summary">
+                        <span className="task21-rank">{row.rank}</span>
+                        <span className="task21-member-avatar" aria-hidden="true">
+                          <UserRound size={17} />
+                        </span>
+                        <span className="task21-member-name">
+                          <strong>{row.member.name || 'Utente senza nome'}</strong>
+                          {isCurrentUser && <small>Tu</small>}
+                        </span>
+                        <span className={`task21-status ${status.className}`}>
+                          <StatusIcon size={14} aria-hidden="true" />
+                          {status.label}
+                        </span>
+                        <span className="task21-austria-score-line">
+                          {[
+                            ['Qualifica', prediction?.qualifying_points],
+                            ['Sprint', prediction?.sprint_points],
+                            ['Gara', prediction ? displayedRacePoints(prediction) : null],
+                            ['Bonus', prediction?.bonus_points],
+                            ['Malus', prediction?.malus_points],
+                          ].map(([label, value]) => (
+                            <span key={label}>
+                              <small>{label}</small>
+                              <strong>{formatPoints(value)}</strong>
+                            </span>
+                          ))}
+                        </span>
+                        <span className="task21-austria-total">
+                          <small>Totale GP</small>
+                          <strong>{formatTotal(prediction?.total_points)}</strong>
+                        </span>
+                        <ChevronRight size={17} aria-hidden="true" className="task21-row-chevron" />
+                      </summary>
+                      <div className="task21-austria-card-content">
+                        {isMemberDetailLoading ? (
+                          <div className="task21-detail-loading" role="status">Caricamento pronostico...</div>
+                        ) : memberDetailError ? (
+                          <div className="task21-detail-empty task21-detail-empty--error" role="alert">
+                            <AlertCircle size={18} aria-hidden="true" />
+                            <strong>{memberDetailError}</strong>
+                          </div>
+                        ) : !isGpClosed(austriaGrandPrix.id, sessions) ? (
+                          <div className="task21-locked-detail" role="status">
+                            <LockKeyhole size={23} aria-hidden="true" />
+                            <strong>Dettaglio nascosto fino alla chiusura del GP</strong>
+                          </div>
+                        ) : (
+                          <PredictionDetail
+                            prediction={prediction}
+                            entries={predictionEntries}
+                            riders={memberDetailRiders}
+                            grandPrix={grandPrix}
+                          />
+                        )}
+                      </div>
+                    </details>
+                  );
+                })}
+              </div>
+              <p className="task21-note">
+                I valori mostrano i punteggi salvati nel database. “—” indica che il partecipante non ha ancora un pronostico per questo GP.
+              </p>
+            </section>
+          )}
           <section className="task21-panel task21-all-members-panel" aria-labelledby="task21-all-members-title">
             <div className="task21-panel-heading">
               <div>
