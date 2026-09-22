@@ -814,6 +814,14 @@ type PredictionRosterRow = {
   number: number | string | null;
 };
 
+type PredictionSectionKey = 'qualifying' | 'sprint' | 'race';
+
+const emptySavedPredictionSections: Record<PredictionSectionKey, boolean> = {
+  qualifying: false,
+  sprint: false,
+  race: false,
+};
+
 type DisplayResult = RawSessionResult & {
   rider: Rider | null;
   teamName: string | null;
@@ -2762,12 +2770,15 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
   const [raceOutRiderId, setRaceOutRiderId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingPrediction, setIsLoadingPrediction] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [savingSection, setSavingSection] = useState<PredictionSectionKey | null>(null);
+  const [savedSections, setSavedSections] = useState<Record<PredictionSectionKey, boolean>>(
+    emptySavedPredictionSections,
+  );
+  const [feedbackSection, setFeedbackSection] = useState<PredictionSectionKey | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [now, setNow] = useState(() => italianWallClockNow());
-  const [predictionReloadToken, setPredictionReloadToken] = useState(0);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(italianWallClockNow()), 30_000);
@@ -2891,6 +2902,8 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
       setSprintRiderIds(['', '', '']);
       setRaceRiderIds(['', '', '', '', '']);
       setRaceOutRiderId('');
+      setSavedSections(emptySavedPredictionSections);
+      setFeedbackSection(null);
       const predictionResponse = await supabase
         .from('predictions')
         .select('id, grand_prix_id, league_id, qualifying_pole_time, created_at, updated_at')
@@ -2931,12 +2944,22 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
       const raceOutRiderIdFromEntries =
         entries.find((entry) => entry.prediction_type === 'RACE_OUT')?.rider_id ?? '';
       if (isMounted) {
+        const savedSprintEntries = entries.filter((entry) => entry.prediction_type === 'SPRINT');
+        const savedRaceEntries = entries.filter((entry) => entry.prediction_type === 'RACE');
         setPrediction(predictionRow);
         setPoleRiderId(poleRiderIdFromEntries);
         setPoleTime(formatPoleTime(predictionRow.qualifying_pole_time));
         setSprintRiderIds(byType('SPRINT', [1, 2, 3]));
         setRaceRiderIds(byType('RACE', [1, 2, 3, 4, 5]));
         setRaceOutRiderId(raceOutRiderIdFromEntries);
+        setSavedSections({
+          qualifying: Boolean(
+            poleRiderIdFromEntries &&
+            predictionRow.qualifying_pole_time !== null,
+          ),
+          sprint: savedSprintEntries.length === 3,
+          race: savedRaceEntries.length === 5 && Boolean(raceOutRiderIdFromEntries),
+        });
         setIsLoadingPrediction(false);
       }
     }
@@ -2944,7 +2967,7 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
     return () => {
       isMounted = false;
     };
-  }, [predictionReloadToken, selectedGrandPrixId, selectedLeagueId, user]);
+  }, [selectedGrandPrixId, selectedLeagueId, user]);
 
   const selectedGrandPrix = grandPrix.find((item) => item.id === selectedGrandPrixId) ?? null;
   const selectedSessions = sessions.filter((item) => item.grand_prix_id === selectedGrandPrixId);
@@ -2970,20 +2993,31 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
   const hasDuplicateRace = raceRiderIds.filter(Boolean).length !== new Set(raceRiderIds.filter(Boolean)).size;
   const outInRace = Boolean(raceOutRiderId) && raceRiderIds.includes(raceOutRiderId);
   const poleTimeValid = /^\d{2}:[0-5]\d[.,]\d{3}$/.test(poleTime);
-  const canSave =
+  const canSaveQualifying =
+    qualifyingOpen &&
     Boolean(selectedGrandPrixId && selectedLeagueId && poleRiderId && poleTimeValid) &&
+    !savingSection &&
+    !isLoadingPrediction;
+  const canSaveSprint =
+    sprintOpen &&
+    Boolean(selectedGrandPrixId && selectedLeagueId) &&
     sprintRiderIds.every(Boolean) &&
-    raceRiderIds.every(Boolean) &&
-    Boolean(raceOutRiderId) &&
     !hasDuplicateSprint &&
+    !savingSection &&
+    !isLoadingPrediction;
+  const canSaveRace =
+    raceOpen &&
+    Boolean(selectedGrandPrixId && selectedLeagueId && raceOutRiderId) &&
+    raceRiderIds.every(Boolean) &&
     !hasDuplicateRace &&
     !outInRace &&
-    !isSaving &&
+    !savingSection &&
     !isLoadingPrediction;
 
   function clearSaveFeedback() {
     setSaveMessage(null);
     setSaveError(null);
+    setFeedbackSection(null);
   }
 
   function updateRiderList(setter: React.Dispatch<React.SetStateAction<string[]>>, position: number, value: string) {
@@ -2991,38 +3025,69 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
     clearSaveFeedback();
   }
 
-  async function handleSave() {
+  async function handleSaveSection(section: PredictionSectionKey) {
     clearSaveFeedback();
-    if (!canSave) {
+    setFeedbackSection(section);
+    const sectionCanSave =
+      section === 'qualifying'
+        ? canSaveQualifying
+        : section === 'sprint'
+          ? canSaveSprint
+          : canSaveRace;
+    if (!sectionCanSave) {
       setSaveError(
-        !poleTimeValid
+        section === 'qualifying' && !poleTimeValid
           ? 'Inserisci il tempo nel formato MM:SS.mmm.'
-          : hasDuplicateSprint || hasDuplicateRace
+          : (section === 'sprint' && hasDuplicateSprint) ||
+              (section === 'race' && hasDuplicateRace)
             ? 'Un pilota può comparire una sola volta nella stessa sezione.'
-            : outInRace
+            : section === 'race' && outInRace
               ? 'Il pilota OUT deve essere diverso dalla Top 5.'
-              : 'Completa tutte le sezioni ancora disponibili prima di salvare.',
+              : 'Completa questa sezione prima di salvarla.',
       );
       return;
     }
-    setIsSaving(true);
-    const { error } = await supabase.rpc('submit_prediction', {
+    setSavingSection(section);
+    const { data, error } = await supabase.rpc('submit_prediction_section', {
       p_grand_prix_id: selectedGrandPrixId,
       p_league_id: selectedLeagueId,
-      p_qualifying_pole_rider_id: poleRiderId,
-      p_qualifying_pole_time: poleTimeToSeconds(poleTime),
-      p_sprint_rider_ids: sprintRiderIds,
-      p_race_rider_ids: raceRiderIds,
-      p_race_out_rider_id: raceOutRiderId,
+      p_section: section.toUpperCase(),
+      p_qualifying_pole_rider_id: section === 'qualifying' ? poleRiderId : null,
+      p_qualifying_pole_time: section === 'qualifying' ? poleTimeToSeconds(poleTime) : null,
+      p_rider_ids:
+        section === 'sprint'
+          ? sprintRiderIds
+          : section === 'race'
+            ? raceRiderIds
+            : null,
+      p_race_out_rider_id: section === 'race' ? raceOutRiderId : null,
     });
     if (error) {
       setSaveError(predictionErrorMessage(error));
-      setIsSaving(false);
+      setSavingSection(null);
       return;
     }
-    setSaveMessage('Pronostico salvato!');
-    setPredictionReloadToken((value) => value + 1);
-    setIsSaving(false);
+    setSavedSections((current) => ({ ...current, [section]: true }));
+    setSaveMessage(
+      section === 'qualifying'
+        ? 'Pronostico Qualifiche salvato!'
+        : section === 'sprint'
+          ? 'Pronostico Sprint salvato!'
+          : 'Pronostico Gara salvato!',
+    );
+    if (!prediction && typeof data === 'string') {
+      const timestamp = new Date().toISOString();
+      setPrediction({
+        id: data,
+        grand_prix_id: selectedGrandPrixId!,
+        league_id: selectedLeagueId!,
+        qualifying_pole_time:
+          section === 'qualifying' ? poleTimeToSeconds(poleTime) : null,
+        created_at: timestamp,
+        updated_at: timestamp,
+      });
+    }
+    setSavingSection(null);
   }
 
   const riderOptions = (placeholder = 'Seleziona pilota') => (
@@ -3049,6 +3114,7 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
     Number(Boolean(raceOutRiderId));
   const totalFields = 1 + 3 + 5 + 1;
   const hasOpenDeadline = qualifyingOpen || sprintOpen || raceOpen;
+  const hasAnySavedSection = Object.values(savedSections).some(Boolean);
   const formHasIssues = !poleTimeValid || hasDuplicateSprint || hasDuplicateRace || outInRace;
 
   return (
@@ -3102,24 +3168,51 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
               <div className="predictions-form">
                 <PredictionSection icon={<Flag size={18} strokeWidth={2} />} title="Qualifiche" prompt="Pronostico tempo e pilota della pole." deadline={deadlineState.qualifying} open={qualifyingOpen} status={qualifyingStatus}>
                   <div className="prediction-podium-fields prediction-qualifying-fields">
-                    <label><span>Tempo pole</span><input className="prediction-rider-select" value={poleTime} onChange={(event) => { setPoleTime(formatPoleTimeInput(event.target.value)); clearSaveFeedback(); }} placeholder="01:27,756" inputMode="numeric" pattern="\d{2}:\d{2},\d{3}" disabled={!qualifyingOpen || isSaving} /></label>
-                    <label><span>Pilota pole</span><select className="prediction-rider-select" value={poleRiderId} onChange={(event) => { setPoleRiderId(event.target.value); clearSaveFeedback(); }} disabled={!qualifyingOpen || isSaving}>{riderOptions()}</select></label>
+                    <label><span>Tempo pole</span><input className="prediction-rider-select" value={poleTime} onChange={(event) => { setPoleTime(formatPoleTimeInput(event.target.value)); clearSaveFeedback(); }} placeholder="01:27,756" inputMode="numeric" pattern="\d{2}:\d{2},\d{3}" disabled={!qualifyingOpen || Boolean(savingSection)} /></label>
+                    <label><span>Pilota pole</span><select className="prediction-rider-select" value={poleRiderId} onChange={(event) => { setPoleRiderId(event.target.value); clearSaveFeedback(); }} disabled={!qualifyingOpen || Boolean(savingSection)}>{riderOptions()}</select></label>
                   </div>
                   {poleTime && !poleTimeValid && <p className="prediction-field-error" role="alert">Inserisci 7 cifre: MM:SS,mmm</p>}
+                  <div className="prediction-section-actions">
+                    {savedSections.qualifying && <span className="prediction-saved-note"><CheckCircle2 size={14} aria-hidden="true" /> Qualifiche salvate</span>}
+                    {feedbackSection === 'qualifying' && saveMessage && <p className="prediction-success" role="status"><CheckCircle2 size={16} aria-hidden="true" />{saveMessage}</p>}
+                    {feedbackSection === 'qualifying' && saveError && <p className="prediction-error" role="alert"><AlertCircle size={16} aria-hidden="true" />{saveError}</p>}
+                    {!qualifyingOpen && <span className="prediction-closed-note"><LockKeyhole size={15} aria-hidden="true" /> Sezione chiusa</span>}
+                    <button className="prediction-save-button" type="button" onClick={() => void handleSaveSection('qualifying')} disabled={!canSaveQualifying}>
+                      {savingSection === 'qualifying' ? <><Clock3 size={17} aria-hidden="true" /> Salvataggio...</> : <><Save size={17} aria-hidden="true" /> {savedSections.qualifying ? 'Aggiorna Qualifiche' : 'Salva Qualifiche'}</>}
+                    </button>
+                  </div>
                 </PredictionSection>
                 <PredictionSection icon={<Trophy size={18} strokeWidth={2} />} title="Sprint" prompt="Scegli i primi tre classificati." deadline={deadlineState.sprint} open={sprintOpen} status={sprintStatus}>
                   <div className="prediction-podium-fields">
-                    {sprintRiderIds.map((riderId, position) => <label key={position}><span>{position + 1}° posto</span><select className="prediction-rider-select" value={riderId} onChange={(event) => updateRiderList(setSprintRiderIds, position, event.target.value)} disabled={!sprintOpen || isSaving}>{riderOptions()}</select></label>)}
+                    {sprintRiderIds.map((riderId, position) => <label key={position}><span>{position + 1}° posto</span><select className="prediction-rider-select" value={riderId} onChange={(event) => updateRiderList(setSprintRiderIds, position, event.target.value)} disabled={!sprintOpen || Boolean(savingSection)}>{riderOptions()}</select></label>)}
                   </div>
                   {hasDuplicateSprint && <p className="prediction-field-error" role="alert">Un pilota può comparire una sola volta nella Top 3 Sprint.</p>}
+                  <div className="prediction-section-actions">
+                    {savedSections.sprint && <span className="prediction-saved-note"><CheckCircle2 size={14} aria-hidden="true" /> Sprint salvata</span>}
+                    {feedbackSection === 'sprint' && saveMessage && <p className="prediction-success" role="status"><CheckCircle2 size={16} aria-hidden="true" />{saveMessage}</p>}
+                    {feedbackSection === 'sprint' && saveError && <p className="prediction-error" role="alert"><AlertCircle size={16} aria-hidden="true" />{saveError}</p>}
+                    {!sprintOpen && <span className="prediction-closed-note"><LockKeyhole size={15} aria-hidden="true" /> Sezione chiusa</span>}
+                    <button className="prediction-save-button" type="button" onClick={() => void handleSaveSection('sprint')} disabled={!canSaveSprint}>
+                      {savingSection === 'sprint' ? <><Clock3 size={17} aria-hidden="true" /> Salvataggio...</> : <><Save size={17} aria-hidden="true" /> {savedSections.sprint ? 'Aggiorna Sprint' : 'Salva Sprint'}</>}
+                    </button>
+                  </div>
                 </PredictionSection>
                 <PredictionSection icon={<Medal size={18} strokeWidth={2} />} title="Gara" prompt="Scegli la Top 5 e il pilota OUT." deadline={deadlineState.race} open={raceOpen} status={raceStatus}>
                   <div className="prediction-podium-fields">
-                    {raceRiderIds.map((riderId, position) => <label key={position}><span>{position + 1}° posto</span><select className="prediction-rider-select" value={riderId} onChange={(event) => updateRiderList(setRaceRiderIds, position, event.target.value)} disabled={!raceOpen || isSaving}>{riderOptions()}</select></label>)}
-                    <label><span>Pilota OUT</span><select className="prediction-rider-select" value={raceOutRiderId} onChange={(event) => { setRaceOutRiderId(event.target.value); clearSaveFeedback(); }} disabled={!raceOpen || isSaving}>{riderOptions('Seleziona pilota OUT')}</select></label>
+                    {raceRiderIds.map((riderId, position) => <label key={position}><span>{position + 1}° posto</span><select className="prediction-rider-select" value={riderId} onChange={(event) => updateRiderList(setRaceRiderIds, position, event.target.value)} disabled={!raceOpen || Boolean(savingSection)}>{riderOptions()}</select></label>)}
+                    <label><span>Pilota OUT</span><select className="prediction-rider-select" value={raceOutRiderId} onChange={(event) => { setRaceOutRiderId(event.target.value); clearSaveFeedback(); }} disabled={!raceOpen || Boolean(savingSection)}>{riderOptions('Seleziona pilota OUT')}</select></label>
                   </div>
                   {hasDuplicateRace && <p className="prediction-field-error" role="alert">Un pilota può comparire una sola volta nella Top 5 Gara.</p>}
                   {outInRace && <p className="prediction-field-error" role="alert">Il pilota OUT deve essere diverso dalla Top 5.</p>}
+                  <div className="prediction-section-actions">
+                    {savedSections.race && <span className="prediction-saved-note"><CheckCircle2 size={14} aria-hidden="true" /> Gara salvata</span>}
+                    {feedbackSection === 'race' && saveMessage && <p className="prediction-success" role="status"><CheckCircle2 size={16} aria-hidden="true" />{saveMessage}</p>}
+                    {feedbackSection === 'race' && saveError && <p className="prediction-error" role="alert"><AlertCircle size={16} aria-hidden="true" />{saveError}</p>}
+                    {!raceOpen && <span className="prediction-closed-note"><LockKeyhole size={15} aria-hidden="true" /> Sezione chiusa</span>}
+                    <button className="prediction-save-button" type="button" onClick={() => void handleSaveSection('race')} disabled={!canSaveRace}>
+                      {savingSection === 'race' ? <><Clock3 size={17} aria-hidden="true" /> Salvataggio...</> : <><Save size={17} aria-hidden="true" /> {savedSections.race ? 'Aggiorna Gara' : 'Salva Gara'}</>}
+                    </button>
+                  </div>
                 </PredictionSection>
                  <div className="predictions-progress" aria-label={`Completamento pronostico: ${completedFields} di ${totalFields}`}>
                    <div><span>Completamento</span><strong>{completedFields}/{totalFields}</strong></div>
@@ -3133,11 +3226,9 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
                    <div><span>OUT</span><strong>{raceOutRiderId ? predictionRiderName(roster.find((rider) => rider.id === raceOutRiderId) ?? null) : 'Da scegliere'}</strong></div>
                  </div>
                  <div className="predictions-actions">
-                   {prediction && <span className="prediction-saved-note"><CheckCircle2 size={14} aria-hidden="true" /> Ultimo salvataggio verificato</span>}
-                  {saveMessage && <p className="prediction-success" role="status"><CheckCircle2 size={16} aria-hidden="true" />{saveMessage}</p>}
-                  {saveError && <p className="prediction-error" role="alert"><AlertCircle size={16} aria-hidden="true" />{saveError}</p>}
-                   {!hasOpenDeadline && prediction && <p className="prediction-closed-note"><LockKeyhole size={15} aria-hidden="true" /> Tutte le deadline sono chiuse: il pronostico è in sola lettura.</p>}
-                   <button className="prediction-save-button" type="button" onClick={() => void handleSave()} disabled={!canSave || (!hasOpenDeadline && Boolean(prediction))}>{isSaving ? <><Clock3 size={17} aria-hidden="true" /> Salvataggio...</> : <><Save size={17} aria-hidden="true" /> {prediction ? 'Aggiorna pronostico' : 'Salva pronostico'}</>}</button>
+                    {hasAnySavedSection && <span className="prediction-saved-note"><CheckCircle2 size={14} aria-hidden="true" /> Le sezioni salvate sono evidenziate sopra</span>}
+                    {!feedbackSection && saveError && <p className="prediction-error" role="alert"><AlertCircle size={16} aria-hidden="true" />{saveError}</p>}
+                    {!hasOpenDeadline && hasAnySavedSection && <p className="prediction-closed-note"><LockKeyhole size={15} aria-hidden="true" /> Tutte le deadline sono chiuse: il pronostico è in sola lettura.</p>}
                    {formHasIssues && completedFields > 0 && <span className="prediction-action-hint">Controlla i campi evidenziati prima di salvare.</span>}
                 </div>
               </div>

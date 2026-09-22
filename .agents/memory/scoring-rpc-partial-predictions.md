@@ -14,3 +14,9 @@ Eligibility must be recomputed after official results are imported. A prediction
 **Why:** Result coverage is independent from prediction completeness, so an audit made before a results import can undercount the partial predictions that the live RPC will reject.
 
 **How to apply:** Run the read-only audit again after each results import and classify blocked rows by prediction ID before any scoring apply.
+
+Section-scoped saving intentionally allows a prediction to remain partial while later session deadlines are still open.
+
+**Why:** Users can save Qualifying, Sprint, and Race independently instead of waiting until every section is complete.
+
+**How to apply:** Treat active-weekend partial rows as valid drafts. Run scoring only after the GP is closed and all required section entries are present; never synthesize missing entries merely to make the scoring RPC succeed.

@@ -430,6 +430,9 @@
 .prediction-section-icon { display: grid; width: 28px; height: 28px; place-items: center; color: hsl(var(--primary)); font-family: var(--app-font-mono); font-weight: 700; }
 .prediction-section-heading h3, .prediction-section-heading strong { margin: 0; font-family: var(--app-font-display); font-size: 1.42rem; line-height: .9; text-transform: uppercase; }
 .prediction-section-body { padding: 20px; }
+.prediction-section-actions { display: flex; align-items: center; justify-content: flex-end; gap: 11px; flex-wrap: wrap; margin-top: 16px; padding-top: 15px; border-top: 1px solid hsl(var(--foreground) / .09); }
+.prediction-section-actions .prediction-success, .prediction-section-actions .prediction-error { margin: 0; margin-right: auto; }
+.prediction-section-actions .prediction-saved-note { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; }
 .prediction-podium-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .prediction-podium-fields:has(label:nth-child(5)) { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .prediction-qualifying-fields { display: grid; grid-template-columns: .8fr 1.2fr; gap: 12px; }
