@@ -12,7 +12,7 @@
 - [UI data audit](task-18-ui-data-audit.md) — the UI loads prediction inputs and official results, but no fantasy scoring breakdown, history, or server-side score.
 - [Google history reconstruction](google-history-reconstruction.md) — coalesce identical summary copies; reserve multiple-submission flags for repeated participant rows.
 - [Supabase read path discrepancy](supabase-read-path-discrepancy.md) — distinguish empty connector visibility from the project REST path before declaring tables empty.
-- [Historical import preflight](historical-import-preflight.md) — classify existing predictions by deterministic import ID and natural key before completing a historical import.
+- [Historical import preflight](historical-import-preflight.md) — verify natural keys, rider FK coverage, and duplicate riders before any historical write.
 - [Task 21 risultati e classifiche](task-21-results-and-leaderboard.md) — punteggi personali e ranking leggono dati server-side senza ricalcolo e gateano il dettaglio finché il GP non è chiuso.
 - [Prediction UI schema mismatch](prediction-ui-schema-mismatch.md) — pole e OUT sono nelle entry live, ma il select UI richiede colonne prediction assenti e può bloccare i risultati autenticati.
 - [Partial prediction scoring RPC](scoring-rpc-partial-predictions.md) — la RPC live fallisce con 23502 se manca QUALIFYING_TIME; non riempire le entry senza approvazione.
