@@ -1,0 +1,408 @@
+{
+  "event": "QATAR AIRWAYS GRAND PRIX OF AUSTRIA 2026",
+  "sources": {
+    "Q2": "https://www.motogp.com/en/gp-results/2026/aut/motogp/q2/classification",
+    "SPR": "https://www.motogp.com/en/gp-results/2026/aut/motogp/spr/classification",
+    "RAC": "https://www.motogp.com/en/gp-results/2026/aut/motogp/rac/classification"
+  },
+  "sessions": {
+    "Q2": [
+      {
+        "position": 1,
+        "status": "CLASSIFIED",
+        "riderId": "5b9af34e-da94-4ca2-9c4c-6be0fc8b1bbc",
+        "rider": "Jorge Martin",
+        "result": "01:27.917"
+      },
+      {
+        "position": 2,
+        "status": "CLASSIFIED",
+        "riderId": "23e50438-a657-4fb0-a190-3262b5472f29",
+        "rider": "Marc Marquez",
+        "result": "01:27.932"
+      },
+      {
+        "position": 3,
+        "status": "CLASSIFIED",
+        "riderId": "ea39a0af-95d3-4a37-81a7-f332efdb9216",
+        "rider": "Pedro Acosta",
+        "result": "01:27.988"
+      },
+      {
+        "position": 4,
+        "status": "CLASSIFIED",
+        "riderId": "e622ec5b-5ccf-457c-a67f-ec028f0ddf6e",
+        "rider": "Marco Bezzecchi",
+        "result": "01:28.166"
+      },
+      {
+        "position": 5,
+        "status": "CLASSIFIED",
+        "riderId": "244b6f51-ac33-40ee-876d-9401dc9d1346",
+        "rider": "Ai Ogura",
+        "result": "01:28.450"
+      },
+      {
+        "position": 6,
+        "status": "CLASSIFIED",
+        "riderId": "41195f0f-9817-4a4d-913e-c1fbbb351d9b",
+        "rider": "Alex Marquez",
+        "result": "01:28.473"
+      },
+      {
+        "position": 7,
+        "status": "CLASSIFIED",
+        "riderId": "66b78301-5826-4986-b11e-fa68a7bd77a7",
+        "rider": "Francesco Bagnaia",
+        "result": "01:28.527"
+      },
+      {
+        "position": 8,
+        "status": "CLASSIFIED",
+        "riderId": "525b1551-f10b-4cfd-9b43-59af6fca654b",
+        "rider": "Fabio Di Giannantonio",
+        "result": "01:28.612"
+      },
+      {
+        "position": 9,
+        "status": "CLASSIFIED",
+        "riderId": "bf95d959-6a60-44f1-84b5-ded861e62578",
+        "rider": "Fabio Quartararo",
+        "result": "01:28.623"
+      },
+      {
+        "position": 10,
+        "status": "CLASSIFIED",
+        "riderId": "4a439bde-305a-4995-b3e7-783fa99f784a",
+        "rider": "Johann Zarco",
+        "result": "01:28.632"
+      },
+      {
+        "position": 11,
+        "status": "CLASSIFIED",
+        "riderId": "ade5ef32-01ea-487c-95ca-491544a668ed",
+        "rider": "Brad Binder",
+        "result": "01:28.729"
+      },
+      {
+        "position": 12,
+        "status": "CLASSIFIED",
+        "riderId": "71052114-5bce-4307-908c-4cc2bd387aac",
+        "rider": "Fermin Aldeguer",
+        "result": "01:28.862"
+      }
+    ],
+    "SPR": [
+      {
+        "position": 1,
+        "status": "CLASSIFIED",
+        "riderId": "5b9af34e-da94-4ca2-9c4c-6be0fc8b1bbc",
+        "rider": "Jorge Martin",
+        "result": "20:57.387"
+      },
+      {
+        "position": 2,
+        "status": "CLASSIFIED",
+        "riderId": "23e50438-a657-4fb0-a190-3262b5472f29",
+        "rider": "Marc Marquez",
+        "result": "+1.026"
+      },
+      {
+        "position": 3,
+        "status": "CLASSIFIED",
+        "riderId": "e622ec5b-5ccf-457c-a67f-ec028f0ddf6e",
+        "rider": "Marco Bezzecchi",
+        "result": "+1.675"
+      },
+      {
+        "position": 4,
+        "status": "CLASSIFIED",
+        "riderId": "244b6f51-ac33-40ee-876d-9401dc9d1346",
+        "rider": "Ai Ogura",
+        "result": "+3.495"
+      },
+      {
+        "position": 5,
+        "status": "CLASSIFIED",
+        "riderId": "41195f0f-9817-4a4d-913e-c1fbbb351d9b",
+        "rider": "Alex Marquez",
+        "result": "+4.447"
+      },
+      {
+        "position": 6,
+        "status": "CLASSIFIED",
+        "riderId": "66b78301-5826-4986-b11e-fa68a7bd77a7",
+        "rider": "Francesco Bagnaia",
+        "result": "+5.142"
+      },
+      {
+        "position": 7,
+        "status": "CLASSIFIED",
+        "riderId": "4a439bde-305a-4995-b3e7-783fa99f784a",
+        "rider": "Johann Zarco",
+        "result": "+5.895"
+      },
+      {
+        "position": 8,
+        "status": "CLASSIFIED",
+        "riderId": "71052114-5bce-4307-908c-4cc2bd387aac",
+        "rider": "Fermin Aldeguer",
+        "result": "+6.810"
+      },
+      {
+        "position": 9,
+        "status": "CLASSIFIED",
+        "riderId": "ade5ef32-01ea-487c-95ca-491544a668ed",
+        "rider": "Brad Binder",
+        "result": "+7.233"
+      },
+      {
+        "position": 10,
+        "status": "CLASSIFIED",
+        "riderId": "525b1551-f10b-4cfd-9b43-59af6fca654b",
+        "rider": "Fabio Di Giannantonio",
+        "result": "+9.228"
+      },
+      {
+        "position": 11,
+        "status": "CLASSIFIED",
+        "riderId": "00db2312-15f2-4333-be5c-4bbff9d17aec",
+        "rider": "Enea Bastianini",
+        "result": "+11.580"
+      },
+      {
+        "position": 12,
+        "status": "CLASSIFIED",
+        "riderId": "bf95d959-6a60-44f1-84b5-ded861e62578",
+        "rider": "Fabio Quartararo",
+        "result": "+13.050"
+      },
+      {
+        "position": 13,
+        "status": "CLASSIFIED",
+        "riderId": "5dfc20db-c3c4-4ecd-9c7c-f6cfd042031a",
+        "rider": "Luca Marini",
+        "result": "+15.076"
+      },
+      {
+        "position": 14,
+        "status": "CLASSIFIED",
+        "riderId": "b8b255af-e344-4ca7-818b-480c18a11088",
+        "rider": "Pol Espargaro",
+        "result": "+18.373"
+      },
+      {
+        "position": 15,
+        "status": "CLASSIFIED",
+        "riderId": "a7b4d63f-45b3-402e-b66c-001ed8a62934",
+        "rider": "T. Nakagami",
+        "result": "+19.201"
+      },
+      {
+        "position": 16,
+        "status": "CLASSIFIED",
+        "riderId": "e2479f8e-dad8-4191-9a6c-9d4aafa8c3a3",
+        "rider": "Diogo Moreira",
+        "result": "+20.503"
+      },
+      {
+        "position": 17,
+        "status": "CLASSIFIED",
+        "riderId": "c883a3b8-17ce-419d-b71b-32c252f6fc7e",
+        "rider": "Toprak Razgatlioglu",
+        "result": "+20.964"
+      },
+      {
+        "position": 18,
+        "status": "CLASSIFIED",
+        "riderId": "04bf0ce4-5062-44fc-9745-ec85a8d8f8d3",
+        "rider": "Alex Rins",
+        "result": "+21.054"
+      },
+      {
+        "position": 19,
+        "status": "CLASSIFIED",
+        "riderId": "eec1f7dc-b115-44f6-82aa-73130e5c92cf",
+        "rider": "Raul Fernandez",
+        "result": "+22.646"
+      },
+      {
+        "position": 20,
+        "status": "CLASSIFIED",
+        "riderId": "b0c1fea6-2dd5-4e26-8a18-0ac9fe6870e4",
+        "rider": "Jack Miller",
+        "result": "+26.053"
+      },
+      {
+        "position": null,
+        "status": "NOT_CLASSIFIED",
+        "riderId": "ea39a0af-95d3-4a37-81a7-f332efdb9216",
+        "rider": "Pedro Acosta",
+        "result": "13 Laps"
+      },
+      {
+        "position": null,
+        "status": "NOT_CLASSIFIED",
+        "riderId": "4113c5f7-33c5-4246-b05b-3f81f4ddbd8f",
+        "rider": "Franco Morbidelli",
+        "result": "10 Laps"
+      }
+    ],
+    "RAC": [
+      {
+        "position": 1,
+        "status": "CLASSIFIED",
+        "riderId": "ea39a0af-95d3-4a37-81a7-f332efdb9216",
+        "rider": "Pedro Acosta",
+        "result": "42:16.996"
+      },
+      {
+        "position": 2,
+        "status": "CLASSIFIED",
+        "riderId": "5b9af34e-da94-4ca2-9c4c-6be0fc8b1bbc",
+        "rider": "Jorge Martin",
+        "result": "+1.017"
+      },
+      {
+        "position": 3,
+        "status": "CLASSIFIED",
+        "riderId": "e622ec5b-5ccf-457c-a67f-ec028f0ddf6e",
+        "rider": "Marco Bezzecchi",
+        "result": "+1.209"
+      },
+      {
+        "position": 4,
+        "status": "CLASSIFIED",
+        "riderId": "244b6f51-ac33-40ee-876d-9401dc9d1346",
+        "rider": "Ai Ogura",
+        "result": "+2.139"
+      },
+      {
+        "position": 5,
+        "status": "CLASSIFIED",
+        "riderId": "23e50438-a657-4fb0-a190-3262b5472f29",
+        "rider": "Marc Marquez",
+        "result": "+7.339"
+      },
+      {
+        "position": 6,
+        "status": "CLASSIFIED",
+        "riderId": "ade5ef32-01ea-487c-95ca-491544a668ed",
+        "rider": "Brad Binder",
+        "result": "+8.720"
+      },
+      {
+        "position": 7,
+        "status": "CLASSIFIED",
+        "riderId": "66b78301-5826-4986-b11e-fa68a7bd77a7",
+        "rider": "Francesco Bagnaia",
+        "result": "+9.686"
+      },
+      {
+        "position": 8,
+        "status": "CLASSIFIED",
+        "riderId": "71052114-5bce-4307-908c-4cc2bd387aac",
+        "rider": "Fermin Aldeguer",
+        "result": "+12.365"
+      },
+      {
+        "position": 9,
+        "status": "CLASSIFIED",
+        "riderId": "525b1551-f10b-4cfd-9b43-59af6fca654b",
+        "rider": "Fabio Di Giannantonio",
+        "result": "+14.869"
+      },
+      {
+        "position": 10,
+        "status": "CLASSIFIED",
+        "riderId": "4a439bde-305a-4995-b3e7-783fa99f784a",
+        "rider": "Johann Zarco",
+        "result": "+16.266"
+      },
+      {
+        "position": 11,
+        "status": "CLASSIFIED",
+        "riderId": "00db2312-15f2-4333-be5c-4bbff9d17aec",
+        "rider": "Enea Bastianini",
+        "result": "+16.640"
+      },
+      {
+        "position": 12,
+        "status": "CLASSIFIED",
+        "riderId": "eec1f7dc-b115-44f6-82aa-73130e5c92cf",
+        "rider": "Raul Fernandez",
+        "result": "+20.940"
+      },
+      {
+        "position": 13,
+        "status": "CLASSIFIED",
+        "riderId": "a7b4d63f-45b3-402e-b66c-001ed8a62934",
+        "rider": "T. Nakagami",
+        "result": "+21.032"
+      },
+      {
+        "position": 14,
+        "status": "CLASSIFIED",
+        "riderId": "5dfc20db-c3c4-4ecd-9c7c-f6cfd042031a",
+        "rider": "Luca Marini",
+        "result": "+22.391"
+      },
+      {
+        "position": 15,
+        "status": "CLASSIFIED",
+        "riderId": "e2479f8e-dad8-4191-9a6c-9d4aafa8c3a3",
+        "rider": "Diogo Moreira",
+        "result": "+24.949"
+      },
+      {
+        "position": 16,
+        "status": "CLASSIFIED",
+        "riderId": "b8b255af-e344-4ca7-818b-480c18a11088",
+        "rider": "Pol Espargaro",
+        "result": "+25.148"
+      },
+      {
+        "position": 17,
+        "status": "CLASSIFIED",
+        "riderId": "bf95d959-6a60-44f1-84b5-ded861e62578",
+        "rider": "Fabio Quartararo",
+        "result": "+30.140"
+      },
+      {
+        "position": 18,
+        "status": "CLASSIFIED",
+        "riderId": "4113c5f7-33c5-4246-b05b-3f81f4ddbd8f",
+        "rider": "Franco Morbidelli",
+        "result": "+34.200"
+      },
+      {
+        "position": 19,
+        "status": "CLASSIFIED",
+        "riderId": "04bf0ce4-5062-44fc-9745-ec85a8d8f8d3",
+        "rider": "Alex Rins",
+        "result": "+34.413"
+      },
+      {
+        "position": 20,
+        "status": "CLASSIFIED",
+        "riderId": "c883a3b8-17ce-419d-b71b-32c252f6fc7e",
+        "rider": "Toprak Razgatlioglu",
+        "result": "+46.724"
+      },
+      {
+        "position": 21,
+        "status": "CLASSIFIED",
+        "riderId": "b0c1fea6-2dd5-4e26-8a18-0ac9fe6870e4",
+        "rider": "Jack Miller",
+        "result": "+67.530"
+      },
+      {
+        "position": null,
+        "status": "NOT_CLASSIFIED",
+        "riderId": "41195f0f-9817-4a4d-913e-c1fbbb351d9b",
+        "rider": "Alex Marquez",
+        "result": "12 Laps"
+      }
+    ]
+  }
+}
