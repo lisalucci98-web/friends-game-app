@@ -9,6 +9,9 @@ import {
 } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { AppNavigation } from '@/components/AppNavigation';
+import { AccountSettings } from '@/components/AccountSettings';
+import { PerformanceRecords } from '@/components/PerformanceRecords';
 import {
   LeagueResultsContent,
   MyResultsContent,
@@ -249,54 +252,18 @@ function MainPageLayout({
   children?: ReactNode;
 }) {
   const [location, navigate] = useLocation();
-  const sections = [
-    { path: '/home', label: 'Home', icon: HomeIcon },
-    { path: '/leghe', label: 'Leghe', icon: Trophy },
-    { path: '/miei-risultati', label: 'I miei risultati', icon: Target },
-    { path: '/risultati', label: 'Risultati', icon: Flag },
-    { path: '/profilo', label: 'Profilo', icon: UserRound },
-    { path: '/regolamento', label: 'Regolamento', icon: BookOpen },
-    { path: '/impostazioni', label: 'Impostazioni', icon: Settings },
-  ];
-  const primarySections = [
-    sections[0],
-    sections[1],
-    { path: '/miei-risultati', label: 'I miei', icon: Target },
-    sections[3],
-    sections[4],
-  ];
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!embedded) document.title = `${title} · Fanta MotoGP`;
+  }, [title, embedded]);
 
   return (
     <main
       className={`welcome-page app-page${className ? ` ${className}` : ''}${embedded ? ' embedded-page' : ''}`}
       data-testid="page-app"
     >
-      {!embedded && (
-        <header className="welcome-nav">
-          <div className="brand-lockup" data-testid="text-brand">
-            <span className="brand-mark" aria-hidden="true">FM</span>
-            <span>FANTA <b>MOTOGP</b></span>
-          </div>
-          <nav className="desktop-nav" aria-label="Navigazione principale">
-            {sections.map(({ path, label, icon: Icon }) => {
-              const isActive = location === path;
-              return (
-                <button
-                  className={`desktop-nav-item${isActive ? ' is-active' : ''}`}
-                  key={`${path}-${label}`}
-                  type="button"
-                  onClick={() => navigate(path)}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  <Icon size={15} strokeWidth={isActive ? 2.5 : 2} aria-hidden="true" />
-                  <span>{label}</span>
-                </button>
-              );
-            })}
-          </nav>
-          <AuthStatus />
-        </header>
-      )}
+      {!embedded && <AppNavigation location={location} navigate={navigate} user={user} />}
 
       <section className={`app-content${embedded ? ' embedded-app-content' : ''}`} aria-labelledby="app-page-title">
         {embedded ? children : (
@@ -311,54 +278,6 @@ function MainPageLayout({
         )}
       </section>
 
-      {!embedded && (
-        <>
-          <details className="mobile-nav">
-            <summary><span className="mobile-nav-lines" aria-hidden="true"><i /><i /><i /></span> Menu</summary>
-            <nav aria-label="Navigazione mobile">
-              {sections.map(({ path, label, icon: Icon }) => {
-                const isActive = location === path;
-                return (
-                  <button
-                    className={`mobile-nav-item${isActive ? ' is-active' : ''}`}
-                    key={path}
-                    type="button"
-                    data-testid={`nav-${label.toLowerCase()}`}
-                    onClick={(event) => {
-                      navigate(path);
-                      event.currentTarget.closest('details')?.removeAttribute('open');
-                    }}
-                    aria-current={isActive ? 'page' : undefined}
-                  >
-                    <Icon size={18} aria-hidden="true" /><span>{label}</span>
-                  </button>
-                );
-              })}
-            </nav>
-          </details>
-          <nav className="bottom-nav" aria-label="Navigazione rapida" data-testid="bottom-navigation">
-            {primarySections.map(({ path, label, icon: Icon }) => {
-              const isActive =
-                location === path ||
-                (path === '/leghe' && location.startsWith('/leghe/')) ||
-                (path === '/profilo' && location === '/profilo');
-              return (
-                <button
-                  className={`bottom-nav-item${isActive ? ' is-active' : ''}`}
-                  key={path}
-                  type="button"
-                  data-testid={`bottom-nav-${label.toLowerCase().replace(/\s+/g, '-')}`}
-                  onClick={() => navigate(path)}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  <Icon size={18} strokeWidth={isActive ? 2.6 : 2} aria-hidden="true" />
-                  <span>{label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </>
-      )}
     </main>
   );
 }
@@ -1282,6 +1201,7 @@ function ResultsPage() {
   const { user, isAuthLoading } = useAuth();
   const [seasons, setSeasons] = useState<ResultsSeason[]>([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
+  const [unavailableYear, setUnavailableYear] = useState<number | null>(null);
   const [season, setSeason] = useState<ResultsSeason | null>(null);
   const [grandPrix, setGrandPrix] = useState<GrandPrix[]>([]);
   const [sessions, setSessions] = useState<RaceSession[]>([]);
@@ -1503,7 +1423,9 @@ function ResultsPage() {
   );
   const pole = activeSession === 'Q' ? classifiedResults[0] : null;
   const isRace = activeSession === 'RAC';
-  const pageText = isLoading
+  const pageText = unavailableYear
+    ? `I risultati ufficiali ${unavailableYear} non sono ancora presenti nell'archivio.`
+    : isLoading
     ? 'Recupero delle classifiche ufficiali dal database.'
     : errorMessage
       ? errorMessage
@@ -1515,7 +1437,7 @@ function ResultsPage() {
     <MainPageLayout
       className="results-app-page"
       eyebrow="Fanta MotoGP · ufficiale"
-      title="Risultati MotoGP"
+      title="Storico GP"
       text={pageText}
     >
       <div className="results-shell" data-testid="results-viewer">
@@ -1525,14 +1447,19 @@ function ResultsPage() {
             <span className="results-select-wrap">
                <select
                  id="results-season"
-                 value={season?.id ?? selectedSeasonId ?? ''}
+                 value={unavailableYear ? `unavailable-${unavailableYear}` : selectedSeasonId ?? ''}
                  onChange={(event) => {
+                   if (event.target.value.startsWith('unavailable-')) {
+                     setUnavailableYear(Number(event.target.value.replace('unavailable-', '')));
+                     return;
+                   }
+                   setUnavailableYear(null);
                    const nextSeason = seasons.find((item) => item.id === event.target.value);
                    if (nextSeason) {
                      setSelectedSeasonId(nextSeason.id);
                    }
                  }}
-                 disabled={isLoading || seasons.length < 2}
+                 disabled={isLoading}
                  data-testid="select-season"
                >
                  {seasons.map((item) => (
@@ -1540,6 +1467,7 @@ function ResultsPage() {
                      MotoGP {item.year}
                    </option>
                  ))}
+                 {[2026, 2025, 2024].filter(year => !seasons.some(item => item.year === year)).map(year => <option value={`unavailable-${year}`} key={year}>MotoGP {year}</option>)}
               </select>
               <ChevronDown size={16} aria-hidden="true" />
             </span>
@@ -1549,13 +1477,13 @@ function ResultsPage() {
             <span className="results-select-wrap">
               <select
                 id="results-gp"
-                value={selectedGrandPrixId ?? ''}
+                value={unavailableYear ? '' : selectedGrandPrixId ?? ''}
                 onChange={(event) => setSelectedGrandPrixId(event.target.value || null)}
-                disabled={isLoading || grandPrix.length === 0}
+                disabled={isLoading || grandPrix.length === 0 || unavailableYear !== null}
                 data-testid="select-grand-prix"
               >
                 <option value="">Seleziona un GP</option>
-                {grandPrix.map((item, index) => (
+                {!unavailableYear && grandPrix.map((item, index) => (
                   <option value={item.id} key={item.id}>
                     {String(index + 1).padStart(2, '0')} · {item.name ?? item.short_name ?? 'Gran Premio'}
                   </option>
@@ -1566,7 +1494,7 @@ function ResultsPage() {
           </label>
         </div>
 
-        {selectedGrandPrix && (
+        {!unavailableYear && selectedGrandPrix && (
           <div className="results-event-meta" data-testid="text-event-meta">
             <div className="results-event-title">
               <span className="results-round">GP {String(grandPrix.findIndex((item) => item.id === selectedGrandPrix.id) + 1).padStart(2, '0')}</span>
@@ -1579,7 +1507,7 @@ function ResultsPage() {
           </div>
         )}
 
-        <div className="results-session-tabs" role="tablist" aria-label="Sessioni del Gran Premio">
+        {!unavailableYear && <div className="results-session-tabs" role="tablist" aria-label="Sessioni del Gran Premio">
           {(['Q', 'SPR', 'RAC'] as const).map((type) => {
             const available = sessions.some(
               (item) => item.grand_prix_id === selectedGrandPrixId && item.type === type,
@@ -1600,9 +1528,9 @@ function ResultsPage() {
               </button>
             );
           })}
-        </div>
+        </div>}
 
-        {isLoading ? (
+        {unavailableYear ? <div className="paddock-empty" role="status"><strong>Stagione {unavailableYear}: archivio da completare</strong><p>Non ci sono risultati ufficiali di questa stagione nel database. Nessuna classifica inventata: puoi tornare al 2026 dal selettore.</p></div> : isLoading ? (
           <ResultsSkeleton />
         ) : errorMessage ? (
           <div className="results-state results-state--error" role="alert" data-testid="error-results">
@@ -2866,10 +2794,15 @@ function PronosticiPage({ embedded = false }: { embedded?: boolean }) {
         return;
       }
       if (!isMounted) return;
+      const sessionRows = (sessionsResponse.data ?? []) as RaceSession[];
+      const nextSession = sessionRows.find(session =>
+        session.session_date !== null &&
+        (predictionDeadlineWallClock(session.session_date) ?? 0) > italianWallClockNow(),
+      );
       const defaultGrandPrix =
-        grandPrixRows.find((item) => item.date_start && new Date(item.date_start).getTime() > Date.now()) ??
-        grandPrixRows[grandPrixRows.length - 1] ??
-        null;
+        grandPrixRows.find(item => item.id === nextSession?.grand_prix_id) ??
+        grandPrixRows.find(item => item.date_start && new Date(item.date_start).getTime() > Date.now()) ??
+        grandPrixRows[grandPrixRows.length - 1] ?? null;
       setSeason(seasonRow);
       setGrandPrix(grandPrixRows);
       setSessions((sessionsResponse.data ?? []) as RaceSession[]);
@@ -3412,7 +3345,7 @@ function LeagueResultsPage() {
 function ProtectedProfilePage() {
   return (
     <ProtectedPage>
-      <ProfilePage />
+      <PredictionsHub />
     </ProtectedPage>
   );
 }
@@ -3653,13 +3586,41 @@ function ProfilePage() {
 }
 
 function SettingsPage() {
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
   return (
     <MainPageLayout
-      eyebrow="Personalizza"
+      eyebrow="Il tuo box"
       title="Impostazioni"
-      text="Qui in futuro potremo modificare le impostazioni dell'app."
-    />
+      text="Nome, livrea e password. Qui si fanno i ritocchi, non i pronostici."
+    >
+      {user && <AccountSettings user={user} navigate={navigate} />}
+    </MainPageLayout>
   );
+}
+
+function PredictionsHub() {
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
+  const [tab, setTab] = useState<'next' | 'history'>('next');
+  return <MainPageLayout eyebrow="La tua griglia" title="Pronostici" text="I piloti corrono. Tu prova a indovinare." className="predictions-app-page">
+    <div className="paddock-tabs" role="group" aria-label="I tuoi pronostici">
+      <button type="button" className={tab === 'next' ? 'is-active' : ''} aria-pressed={tab === 'next'} onClick={() => setTab('next')}>Prossimo GP</button>
+      <button type="button" className={tab === 'history' ? 'is-active' : ''} aria-pressed={tab === 'history'} onClick={() => setTab('history')}>I miei passati</button>
+    </div>
+    {tab === 'next' ? <PronosticiPage embedded /> : <MyResultsContent user={user} historyOnly onOpenOfficialResults={() => navigate('/risultati')} />}
+  </MainPageLayout>;
+}
+
+function ProtectedPredictionsHub() {
+  return <ProtectedPage><PredictionsHub /></ProtectedPage>;
+}
+
+function StatisticsPage() {
+  const { user } = useAuth();
+  return <ProtectedPage><MainPageLayout eyebrow="Numeri, non scuse" title="Statistiche" text="Le tue imprese e quelle della lega. Il cronometro ha buona memoria.">
+    {user && <PerformanceRecords user={user} />}
+  </MainPageLayout></ProtectedPage>;
 }
 
 function Router() {
@@ -3672,13 +3633,14 @@ function Router() {
         <Route path="/auth" component={AuthPage} />
         <Route path="/home" component={ProtectedHomePage} />
         <Route path="/leghe" component={ProtectedLeaguesPage} />
-        <Route path="/pronostici" component={LegacyPronosticiRedirect} />
+        <Route path="/pronostici" component={ProtectedPredictionsHub} />
         <Route path="/miei-risultati" component={ProtectedMyResultsPage} />
         <Route path="/risultati" component={ProtectedResultsPage} />
         <Route path="/leghe/:leagueId" component={ProtectedLeagueDetailPage} />
         <Route path="/profilo" component={ProtectedProfilePage} />
         <Route path="/regolamento" component={ProtectedRegolamentoPage} />
         <Route path="/impostazioni" component={ProtectedSettingsPage} />
+        <Route path="/statistiche" component={StatisticsPage} />
         <Route component={NotFound} />
       </Switch>
     </RoutedErrorBoundary>

@@ -28,3 +28,4 @@
 - [Partial prediction malus](partial-prediction-malus.md) — una prediction parziale può comunque richiedere il malus Gara se i suoi cinque piloti intersecano gli OUT ufficiali.
 - [Apply rollback verification](apply-rollback-verification.md) — simula errori dopo scritture aggregate ed entry e verifica separatamente l’autosomma dei totali.
 - [Scoring per sezione](session-scoring-automation.md) — aggiornamenti progressivi dopo classifiche ufficiali, transazione atomica e attivazione senza ricalcoli storici.
+- [Direzione mobile](mobile-product-direction.md) — smartphone e testi brevi/divertenti; pronostici e storico vicini, identità e password nelle impostazioni.

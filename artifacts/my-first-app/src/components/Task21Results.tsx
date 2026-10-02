@@ -16,12 +16,12 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
-type Season = {
+export type Season = {
   id: string;
   year: number;
 };
 
-type GrandPrix = {
+export type GrandPrix = {
   id: string;
   season_id: string | null;
   name: string | null;
@@ -32,7 +32,7 @@ type GrandPrix = {
   date_end: string | null;
 };
 
-type RaceSession = {
+export type RaceSession = {
   id: string;
   grand_prix_id: string;
   type: string | null;
@@ -41,19 +41,19 @@ type RaceSession = {
   number: number | string | null;
 };
 
-type League = {
+export type League = {
   id: string;
   name: string | null;
   invite_code: string;
   created_at: string;
 };
 
-type LeagueMember = {
+export type LeagueMember = {
   user_id: string;
   name: string | null;
 };
 
-type PredictionScore = {
+export type PredictionScore = {
   id: string;
   user_id: string;
   grand_prix_id: string;
@@ -70,7 +70,7 @@ type PredictionScore = {
   updated_at: string | null;
 };
 
-type PredictionEntry = {
+export type PredictionEntry = {
   id: string;
   prediction_id: string;
   prediction_type: string | null;
@@ -89,7 +89,7 @@ type Rider = {
   nickname: string | null;
 };
 
-const scoreSelect = [
+export const scoreSelect = [
   'id',
   'user_id',
   'grand_prix_id',
@@ -153,7 +153,7 @@ function isMissingCarryOverColumns(error: { message?: string | null } | null) {
   );
 }
 
-async function loadPredictionEntries(predictionIds: string[]) {
+export async function loadPredictionEntries(predictionIds: string[]) {
   if (!predictionIds.length) return { data: [], error: null };
 
   const response = await supabase
@@ -178,7 +178,7 @@ const closedStatuses = new Set([
   'CLOSED',
 ]);
 
-function toNumber(value: number | string | null | undefined) {
+export function toNumber(value: number | string | null | undefined) {
   if (value === null || value === undefined || value === '') return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -203,7 +203,7 @@ function formatTotal(value: number | string | null | undefined) {
   return parsed === null ? '—' : `${parsed}`;
 }
 
-function displayedRacePoints(prediction: PredictionScore) {
+export function displayedRacePoints(prediction: PredictionScore) {
   const values = [
     prediction.qualifying_points,
     prediction.sprint_points,
@@ -266,7 +266,7 @@ function sessionsForGp(grandPrixId: string, sessions: RaceSession[]) {
   );
 }
 
-function isGpClosed(grandPrixId: string, sessions: RaceSession[]) {
+export function isGpClosed(grandPrixId: string, sessions: RaceSession[]) {
   const relevantSessions = sessionsForGp(grandPrixId, sessions);
   const sessionTypes = new Set(
     relevantSessions.map((session) => (session.type || '').toUpperCase()),
@@ -320,7 +320,7 @@ function predictionMapKey(userId: string, grandPrixId: string) {
   return `${userId}:${grandPrixId}`;
 }
 
-async function loadSeasonData() {
+export async function loadSeasonData() {
   const [seasonsResponse, grandPrixResponse] = await Promise.all([
     supabase
       .from('seasons')
@@ -439,9 +439,11 @@ function StatusBadge({
 export function MyResultsContent({
   user,
   onOpenOfficialResults,
+  historyOnly = false,
 }: {
   user: User | null;
   onOpenOfficialResults: () => void;
+  historyOnly?: boolean;
 }) {
   const [season, setSeason] = useState<Season | null>(null);
   const [seasons, setSeasons] = useState<Season[]>([]);
@@ -570,12 +572,12 @@ export function MyResultsContent({
   );
   const rows = useMemo(
     () =>
-      seasonGrandPrix.map((grandPrixItem, index) => ({
+       seasonGrandPrix.map((grandPrixItem, index) => ({
         grandPrix: grandPrixItem,
         round: index + 1,
         prediction: predictionForGp(seasonPredictions, grandPrixItem.id),
-      })),
-    [seasonGrandPrix, seasonPredictions],
+       })).filter(row => !historyOnly || isGpClosed(row.grandPrix.id, sessions)),
+    [seasonGrandPrix, seasonPredictions, historyOnly, sessions],
   );
 
   const scoredPredictions = seasonPredictions.filter(hasScore);
@@ -675,7 +677,7 @@ export function MyResultsContent({
         <div className="task21-panel-heading">
           <div>
             <span className="task21-kicker">Race log</span>
-            <h2 id="task21-season-list">Risultati della stagione</h2>
+            <h2 id="task21-season-list">{historyOnly ? 'I tuoi weekend passati' : 'Risultati della stagione'}</h2>
           </div>
           <button
             className="task21-button task21-button--secondary"
@@ -688,6 +690,7 @@ export function MyResultsContent({
         </div>
 
         <div className="task21-gp-list">
+          {rows.length === 0 && <p className="paddock-empty">Nessun GP concluso in questa stagione. Le previsioni diventano storia dopo la bandiera a scacchi.</p>}
           {rows.map(({ grandPrix: item, round, prediction }) => (
             <PredictionHistoryCard
               key={item.id}
