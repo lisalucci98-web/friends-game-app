@@ -25,6 +25,12 @@ const SEASON_YEAR = 2026;
 const RESULTS_CATEGORY_ID = 'e8c110ad-64aa-4e8e-8a86-f2f152f6a942';
 const MOTOGP_CONTENT_CATEGORY_ID = '737ab122-76e1-4081-bedb-334caaa18c70';
 const IMPORT_MODE = process.argv.includes('--import');
+// Section-scoped imports must never wait for the rest of the weekend.
+const SECTION_FILTER = (() => {
+  const index = process.argv.indexOf('--section');
+  return index === -1 ? null : String(process.argv[index + 1] ?? '').toUpperCase();
+})();
+const REQUIRE_FINISHED = process.argv.includes('--require-finished');
 const GP_FILTER = (() => {
   const index = process.argv.indexOf('--gp');
   return index === -1 ? null : String(process.argv[index + 1] ?? '').trim().toUpperCase();
@@ -321,7 +327,7 @@ function parsePdfRows(text, riders, sourceUrl, context) {
     const rider = riderNameForLine(line, riders, riderNumber);
     if (!rider) {
       // Solo le righe che assomigliano a una riga dati contano come non interpretate.
-      if (/\b(?:[A-Z]{3})\b/.test(start[3]) || /(?:\d+'\d+\.\d+|\d+:\d+:\d+)/.test(line)) {
+      if (/\b[A-Z]{3}\b/.test(start[4]) || /(?:\d+'\d+\.\d+|\d+:\d+:\d+)/.test(line)) {
         const key = String(riderNumber);
         if (!missingRiderKeys.has(key)) {
           missingRiderKeys.add(key);
@@ -407,6 +413,7 @@ function criticalErrors(expected) {
     errors.push(`GP elaborati ${expected.gpCount}/${expected.expectedGpCount}.`);
   }
   for (const type of ['Q', 'SPR', 'RAC']) {
+    if (SECTION_FILTER && type !== SECTION_FILTER) continue;
     const expectedCount = expected.expectedSessionCounts?.[type] ?? expected.expectedGpCount;
     if (expected.sessionCounts[type] !== expectedCount) {
       errors.push(`${type}: ${expected.sessionCounts[type]}/${expectedCount} sessioni elaborate.`);
@@ -475,6 +482,9 @@ try {
   );
   if (GP_FILTER && !/^[A-Z0-9_-]+$/.test(GP_FILTER)) {
     throw new Error(`Codice GP non valido: ${GP_FILTER}`);
+  }
+  if (SECTION_FILTER && (!GP_FILTER || !['Q', 'SPR', 'RAC'].includes(SECTION_FILTER))) {
+    throw new Error('--section richiede --gp e uno dei valori Q, SPR, RAC.');
   }
   const selectedGrandPrixRows = GP_FILTER
     ? grandPrixRows.filter(row => row.short_name === GP_FILTER)
@@ -607,6 +617,7 @@ try {
 
     const jobs = [];
     for (const type of ['Q', 'SPR']) {
+      if (SECTION_FILTER && SECTION_FILTER !== type) continue;
       const dbCandidates = dbForGp.filter(row => row.type === type);
       const dbSession = dbCandidates.sort((a, b) => Number(b.number ?? 0) - Number(a.number ?? 0))[0];
       if (!dbSession || candidates[type].length === 0) {
@@ -623,7 +634,7 @@ try {
     }
     const raceDbSessions = dbForGp.filter(row => isRaceSessionType(row.type));
     const racePairs = pairRaceSessions(candidates.RAC, raceDbSessions);
-    if (racePairs.length === 0) {
+    if (racePairs.length === 0 && (!SECTION_FILTER || SECTION_FILTER === 'RAC')) {
       counters.missingSessions += 1;
       details.missingSessions.push({
         gp: gp.name,
@@ -634,6 +645,7 @@ try {
       gpReport.sessions.RAC = 'MANCANTE';
     }
     for (const { apiSession, dbSession } of racePairs) {
+      if (SECTION_FILTER && SECTION_FILTER !== 'RAC') continue;
       if (!dbSession) {
         counters.missingSessions += 1;
         details.missingSessions.push({
@@ -648,7 +660,14 @@ try {
       jobs.push({ type: 'RAC', apiSession, dbSession });
     }
 
-    for (const { type, apiSession, dbSession } of jobs) {
+    for (const { type, apiSession, dbSession } of jobs.filter(
+      (job) => !SECTION_FILTER || job.type === SECTION_FILTER,
+    )) {
+      if (REQUIRE_FINISHED && !['FINISHED', 'COMPLETED', 'CLASSIFIED', 'CLOSED'].includes(
+        String(apiSession.status ?? '').toUpperCase(),
+      )) {
+        throw new Error(`Sessione ${type} non ancora conclusa ufficialmente: nessuna scrittura.`);
+      }
       const descriptor = await apiGet(`/results/sessions/${sessionId(apiSession)}`);
       const files = descriptorFilesFor(apiSession, descriptor);
       const pdfUrl = type === 'Q' ? files.qualifyingResults : files.classification;
@@ -802,6 +821,18 @@ try {
   if (!IMPORT_MODE) {
     console.log('\nScritture Supabase: NESSUNA');
     console.log(`Risultati pronti per l’import: ${allResults.length}`);
+  } else if (REQUIRE_FINISHED && SECTION_FILTER && GP_FILTER) {
+    section('IMPORT E SCORING ATOMICI');
+    const scored = await supabaseRequest('/rpc/import_and_score_prediction_section', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_grand_prix_id: selectedGrandPrixRows[0].id,
+        p_section: SECTION_FILTER,
+        p_results: allResults,
+      }),
+    });
+    console.log(`Scoring sezione ${SECTION_FILTER}: ${scored.status}.`);
+    console.log('Import risultati completato senza cancellazioni.');
   } else {
     section('SCRITTURA SUPABASE');
     await upsertRows(allResults);
@@ -813,7 +844,10 @@ try {
     console.log(`Verifica post-import: ${verification.stored.length} righe rileggibili.`);
     await markSessionsFinished(
       dbSessions
-        .filter(row => ['Q', 'SPR'].includes(row.type) || isRaceSessionType(row.type))
+        .filter(row => (
+          (!SECTION_FILTER || (SECTION_FILTER === 'RAC' ? isRaceSessionType(row.type) : row.type === SECTION_FILTER))
+          && (['Q', 'SPR'].includes(row.type) || isRaceSessionType(row.type))
+        ))
         .map(row => row.id),
     );
     console.log('Stato sessioni Q/SPR/RAC: FINISHED.');

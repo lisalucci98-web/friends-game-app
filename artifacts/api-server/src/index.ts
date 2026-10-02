@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startPredictionCarryOverWorker } from "./lib/prediction-carry-over";
+import { startSessionScoringWorker } from "./lib/session-scoring-worker";
 
 const rawPort = process.env["PORT"];
 
@@ -17,6 +18,7 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 const stopPredictionCarryOverWorker = startPredictionCarryOverWorker();
+const stopSessionScoringWorker = startSessionScoringWorker();
 
 app.listen(port, (err) => {
   if (err) {
@@ -29,3 +31,5 @@ app.listen(port, (err) => {
 
 process.once("SIGTERM", stopPredictionCarryOverWorker);
 process.once("SIGINT", stopPredictionCarryOverWorker);
+process.once("SIGTERM", stopSessionScoringWorker);
+process.once("SIGINT", stopSessionScoringWorker);

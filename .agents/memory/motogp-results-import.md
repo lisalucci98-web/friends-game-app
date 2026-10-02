@@ -14,3 +14,9 @@ When official results are imported for a round that was previously scheduled, th
 **Why:** The results upsert and session calendar status are separate data paths, and both the scoring preflight and the UI require closed statuses.
 
 **How to apply:** For a newly completed round, use the importer’s scoped GP mode, verify all result rows, then close only that round’s relevant sessions before running historical scoring.
+
+For live section-by-section automation, do not require the entire round's PDF coverage. Validate and close only the selected section; import, closure and scoring must commit atomically. Historical full-round imports retain their full coverage gate.
+
+**Why:** the user explicitly requested scoring after Qualifying and Sprint, before the Race is over.
+
+**How to apply:** distinguish live automation from historical reconstruction; missing future Race PDFs must not block a completed Qualifying or Sprint classification.

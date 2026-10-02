@@ -51,6 +51,10 @@ begin
     raise exception 'INVALID_GRAND_PRIX';
   end if;
 
+  -- Share the scoring lock: a submission cannot replace entries after the
+  -- importer has closed/scored a section while this transaction was waiting.
+  perform pg_advisory_xact_lock(hashtextextended('section-score:' || p_grand_prix_id::text, 0));
+
   select session_date
     into v_deadline
   from public.sessions
@@ -71,7 +75,12 @@ begin
 
   -- session_date is stored with the official Italian wall-clock value. Match
   -- the frontend deadline rule by comparing that value with the Rome clock.
-  if timezone('Europe/Rome', now()) >= timezone('UTC', v_deadline) then
+  if timezone('Europe/Rome', clock_timestamp()) >= timezone('UTC', v_deadline)
+     or exists (
+       select 1 from public.sessions where grand_prix_id = p_grand_prix_id
+         and upper(type) = case v_section when 'QUALIFYING' then 'Q' when 'SPRINT' then 'SPR' else 'RAC' end
+         and upper(status) in ('FINISHED','COMPLETED','CLASSIFIED','CLOSED')
+     ) then
     raise exception '%_PREDICTION_CLOSED', v_section;
   end if;
 
@@ -154,9 +163,8 @@ begin
   if v_section = 'QUALIFYING' then
     update public.predictions
     set qualifying_pole_time = p_qualifying_pole_time,
-        qualifying_points = null,
-        total_points = null,
-        scored_at = null,
+        qualifying_points = 0,
+        total_points = sprint_points + race_points + bonus_points + malus_points,
         updated_at = now()
     where id = v_prediction_id;
 
@@ -170,9 +178,7 @@ begin
       position,
       rider_id,
       predicted_time,
-      points,
-      source,
-      carried_from_grand_prix_id
+      points
     )
     values
       (
@@ -181,9 +187,7 @@ begin
         null,
         p_qualifying_pole_rider_id,
         p_qualifying_pole_time,
-        0,
-        'MANUAL',
-        null
+        0
       ),
       (
         v_prediction_id,
@@ -191,15 +195,12 @@ begin
         null,
         p_qualifying_pole_rider_id,
         null,
-        0,
-        'MANUAL',
-        null
+        0
       );
   elsif v_section = 'SPRINT' then
     update public.predictions
-    set sprint_points = null,
-        total_points = null,
-        scored_at = null,
+    set sprint_points = 0,
+        total_points = qualifying_points + race_points + bonus_points + malus_points,
         updated_at = now()
     where id = v_prediction_id;
 
@@ -213,9 +214,7 @@ begin
       position,
       rider_id,
       predicted_time,
-      points,
-      source,
-      carried_from_grand_prix_id
+      points
     )
     select
       v_prediction_id,
@@ -223,17 +222,14 @@ begin
       ordinal::integer,
       rider_id,
       null,
-      0,
-      'MANUAL',
-      null
+      0
     from unnest(p_rider_ids) with ordinality as sprint_rider(rider_id, ordinal);
   else
     update public.predictions
-    set race_points = null,
-        bonus_points = null,
-        malus_points = null,
-        total_points = null,
-        scored_at = null,
+    set race_points = 0,
+        bonus_points = 0,
+        malus_points = 0,
+        total_points = qualifying_points + sprint_points,
         updated_at = now()
     where id = v_prediction_id;
 
@@ -247,9 +243,7 @@ begin
       position,
       rider_id,
       predicted_time,
-      points,
-      source,
-      carried_from_grand_prix_id
+      points
     )
     select
       v_prediction_id,
@@ -257,9 +251,7 @@ begin
       ordinal::integer,
       rider_id,
       null,
-      0,
-      'MANUAL',
-      null
+      0
     from unnest(p_rider_ids) with ordinality as race_rider(rider_id, ordinal);
 
     insert into public.prediction_entries (
@@ -268,9 +260,7 @@ begin
       position,
       rider_id,
       predicted_time,
-      points,
-      source,
-      carried_from_grand_prix_id
+      points
     )
     values (
       v_prediction_id,
@@ -278,9 +268,7 @@ begin
       null,
       p_race_out_rider_id,
       null,
-      0,
-      'MANUAL',
-      null
+      0
     );
   end if;
 

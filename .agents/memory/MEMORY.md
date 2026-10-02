@@ -27,3 +27,4 @@
 - [League member visibility](league-member-visibility.md) — la lettura diretta delle membership è RLS-scoped all’utente corrente; per tutti i membri usare la RPC autorizzata.
 - [Partial prediction malus](partial-prediction-malus.md) — una prediction parziale può comunque richiedere il malus Gara se i suoi cinque piloti intersecano gli OUT ufficiali.
 - [Apply rollback verification](apply-rollback-verification.md) — simula errori dopo scritture aggregate ed entry e verifica separatamente l’autosomma dei totali.
+- [Scoring per sezione](session-scoring-automation.md) — aggiornamenti progressivi dopo classifiche ufficiali, transazione atomica e attivazione senza ricalcoli storici.
