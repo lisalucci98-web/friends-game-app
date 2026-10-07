@@ -2505,29 +2505,40 @@ function AuthPage() {
 
     setIsSubmitting(true);
 
-    const result = mode === 'login'
-      ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password });
+    try {
+      const result = mode === 'login'
+        ? await supabase.auth.signInWithPassword({ email, password })
+        : await supabase.auth.signUp({ email, password });
 
-    if (result.error) {
-      setAuthError(authErrorMessage(result.error, mode));
+      if (result.error) {
+        const details = [
+          result.error.message,
+          'code' in result.error && result.error.code ? `code: ${result.error.code}` : null,
+          'status' in result.error && result.error.status ? `status: ${result.error.status}` : null,
+        ].filter(Boolean).join(' — ');
+        setAuthError(`${authErrorMessage(result.error, mode)} [${details}]`);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (mode === 'register') {
+        setAuthMessage(
+          result.data.session
+            ? 'Registrazione completata con successo.'
+            : 'Registrazione completata. Controlla la tua email per confermare l’account.',
+        );
+      } else {
+        setAuthMessage('Accesso completato con successo.');
+      }
+
+      setPassword('');
+      setPasswordConfirmation('');
+    } catch (error) {
+      const details = error instanceof Error ? error.message : String(error);
+      setAuthError(`Errore durante l’operazione di accesso: ${details}`);
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-
-    if (mode === 'register') {
-      setAuthMessage(
-        result.data.session
-          ? 'Registrazione completata con successo.'
-          : 'Registrazione completata. Controlla la tua email per confermare l’account.',
-      );
-    } else {
-      setAuthMessage('Accesso completato con successo.');
-    }
-
-    setPassword('');
-    setPasswordConfirmation('');
-    setIsSubmitting(false);
   }
 
   const authText = isAuthLoading
