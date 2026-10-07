@@ -9,7 +9,9 @@
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:scoring": "node ../../scripts/test-motogp-scoring-2026.mjs",
-    "test:results-schema": "node ../../scripts/test-results-schema.mjs"
+    "test:results-schema": "node ../../scripts/test-results-schema.mjs",
+    "android:add": "cap add android",
+    "android:sync": "cap sync android"
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -74,9 +76,12 @@
     "vaul": "^1.1.2",
     "vite": "catalog:",
     "wouter": "^3.3.5",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@capacitor/cli": "^7.4.3"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.112.3"
+    "@supabase/supabase-js": "^2.112.3",
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3"
   }
 }
