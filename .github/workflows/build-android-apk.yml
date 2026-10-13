@@ -2,6 +2,15 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/build-android-apk.yml'
+      - 'artifacts/my-first-app/**'
+      - 'attached_assets/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
 
 jobs:
   build-apk:
