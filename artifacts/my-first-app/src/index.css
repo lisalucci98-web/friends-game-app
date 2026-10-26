@@ -1362,3 +1362,70 @@ button { touch-action: manipulation; }
     font-size: .86rem;
   }
 }
+
+
+/* Final narrow-screen leaderboard layout: rank, name and score fit in portrait. */
+@media (max-width: 680px) {
+  .task21-leaderboard .task21-leader-row {
+    display: grid !important;
+    grid-template-columns: 22px minmax(0, 1fr) auto !important;
+    gap: 8px !important;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 9px 10px !important;
+  }
+  .task21-leaderboard .task21-member-avatar,
+  .task21-leaderboard .task21-row-chevron {
+    display: none !important;
+  }
+  .task21-leaderboard .task21-rank {
+    font-size: 1.1rem !important;
+    line-height: 1.1;
+  }
+  .task21-leaderboard .task21-member-name {
+    min-width: 0;
+  }
+  .task21-leaderboard .task21-member-name strong {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: .72rem !important;
+  }
+  .task21-leaderboard .task21-member-meta {
+    display: flex !important;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    min-width: 0;
+    gap: 2px;
+  }
+  .task21-leaderboard .task21-member-meta small {
+    display: block !important;
+    max-width: none !important;
+    font-size: .46rem !important;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .task21-leaderboard .task21-member-meta strong {
+    display: block;
+    font-size: .9rem !important;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+}
+@media (max-width: 390px) {
+  .task21-leaderboard .task21-leader-row {
+    grid-template-columns: 20px minmax(0, 1fr) auto !important;
+    gap: 6px !important;
+    padding-inline: 8px !important;
+  }
+  .task21-leaderboard .task21-member-meta small {
+    font-size: .43rem !important;
+  }
+  .task21-leaderboard .task21-member-meta strong {
+    font-size: .84rem !important;
+  }
+}
