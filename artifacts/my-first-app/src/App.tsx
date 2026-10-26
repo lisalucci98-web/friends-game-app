@@ -1384,6 +1384,30 @@ function ResultsPage() {
       (activeSession === 'RAC' && item.type === 'RAC2')
     ),
   );
+
+  // Australia 2026 has a cancelled race and therefore no official RAC classification.
+  // When the user opens a GP with a cancelled race, default to an available session with results.
+  useEffect(() => {
+    if (!selectedGrandPrixId) return;
+    const gpSessions = sessions.filter((item) => item.grand_prix_id === selectedGrandPrixId);
+    const raceSessions = gpSessions.filter((item) => item.type === 'RAC' || item.type === 'RAC2');
+    const raceCancelled = raceSessions.some((item) => (item.status || '').toUpperCase() === 'CANCELLED');
+    const raceHasResults = raceSessions.some((session) =>
+      results.some((result) => result.session_id === session.id),
+    );
+    if (!raceCancelled || raceHasResults) return;
+
+    const hasResults = (type: 'Q' | 'SPR') =>
+      gpSessions.some((session) =>
+        session.type === type && results.some((result) => result.session_id === session.id),
+      );
+    setActiveSession((current) => {
+      if (current !== 'RAC') return current;
+      if (hasResults('SPR')) return 'SPR';
+      if (hasResults('Q')) return 'Q';
+      return current;
+    });
+  }, [selectedGrandPrixId, sessions, results]);
   const selectedSession =
     activeSession === 'Q'
       ? selectedGrandPrixSessions.find((item) => String(item.number) === '2') ??
