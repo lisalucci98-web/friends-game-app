@@ -176,6 +176,7 @@ const closedStatuses = new Set([
   'COMPLETED',
   'CLASSIFIED',
   'CLOSED',
+  'CANCELLED',
 ]);
 
 export function toNumber(value: number | string | null | undefined) {
@@ -965,6 +966,16 @@ function PredictionHistoryCard({
         <ChevronRight size={17} aria-hidden="true" className="task35-summary-chevron" />
       </summary>
       <div className="task35-gp-card-content">
+        {sessions.some(
+          (session) =>
+            session.grand_prix_id === grandPrix.id &&
+            (session.type || '').toUpperCase() === 'RAC' &&
+            (session.status || '').toUpperCase() === 'CANCELLED',
+        ) && (
+          <div className="task21-note" role="status">
+            La gara lunga è stata cancellata per motivi di sicurezza. Il punteggio del GP considera quindi le sessioni disputate, qualifiche e Sprint.
+          </div>
+        )}
         {!gpClosed ? (
           <div className="task21-locked-detail" role="status">
             <LockKeyhole size={23} aria-hidden="true" />
