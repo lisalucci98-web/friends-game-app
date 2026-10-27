@@ -3,6 +3,7 @@ import {
   AlertCircle,
   BarChart3,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Clipboard,
   Clock3,
@@ -1028,6 +1029,9 @@ export function LeagueResultsContent({
   const [isCopied, setIsCopied] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+  const [compareGpIndex, setCompareGpIndex] = useState(0);
+  const [compareType, setCompareType] = useState<'qualifying' | 'sprint' | 'race' | 'total'>('total');
 
   const load = useCallback(async () => {
     if (!user || !leagueId) {
@@ -1236,6 +1240,50 @@ export function LeagueResultsContent({
     };
   }, [seasonPredictions, sessions]);
 
+  const compareGp = seasonGrandPrix[Math.min(compareGpIndex, Math.max(0, seasonGrandPrix.length - 1))];
+  const compareStandings = useMemo(() => {
+    const scoreThroughRound = (memberId: string, roundIndex: number) => seasonGrandPrix
+      .slice(0, roundIndex + 1)
+      .reduce((sum, gp) => {
+        const prediction = seasonPredictionsByMemberAndGp.get(predictionMapKey(memberId, gp.id));
+        return sum + (prediction && hasScore(prediction) ? (toNumber(prediction.total_points) || 0) : 0);
+      }, 0);
+    const ranksForRound = (roundIndex: number) => {
+      const sorted = members.map((member, index) => ({ member, index, total: scoreThroughRound(member.user_id, roundIndex) }))
+        .sort((a, b) => b.total - a.total || a.index - b.index);
+      let previous: number | null = null;
+      let rank = 0;
+      return sorted.map((row, index) => {
+        if (previous === null || row.total !== previous) { rank = index + 1; previous = row.total; }
+        return { ...row, rank };
+      });
+    };
+    if (!compareGp) return [];
+    const current = ranksForRound(compareGpIndex);
+    const previous = compareGpIndex > 0 ? ranksForRound(compareGpIndex - 1) : [];
+    const previousRanks = new Map(previous.map(row => [row.member.user_id, row.rank]));
+    return current.map(row => ({ ...row, movement: previousRanks.has(row.member.user_id) ? (previousRanks.get(row.member.user_id)! - row.rank) : null }));
+  }, [members, seasonGrandPrix, seasonPredictionsByMemberAndGp, compareGp, compareGpIndex]);
+
+  const comparisonValue = (memberId: string) => {
+    if (!compareGp) return { text: '—', points: null as number | null };
+    const prediction = seasonPredictionsByMemberAndGp.get(predictionMapKey(memberId, compareGp.id));
+    if (!prediction) return { text: 'Pronostico assente', points: null as number | null };
+    if (compareType === 'total') return { text: hasScore(prediction) ? `${formatTotal(prediction.total_points)} pt` : 'In attesa', points: toNumber(prediction.total_points) };
+    const points = compareType === 'qualifying' ? toNumber(prediction.qualifying_points) : compareType === 'sprint' ? toNumber(prediction.sprint_points) : toNumber(displayedRacePoints(prediction));
+    const types = compareType === 'qualifying' ? ['POLE', 'QUALIFYING_TIME'] : compareType === 'sprint' ? ['SPRINT'] : ['RACE', 'RACE_OUT'];
+    const labels = compareType === 'qualifying' ? ['Pole', 'Tempo'] : compareType === 'sprint' ? ['P1', 'P2', 'P3'] : ['P1', 'P2', 'P3', 'P4', 'P5', 'OUT'];
+    const chosenEntries = memberDetailEntries.filter(entry => entry.prediction_id === prediction.id && types.includes(entry.prediction_type || '')).sort((a, b) => (toNumber(a.position) || 0) - (toNumber(b.position) || 0));
+    const riderById = new Map(memberDetailRiders.map(rider => [rider.id, rider]));
+    const values = labels.map((label, i) => {
+      const entry = compareType === 'qualifying' ? chosenEntries.find(item => item.prediction_type === (i === 0 ? 'POLE' : 'QUALIFYING_TIME')) : chosenEntries.find(item => (i === labels.length - 1 && compareType === 'race' ? item.prediction_type === 'RACE_OUT' : item.prediction_type === (compareType === 'sprint' ? 'SPRINT' : 'RACE')) && toNumber(item.position) === (compareType === 'qualifying' ? 1 : i + 1));
+      if (!entry) return `${label}: —`;
+      const value = compareType === 'qualifying' && i === 1 ? formatPredictedTime(entry.predicted_time) : riderName(riderById.get(entry.rider_id || ''), entry.rider_id);
+      return `${label}: ${value} (${formatPoints(entry.points)} pt)`;
+    });
+    return { text: values.join(' · '), points };
+  };
+
   async function handleCopyCode() {
     if (!league) return;
     try {
@@ -1365,8 +1413,25 @@ export function LeagueResultsContent({
             <p className="task21-note">
               A parità di punti viene mantenuta la parità; non è disponibile un criterio di spareggio nei dati attuali.
             </p>
+            <button className="task21-button task21-button--primary task21-compare-trigger" type="button" onClick={() => setIsCompareOpen(value => !value)} aria-expanded={isCompareOpen}>
+              <BarChart3 size={16} aria-hidden="true" /> {isCompareOpen ? 'Chiudi confronto' : 'Confronta'}
+            </button>
           </section>
           </div>
+          {isCompareOpen && (
+            <section className="task21-panel task21-compare-panel" aria-labelledby="task21-compare-title">
+              <div className="task21-panel-heading">
+                <div><span className="task21-kicker">Confronto partecipanti</span><h2 id="task21-compare-title">Pronostici e punteggi per GP</h2><p className="task35-panel-subtitle">Classifica cumulativa aggiornata fino al GP selezionato; la freccia indica la variazione rispetto al GP precedente.</p></div>
+              </div>
+              <div className="task21-compare-controls">
+                <label className="task21-select-label"><span>Gran Premio</span><select value={compareGp?.id || ''} onChange={event => setCompareGpIndex(Math.max(0, seasonGrandPrix.findIndex(gp => gp.id === event.target.value)))}>{seasonGrandPrix.map((gp, index) => <option key={gp.id} value={gp.id}>{index + 1}. {gpName(gp)}</option>)}</select></label>
+                <label className="task21-select-label"><span>Tipo di pronostico</span><select value={compareType} onChange={event => setCompareType(event.target.value as typeof compareType)}><option value="qualifying">Qualifiche</option><option value="sprint">Sprint</option><option value="race">Gara</option><option value="total">Punteggio totale GP</option></select></label>
+                <div className="task21-compare-navigation"><button className="task21-button task21-button--secondary" type="button" aria-label="GP precedente" disabled={compareGpIndex <= 0} onClick={() => setCompareGpIndex(index => Math.max(0, index - 1))}><ChevronLeft size={18} /> Precedente</button><span>{compareGp ? `GP ${compareGpIndex + 1} / ${seasonGrandPrix.length}` : 'Nessun GP'}</span><button className="task21-button task21-button--secondary" type="button" aria-label="GP successivo" disabled={compareGpIndex >= seasonGrandPrix.length - 1} onClick={() => setCompareGpIndex(index => Math.min(seasonGrandPrix.length - 1, index + 1))}>Successivo <ChevronRight size={18} /></button></div>
+              </div>
+              <div className="task21-compare-table-wrap"><table className="task21-compare-table"><thead><tr><th>Pos.</th><th>Partecipante</th><th>Variazione</th><th>{compareType === 'total' ? 'Punti GP' : compareType === 'qualifying' ? 'Pronostico qualifiche' : compareType === 'sprint' ? 'Pronostico sprint' : 'Pronostico gara'}</th><th>Classifica generale</th></tr></thead><tbody>{compareStandings.map(row => { const value = comparisonValue(row.member.user_id); return <tr key={row.member.user_id}><td><strong>{row.rank}</strong></td><td>{row.member.name || 'Utente senza nome'}{row.member.user_id === user?.id ? ' (Tu)' : ''}</td><td>{row.movement === null ? <span className="task21-movement-neutral">—</span> : row.movement > 0 ? <span className="task21-movement-up">↑ {row.movement}</span> : row.movement < 0 ? <span className="task21-movement-down">↓ {Math.abs(row.movement)}</span> : <span className="task21-movement-neutral">→ 0</span>}</td><td><span className="task21-compare-prediction">{value.text}</span>{compareType !== 'total' && <strong className="task21-compare-points">{value.points === null ? 'Punti: —' : `Punti: ${formatPoints(value.points)}`}</strong>}</td><td><strong>{row.total} pt</strong></td></tr>; })}</tbody></table></div>
+              <p className="task21-note">La variazione confronta la posizione nella classifica cumulativa dopo il GP selezionato con quella dopo il GP precedente. ↑ significa salita, ↓ discesa. I pronostici dettagliati sono mostrati solo per i GP chiusi.</p>
+            </section>
+          )}
           <section className="task21-panel task21-score-matrix-panel" aria-labelledby="task21-score-matrix-title">
             <div className="task21-panel-heading">
               <div>
