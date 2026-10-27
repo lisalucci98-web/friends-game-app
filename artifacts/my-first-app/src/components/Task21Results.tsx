@@ -1276,7 +1276,7 @@ export function LeagueResultsContent({
     const chosenEntries = memberDetailEntries.filter(entry => entry.prediction_id === prediction.id && types.includes(entry.prediction_type || '')).sort((a, b) => (toNumber(a.position) || 0) - (toNumber(b.position) || 0));
     const riderById = new Map(memberDetailRiders.map(rider => [rider.id, rider]));
     const values = labels.map((label, i) => {
-      const entry = compareType === 'qualifying' ? chosenEntries.find(item => item.prediction_type === (i === 0 ? 'POLE' : 'QUALIFYING_TIME')) : chosenEntries.find(item => (i === labels.length - 1 && compareType === 'race' ? item.prediction_type === 'RACE_OUT' : item.prediction_type === (compareType === 'sprint' ? 'SPRINT' : 'RACE')) && toNumber(item.position) === (compareType === 'qualifying' ? 1 : i + 1));
+      const entry = compareType === 'qualifying' ? chosenEntries.find(item => item.prediction_type === (i === 0 ? 'POLE' : 'QUALIFYING_TIME')) : chosenEntries.find(item => i === labels.length - 1 && compareType === 'race' ? item.prediction_type === 'RACE_OUT' : item.prediction_type === (compareType === 'sprint' ? 'SPRINT' : 'RACE') && toNumber(item.position) === i + 1);
       if (!entry) return `${label}: —`;
       const value = compareType === 'qualifying' && i === 1 ? formatPredictedTime(entry.predicted_time) : riderName(riderById.get(entry.rider_id || ''), entry.rider_id);
       return `${label}: ${value} (${formatPoints(entry.points)} pt)`;
