@@ -1429,3 +1429,10 @@ button { touch-action: manipulation; }
     font-size: .84rem !important;
   }
 }
+
+
+/* League page: show only the general leaderboard card. */
+.task21-league-shell > .task21-score-matrix-panel,
+.task21-league-shell > .task21-all-members-panel {
+  display: none !important;
+}
