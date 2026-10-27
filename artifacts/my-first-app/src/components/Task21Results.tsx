@@ -1267,6 +1267,7 @@ export function LeagueResultsContent({
 
   const comparisonValue = (memberId: string) => {
     if (!compareGp) return { text: '—', points: null as number | null };
+    if (!isGpClosed(compareGp.id, sessions)) return { text: 'Nascosto fino alla chiusura del GP', points: null as number | null };
     const prediction = seasonPredictionsByMemberAndGp.get(predictionMapKey(memberId, compareGp.id));
     if (!prediction) return { text: 'Pronostico assente', points: null as number | null };
     if (compareType === 'total') return { text: hasScore(prediction) ? `${formatTotal(prediction.total_points)} pt` : 'In attesa', points: toNumber(prediction.total_points) };
