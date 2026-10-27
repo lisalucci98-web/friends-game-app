@@ -1436,3 +1436,50 @@ button { touch-action: manipulation; }
 .task21-league-shell > .task21-all-members-panel {
   display: none !important;
 }
+
+
+/* Interactive GP comparison panel */
+.task21-compare-trigger {
+  margin-top: 12px;
+  width: 100%;
+  justify-content: center;
+}
+.task21-compare-panel { margin-top: 16px; min-width: 0; }
+.task21-compare-controls {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr);
+  gap: 12px;
+  align-items: end;
+  margin: 14px 0;
+}
+.task21-compare-navigation {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.task21-compare-navigation > span { font-size: .82rem; opacity: .8; text-align: center; }
+.task21-compare-table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.task21-compare-table { width: 100%; border-collapse: collapse; min-width: 560px; }
+.task21-compare-table th, .task21-compare-table td {
+  padding: 11px 10px;
+  border-bottom: 1px solid var(--border, rgba(128,128,128,.22));
+  text-align: left;
+  vertical-align: top;
+  font-size: .84rem;
+}
+.task21-compare-table th { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; opacity: .78; }
+.task21-compare-table tbody tr.is-current { background: rgba(128,128,128,.08); }
+.task21-compare-prediction { display: block; min-width: 180px; line-height: 1.55; overflow-wrap: anywhere; }
+.task21-compare-points { display: block; margin-top: 5px; white-space: nowrap; }
+.task21-movement-up { color: #17834b; font-weight: 800; white-space: nowrap; }
+.task21-movement-down { color: #c33b42; font-weight: 800; white-space: nowrap; }
+.task21-movement-neutral { opacity: .65; white-space: nowrap; }
+@media (max-width: 600px) {
+  .task21-compare-controls { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .task21-compare-navigation { grid-column: auto; gap: 6px; }
+  .task21-compare-navigation .task21-button { padding: 8px 9px; font-size: .75rem; }
+  .task21-compare-navigation > span { font-size: .72rem; }
+  .task21-compare-table th, .task21-compare-table td { padding: 9px 8px; }
+}
