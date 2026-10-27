@@ -1483,3 +1483,147 @@ button { touch-action: manipulation; }
   .task21-compare-navigation > span { font-size: .72rem; }
   .task21-compare-table th, .task21-compare-table td { padding: 9px 8px; }
 }
+
+
+/* Smartphone refinement for the GP comparison: comfortable card padding and readable stacked data. */
+@media (max-width: 600px) {
+  .task21-compare-panel {
+    padding: 16px 14px !important;
+    margin-inline: 2px;
+    border-radius: 14px;
+  }
+  .task21-compare-panel .task21-panel-heading {
+    padding: 2px 2px 8px;
+  }
+  .task21-compare-panel .task21-panel-heading h2 {
+    font-size: 1.35rem;
+    line-height: 1.15;
+  }
+  .task21-compare-panel .task35-panel-subtitle,
+  .task21-compare-panel .task21-note {
+    font-size: .72rem;
+    line-height: 1.45;
+  }
+  .task21-compare-controls {
+    gap: 9px;
+    margin: 12px 0 16px;
+  }
+  .task21-compare-controls .task21-select-label {
+    gap: 5px;
+    font-size: .75rem;
+  }
+  .task21-compare-controls select {
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: .78rem;
+  }
+  .task21-compare-navigation .task21-button {
+    min-height: 38px;
+    padding: 7px 8px;
+    font-size: .68rem;
+    gap: 3px;
+  }
+  .task21-compare-table-wrap {
+    overflow: visible;
+  }
+  .task21-compare-table {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .task21-compare-table thead {
+    display: none;
+  }
+  .task21-compare-table tbody {
+    display: grid;
+    gap: 9px;
+  }
+  .task21-compare-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0 12px;
+    padding: 10px 11px;
+    border: 1px solid hsl(var(--foreground) / .12);
+    border-radius: 10px;
+    background: hsl(var(--muted) / .28);
+  }
+  .task21-compare-table tbody tr.is-current {
+    border-color: hsl(var(--primary) / .42);
+    background: hsl(var(--primary) / .055);
+  }
+  .task21-compare-table td {
+    display: block;
+    min-width: 0;
+    padding: 7px 0;
+    border: 0;
+    font-size: .72rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  .task21-compare-table td::before {
+    display: block;
+    margin-bottom: 3px;
+    color: hsl(var(--muted-foreground));
+    font-size: .57rem;
+    font-weight: 700;
+    letter-spacing: .045em;
+    text-transform: uppercase;
+  }
+  .task21-compare-table td:nth-child(1)::before { content: "Posizione"; }
+  .task21-compare-table td:nth-child(2)::before { content: "Partecipante"; }
+  .task21-compare-table td:nth-child(3)::before { content: "Variazione"; }
+  .task21-compare-table td:nth-child(4)::before {
+    content: "Pronostico";
+  }
+  .task21-compare-table td:nth-child(5)::before { content: "Totale generale"; }
+  .task21-compare-table td:nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .task21-compare-table td:nth-child(2) {
+    grid-column: 2;
+    grid-row: 1;
+    font-weight: 700;
+  }
+  .task21-compare-table td:nth-child(3) {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .task21-compare-table td:nth-child(4) {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    padding: 9px 0;
+    border-top: 1px solid hsl(var(--foreground) / .09);
+    border-bottom: 1px solid hsl(var(--foreground) / .09);
+  }
+  .task21-compare-table td:nth-child(5) {
+    grid-column: 2;
+    grid-row: 2;
+    text-align: right;
+  }
+  .task21-compare-prediction {
+    min-width: 0;
+    font-size: .72rem;
+    line-height: 1.45;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .task21-compare-points {
+    margin-top: 4px;
+    font-size: .69rem;
+    white-space: normal;
+  }
+  .task21-compare-table td:nth-child(5) strong {
+    font-size: .8rem;
+  }
+}
+@media (max-width: 380px) {
+  .task21-compare-panel { padding: 13px 11px !important; }
+  .task21-compare-table tbody tr { padding: 8px 9px; column-gap: 8px; }
+  .task21-compare-table td { font-size: .68rem; }
+  .task21-compare-prediction { font-size: .68rem; }
+}
