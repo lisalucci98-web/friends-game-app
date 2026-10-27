@@ -1627,3 +1627,19 @@ button { touch-action: manipulation; }
   .task21-compare-table td { font-size: .68rem; }
   .task21-compare-prediction { font-size: .68rem; }
 }
+
+
+/* Keep participant names compact in the GP comparison while preserving the full name on hover. */
+.task21-compare-member-name {
+  display: inline-block;
+  max-width: 15ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+.task21-compare-you {
+  white-space: nowrap;
+  font-size: .9em;
+  opacity: .8;
+}
