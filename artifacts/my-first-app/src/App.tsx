@@ -899,49 +899,38 @@ const italianMonths = [
 const italianMonthsShort = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
 
 /**
- * session_date contiene già l'orario italiano definitivo. Il suffisso UTC
- * eventualmente presente nel valore Supabase non deve cambiare ora o minuti.
+ * session_date è un timestamptz: va convertito nel fuso Europe/Rome,
+ * così l'ora legale/solare viene applicata automaticamente.
  */
 function parsePredictionDateParts(value: string | null): PredictionDateParts | null {
   if (!value) return null;
 
-  const match = value.trim().match(
-    /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/,
-  );
-  if (!match) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
 
-  const [, yearText, monthText, dayText, hourText = '00', minuteText = '00', secondText = '00'] = match;
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-  const hour = Number(hourText);
-  const minute = Number(minuteText);
-  const second = Number(secondText);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Rome',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const values = Object.fromEntries(
+    parts.filter((part) => part.type !== 'literal').map((part) => [part.type, Number(part.value)]),
+  );
+
+  const year = values.year ?? 0;
+  const month = values.month ?? 0;
+  const day = values.day ?? 0;
+  const hour = values.hour ?? 0;
+  const minute = values.minute ?? 0;
+  const second = values.second ?? 0;
   const dateOnly = new Date(Date.UTC(year, month - 1, day));
 
-  if (
-    !Number.isFinite(year) ||
-    !Number.isFinite(month) ||
-    !Number.isFinite(day) ||
-    !Number.isFinite(hour) ||
-    !Number.isFinite(minute) ||
-    !Number.isFinite(second) ||
-    month < 1 ||
-    month > 12 ||
-    day < 1 ||
-    day > 31 ||
-    hour < 0 ||
-    hour > 23 ||
-    minute < 0 ||
-    minute > 59 ||
-    second < 0 ||
-    second > 59 ||
-    dateOnly.getUTCFullYear() !== year ||
-    dateOnly.getUTCMonth() !== month - 1 ||
-    dateOnly.getUTCDate() !== day
-  ) {
-    return null;
-  }
+  if (!year || month < 1 || month > 12 || day < 1 || day > 31) return null;
 
   return {
     year,
