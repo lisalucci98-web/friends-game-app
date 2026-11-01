@@ -157,19 +157,35 @@ function isMissingCarryOverColumns(error: { message?: string | null } | null) {
 export async function loadPredictionEntries(predictionIds: string[]) {
   if (!predictionIds.length) return { data: [], error: null };
 
-  const response = await supabase
-    .from('prediction_entries')
-    .select(predictionEntrySelect)
-    .in('prediction_id', predictionIds);
+  // PostgREST may cap a response at 1,000 rows. League history can exceed
+  // that limit, so page through every entry instead of silently truncating
+  // older/newer GP details.
+  const pageSize = 1000;
 
+  async function loadPages(select: string) {
+    const allRows: PredictionEntry[] = [];
+    for (let from = 0; ; from += pageSize) {
+      const response = await supabase
+        .from('prediction_entries')
+        .select(select)
+        .in('prediction_id', predictionIds)
+        .order('id', { ascending: true })
+        .range(from, from + pageSize - 1);
+
+      if (response.error) return { data: null, error: response.error };
+      const rows = (response.data || []) as unknown as PredictionEntry[];
+      allRows.push(...rows);
+      if (rows.length < pageSize) break;
+    }
+    return { data: allRows, error: null };
+  }
+
+  const response = await loadPages(predictionEntrySelect);
   if (!response.error || !isMissingCarryOverColumns(response.error)) {
     return response;
   }
 
-  return supabase
-    .from('prediction_entries')
-    .select(legacyPredictionEntrySelect)
-    .in('prediction_id', predictionIds);
+  return loadPages(legacyPredictionEntrySelect);
 }
 
 const closedStatuses = new Set([
